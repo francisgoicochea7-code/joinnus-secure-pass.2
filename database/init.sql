@@ -8,6 +8,18 @@
 --  IMPORTANTE: todos los nombres, DNI, correos y eventos son FICTICIOS.
 -- =========================================================================
 
+-- =========================================================================
+-- IMPORTANTE — CODIFICACION DE CARACTERES
+-- El cliente `mysql` del contenedor no hereda LANG/LC_* y resuelve
+-- `default-character-set` a `auto` -> latin1. Sin este comando, la importacion
+-- de este archivo (que esta en UTF-8) interpretaria los bytes como latin1 y
+-- guardaria "Pérez" como "PÃ©riz" en las columnas utf8mb4.
+-- `SET NAMES` cambia el juego de caracteres de toda la sesion: ejecutarlo como
+-- PRIMERA instruccion garantiza que todo lo que sigue se lea como UTF-8.
+-- (Verificado: HEX(nombre) = 50C3A972657A, no 50C383C2A972657A)
+-- =========================================================================
+SET NAMES utf8mb4;
+
 CREATE DATABASE IF NOT EXISTS joinnus_secure_pass
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 

@@ -220,25 +220,43 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* Carga inicial: chips y tabla                                       */
+  /* Carga inicial: chips, contador y tabla plegable                    */
   /* ------------------------------------------------------------------ */
   async function cargarBase() {
     const entradas = await SecurePassAPI.listarEntradas();
+    const total = entradas.length;
 
     chips.innerHTML = entradas.map(e => `
       <button type="button" class="code-chip" data-codigo="${JSP.escapeHtml(e.codigo)}">
         <span class="st ${e.estadoDetalle.punto}"></span>${JSP.escapeHtml(e.codigo)}
       </button>`).join('');
 
-    document.querySelector('#tabla-db tbody').innerHTML = entradas.map(e => `
-      <tr>
-        <td><strong class="mono">${JSP.escapeHtml(e.codigo)}</strong></td>
-        <td>${JSP.escapeHtml(e.evento)}</td>
-        <td>${JSP.escapeHtml(e.titular)}</td>
-        <td class="nowrap">${JSP.formatFecha(e.fecha)} · ${JSP.escapeHtml(e.hora)}</td>
-        <td>${JSP.estadoBadge(e.estado)}</td>
-        <td><button class="btn btn-sm btn-ghost" data-consultar="${JSP.escapeHtml(e.codigo)}">Consultar</button></td>
-      </tr>`).join('');
+    // Resumen discreto en el subtítulo del modal
+    const sub = document.getElementById('modal-entradas-sub');
+    if (sub) {
+      const porEstado = entradas.reduce((acc, e) => {
+        acc[e.estado] = (acc[e.estado] || 0) + 1;
+        return acc;
+      }, {});
+      const resumen = Object.keys(porEstado)
+        .map(k => porEstado[k] + ' ' + JSP.estadoBadge(k, { corta: true }))
+        .join(' ');
+      sub.innerHTML = total + ' ' + (total === 1 ? 'código' : 'códigos') +
+        ' ficticios · ' + resumen;
+    }
+
+    const cuerpoTabla = document.querySelector('#tabla-db tbody');
+    if (cuerpoTabla) {
+      cuerpoTabla.innerHTML = entradas.map(e => `
+        <tr>
+          <td><strong class="mono">${JSP.escapeHtml(e.codigo)}</strong></td>
+          <td>${JSP.escapeHtml(e.evento)}</td>
+          <td>${JSP.escapeHtml(e.titular)}</td>
+          <td class="nowrap">${JSP.formatFecha(e.fecha)} · ${JSP.escapeHtml(e.hora)}</td>
+          <td>${JSP.estadoBadge(e.estado)}</td>
+          <td><button class="btn btn-sm btn-ghost" data-consultar="${JSP.escapeHtml(e.codigo)}">Consultar</button></td>
+        </tr>`).join('');
+    }
 
     try {
       const guardado = JSON.parse(localStorage.getItem(STORAGE_ULTIMA) || 'null');

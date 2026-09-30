@@ -78,32 +78,44 @@ const JSP = (function () {
 
   function pad(n) { return String(n).padStart(2, '0'); }
 
+  /* Interpreta el valor que llega como fecha.
+   * Las fechas 'YYYY-MM-DD' (sin hora) se crean en la zona local: si no,
+   * new Date('2026-09-29') es medianoche UTC y en América/Lima (UTC-5) el
+   * día se muestra como 28 en vez de 29. */
+  function parseFecha(iso) {
+    if (typeof iso === 'string') {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
+      if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    }
+    return new Date(iso);
+  }
+
   function formatFecha(iso) {
-    const d = new Date(iso);
+    const d = parseFecha(iso);
     if (isNaN(d)) return '—';
     return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
   }
 
   function formatHora(iso) {
-    const d = new Date(iso);
+    const d = parseFecha(iso);
     if (isNaN(d)) return '—';
     return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
   function formatFechaHora(iso) {
-    const d = new Date(iso);
+    const d = parseFecha(iso);
     if (isNaN(d)) return '—';
     return `${formatFecha(d)} - ${formatHora(d)}`;
   }
 
   function formatFechaLarga(iso) {
-    const d = new Date(iso);
+    const d = parseFecha(iso);
     if (isNaN(d)) return '—';
     return `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`;
   }
 
   function tiempoRelativo(iso) {
-    const d = new Date(iso);
+    const d = parseFecha(iso);
     if (isNaN(d)) return '—';
     const seg = Math.floor((Date.now() - d.getTime()) / 1000);
     if (seg < 45) return 'hace un momento';

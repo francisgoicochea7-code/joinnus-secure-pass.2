@@ -68,7 +68,11 @@ const pool = mysql.createPool({
   connectionLimit: Number(process.env.DB_POOL || 10),
   queueLimit: 0,
   charset: 'utf8mb4_unicode_ci',
-  timezone: 'Z',
+  /* 'local' = zona del proceso (TZ=America/Lima en docker-compose), la misma
+   * que usa MySQL. Con 'Z' los DATETIME/TIMESTAMP se leian como UTC y la
+   * interfaz mostraba las horas 5 atrasadas; las columnas DATE ademas hay
+   * que devolverlas con los componentes locales (ver fechaCorta). */
+  timezone: 'local',
   namedPlaceholders: true
 });
 
@@ -134,14 +138,36 @@ const fallo = (res, codigo, mensaje, extra = {}) =>
 /** Envuelve un handler async para que los errores lleguen al middleware */
 const ruta = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
+/** DNI de la persona identificada en ESTA peticion.
+ *  Viaja en la cabecera X-Usuario-DNI. Si no viene, se usa DEMO_DNI, que
+ *  conserva el comportamiento anterior (sesion unica de Carlos).
+ *
+ *  OJO: esto NO es autenticacion. El DNI lo elige el navegador; el servidor
+ *  solo lo usa para filtrar los datos que devuelve. */
+function dniDePeticion(req) {
+  const dni = String(req.get('X-Usuario-DNI') || '').trim();
+  return /^\d{8}$/.test(dni) ? dni : CFG.demoDni;
+}
+
+/** Convierte una columna DATE de MySQL a 'YYYY-MM-DD'.
+ *  mysql2 la entrega como objeto Date, así que `String(fecha).slice(0, 10)`
+ *  producía "Mon Sep 28" y el navegador lo leía como el año 2001. Se usan
+ *  los componentes locales, que son exactamente los que trae la columna. */
+function fechaCorta(valor) {
+  if (valor instanceof Date) {
+    return `${valor.getFullYear()}-${String(valor.getMonth() + 1).padStart(2, '0')}-${String(valor.getDate()).padStart(2, '0')}`;
+  }
+  return String(valor).slice(0, 10);
+}
+
 /** Convierte una fila de MySQL al mismo formato que usa el frontend */
-function enriquecer(fila) {
+function enriquecer(fila, dni) {
   if (!fila) return null;
   const meta = ESTADOS[fila.estado] || ESTADOS.valido;
   return {
     codigo: fila.codigo,
     evento: fila.evento,
-    fecha: String(fila.fecha).slice(0, 10),
+    fecha: fechaCorta(fila.fecha),
     hora: String(fila.hora).slice(0, 5),
     lugar: fila.lugar,
     zona: fila.zona,
@@ -169,7 +195,7 @@ function enriquecer(fila) {
     titularAnterior: fila.titular_anterior,
     dniAnterior: fila.dni_anterior,
     puedeTransferir: fila.estado === 'valido',
-    esMia: fila.titular_dni === CFG.demoDni
+    esMia: fila.titular_dni === (dni || CFG.demoDni)
   };
 }
 
@@ -315,17 +341,20 @@ app.get('/api/health', ruta(async (req, res) => {
   });
 }));
 
-/** Resumen para las tarjetas estadisticas del dashboard */
+/** Resumen para las tarjetas estadisticas del panel.
+ *  Todo se acota a la persona identificada: asi el panel muestra "su"
+ *  informacion y no la de los demas. */
 app.get('/api/resumen', ruta(async (req, res) => {
+  const dni = dniDePeticion(req);
   const [rows] = await pool.query(`
     SELECT
-      SUM(CASE WHEN estado = 'valido'      AND titular_dni = ? THEN 1 ELSE 0 END) AS activas,
-      SUM(CASE WHEN estado = 'usado'                            THEN 1 ELSE 0 END) AS usadas,
-      SUM(CASE WHEN estado = 'transferido'                      THEN 1 ELSE 0 END) AS transferidas,
-      SUM(CASE WHEN estado = 'anulado'                          THEN 1 ELSE 0 END) AS anuladas,
-      COUNT(*)                                                                AS total,
-      SUM(CASE WHEN titular_dni = ? THEN 1 ELSE 0 END)               AS mias
-    FROM entradas`, [CFG.demoDni, CFG.demoDni]);
+      SUM(CASE WHEN estado = 'valido'      THEN 1 ELSE 0 END) AS activas,
+      SUM(CASE WHEN estado = 'usado'       THEN 1 ELSE 0 END) AS usadas,
+      SUM(CASE WHEN estado = 'transferido' THEN 1 ELSE 0 END) AS transferidas,
+      SUM(CASE WHEN estado = 'anulado'     THEN 1 ELSE 0 END) AS anuladas,
+      COUNT(*)                                                   AS total,
+      COUNT(*)                                                   AS mias
+    FROM entradas WHERE titular_dni = ?`, [dni]);
 
   const r = rows[0] || {};
   ok(res, {
@@ -342,8 +371,11 @@ app.get('/api/resumen', ruta(async (req, res) => {
 
 /** Listar todas las entradas ficticias */
 app.get('/api/entradas', ruta(async (req, res) => {
+  const dni = dniDePeticion(req);
   const [rows] = await pool.query(`${SELECT_ENTRADA} ORDER BY e.codigo ASC`);
-  ok(res, { entradas: rows.map(enriquecer) });
+  // Ojo: NO usar rows.map(enriquecer) — map pasa el indice como 2º argumento
+  // y `dni` recibiria 0,1,2... en lugar del DNI de la sesion.
+  ok(res, { entradas: rows.map(f => enriquecer(f, dni)) });
 }));
 
 /** CONSULTAR entrada por codigo */
@@ -351,7 +383,7 @@ app.get('/api/entradas/:codigo', ruta(async (req, res) => {
   const codigo = String(req.params.codigo).toUpperCase();
   const fila = await obtenerFila(codigo);
   if (!fila) return fallo(res, 404, `La entrada ${codigo} no existe en el sistema.`);
-  ok(res, { entrada: enriquecer(fila) });
+  ok(res, { entrada: enriquecer(fila, dniDePeticion(req)) });
 }));
 
 /** VERIFICAR estado (y deja constancia en el historial) */
@@ -363,7 +395,7 @@ app.get('/api/verificar/:codigo', ruta(async (req, res) => {
   await registrar(codigo, 'verificada', fila.titular_nombre,
     'Consulta de estado desde el verificador', fila.estado);
 
-  const entrada = enriquecer(fila);
+  const entrada = enriquecer(fila, dniDePeticion(req));
   const [hist] = await pool.query(
     'SELECT COUNT(*) AS n FROM historial WHERE entrada_id = (SELECT id FROM entradas WHERE codigo = ?)',
     [codigo]);
@@ -427,7 +459,7 @@ app.post('/api/entradas/:codigo/qr', ruta(async (req, res) => {
     expiraEn,
     ttl: CFG.qrTtl,
     id: ins.insertId,
-    entrada: enriquecer(actualizada)
+    entrada: enriquecer(actualizada, dniDePeticion(req))
   });
 }));
 
@@ -573,16 +605,50 @@ app.post('/api/entradas/:codigo/transferir', ruta(async (req, res) => {
     tokenAnterior,
     tokenNuevo: nuevo.token,
     payload: construirPayload(codigo, nuevo.nonce),
-    entrada: enriquecer(actualizada)
+    entrada: enriquecer(actualizada, dniDePeticion(req))
   });
 }));
 
-/** OBTENER historial de trazabilidad */
-app.get('/api/historial', ruta(async (req, res) => {
+/** IDENTIFICAR a una persona: comprueba que el DNI existe y que el nombre
+ *  escrito coincide con el registrado. NO es autenticacion (no hay
+ *  contrasena): solo evita erratas y da un dato coherente que mostrar. */
+app.get('/api/usuarios/:dni', ruta(async (req, res) => {
+  const dni = String(req.params.dni).trim();
+  if (!/^\d{8}$/.test(dni)) {
+    return fallo(res, 400, 'El DNI debe tener exactamente 8 números.', { campo: 'dni' });
+  }
+
   const [rows] = await pool.query(
-    `SELECT h.id, e.codigo, h.accion, h.titular, h.detalle, h.estado_registrado, h.creado_en
-       FROM historial h JOIN entradas e ON e.id = h.entrada_id
-      ORDER BY h.creado_en ASC, h.id ASC`);
+    'SELECT id, nombre, dni, correo FROM usuarios WHERE dni = ? LIMIT 1', [dni]);
+
+  if (!rows.length) {
+    return fallo(res, 404, 'No encontramos a ninguna persona con ese DNI.', { campo: 'dni' });
+  }
+
+  ok(res, { usuario: rows[0] });
+}));
+
+/** OBTENER historial de trazabilidad.
+ *  Con ?dni=XXXXXXXX devuelve solo los movimientos de esa persona: las
+ *  entradas que tiene ahora mas aquellas que transfirio o le transfirieron
+ *  (para que un traspaso no desaparezca del historial de quien lo hizo). */
+app.get('/api/historial', ruta(async (req, res) => {
+  const dni = String(req.query.dni || '').trim();
+
+  const [rows] = /^\d{8}$/.test(dni)
+    ? await pool.query(
+      `SELECT h.id, e.codigo, h.accion, h.titular, h.detalle, h.estado_registrado, h.creado_en
+         FROM historial h JOIN entradas e ON e.id = h.entrada_id
+        WHERE e.titular_dni = ?
+           OR EXISTS (SELECT 1 FROM transferencias t
+                       WHERE t.entrada_id = e.id
+                         AND (t.titular_anterior_dni = ? OR t.titular_nuevo_dni = ?))
+        ORDER BY h.creado_en ASC, h.id ASC`, [dni, dni, dni])
+    : await pool.query(
+      `SELECT h.id, e.codigo, h.accion, h.titular, h.detalle, h.estado_registrado, h.creado_en
+         FROM historial h JOIN entradas e ON e.id = h.entrada_id
+        ORDER BY h.creado_en ASC, h.id ASC`);
+
   ok(res, { historial: mapearHistorial(rows) });
 }));
 
@@ -621,7 +687,7 @@ app.post('/api/entradas/:codigo/estado/:estado', ruta(async (req, res) => {
   await registrar(codigo, accion, fila.titular_nombre, detalle, estado);
 
   const actualizada = await obtenerFila(codigo);
-  ok(res, { entrada: enriquecer(actualizada) });
+  ok(res, { entrada: enriquecer(actualizada, dniDePeticion(req)) });
 }));
 
 /** Reinicia los datos ficticios de la demo */

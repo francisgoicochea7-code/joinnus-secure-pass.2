@@ -160,6 +160,82 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Formulario de identidad                                             */
+  /* ------------------------------------------------------------------ */
+  const CAMPOS_IDENTIDAD = {
+    dni: { id: 'identidad-dni', error: 'error-dni-identidad' },
+    nombres: { id: 'identidad-nombres', error: 'error-nombres-identidad' },
+    apellidos: { id: 'identidad-apellidos', error: 'error-apellidos-identidad' }
+  };
+
+  /** Módulo de sesión (js/sesion.js). Puede no estar cargado en pruebas. */
+  function sesion() {
+    return (typeof window !== 'undefined' && window.Sesion) ? window.Sesion : null;
+  }
+
+  function pintarErrorCampo(campo, mensaje) {
+    const input = document.getElementById(campo.id);
+    const caja = document.getElementById(campo.error);
+    if (!input || !caja) return;
+    if (mensaje) {
+      caja.innerHTML = JSP.icon('alert', { size: 15 }) +
+        '<span>' + JSP.escapeHtml(mensaje) + '</span>';
+      caja.classList.add('show');
+      input.classList.add('is-invalid');
+    } else {
+      caja.classList.remove('show');
+      input.classList.remove('is-invalid');
+    }
+  }
+
+  function limpiarErroresIdentidad() {
+    Object.keys(CAMPOS_IDENTIDAD).forEach(k => pintarErrorCampo(CAMPOS_IDENTIDAD[k], null));
+    const alerta = document.getElementById('identidad-error');
+    if (alerta) alerta.classList.add('hide');
+  }
+
+  function mostrarErrorIdentidad(mensaje) {
+    const alerta = document.getElementById('identidad-error');
+    const texto = document.getElementById('identidad-error-texto');
+    if (!alerta || !texto) return;
+    texto.textContent = mensaje;
+    alerta.classList.remove('hide');
+  }
+
+  function pintarIdentidad() {
+    const s = sesion();
+    const u = s ? s.usuario() : null;
+    const actual = SecurePassAPI.USUARIO;   // identificado, o el de demostración
+
+    const nombre = document.getElementById('identidad-nombre');
+    const dniActual = document.getElementById('identidad-dni-actual');
+    const origen = document.getElementById('identidad-origen');
+    const insignia = document.getElementById('identidad-badge');
+    const saludo = document.getElementById('saludo');
+    const botonCambiar = document.getElementById('btn-cambiar-identidad');
+
+    if (nombre) nombre.textContent = actual.nombre;
+    if (dniActual) dniActual.textContent = actual.dni;
+    if (origen) {
+      origen.textContent = u
+        ? 'Formulario de identidad (este navegador)'
+        : 'Invitado — usuario de demostración';
+    }
+    if (insignia) insignia.textContent = u ? 'Identificado' : 'Modo demo';
+    if (saludo) {
+      saludo.innerHTML = 'Hola, ' + JSP.escapeHtml(String(actual.nombre).split(' ')[0]) +
+        ' <span aria-hidden="true">👋</span>';
+    }
+
+    if (u) {
+      document.getElementById('identidad-dni').value = u.dni;
+      document.getElementById('identidad-nombres').value = u.nombres || '';
+      document.getElementById('identidad-apellidos').value = u.apellidos || '';
+    }
+    if (botonCambiar) botonCambiar.textContent = u ? 'Cerrar identificación' : 'Limpiar formulario';
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Carga inicial                                                      */
   /* ------------------------------------------------------------------ */
   async function cargar() {
@@ -215,6 +291,84 @@
     if (boton) abrirDetalle(boton.getAttribute('data-detalle'));
   });
 
+  /* Formulario de identidad: confirmar quién navega por el panel */
+  const formIdentidad = document.getElementById('form-identidad');
+  if (formIdentidad) {
+    formIdentidad.addEventListener('submit', async function (ev) {
+      ev.preventDefault();
+
+      const s = sesion();
+      if (!s) {
+        mostrarErrorIdentidad('El módulo de identidad (js/sesion.js) no está disponible en esta página.');
+        return;
+      }
+
+      limpiarErroresIdentidad();
+
+      const dni = document.getElementById('identidad-dni').value.trim();
+      const nombres = document.getElementById('identidad-nombres').value.trim();
+      const apellidos = document.getElementById('identidad-apellidos').value.trim();
+
+      const boton = document.getElementById('btn-identificar');
+      const htmlOriginal = boton.innerHTML;
+      boton.disabled = true;
+      boton.textContent = 'Comprobando…';
+
+      try {
+        const r = await s.identificar(dni, nombres, apellidos);
+
+        if (!r.ok) {
+          const campo = CAMPOS_IDENTIDAD[r.campo];
+          if (campo) {
+            pintarErrorCampo(campo, r.mensaje);
+            const malo = document.getElementById(campo.id);
+            if (malo) malo.focus();
+          } else {
+            mostrarErrorIdentidad(r.mensaje);
+          }
+          return;
+        }
+
+        JSP.toast('ok', 'Identidad confirmada',
+          'El panel ahora muestra las entradas de ' + r.usuario.nombre + '.');
+        s.notificar();
+        pintarIdentidad();
+        await cargar();
+      } catch (e) {
+        console.error('[Dashboard][identidad]', e);
+        mostrarErrorIdentidad('No se pudo confirmar la identidad. Inténtalo de nuevo.');
+      } finally {
+        boton.disabled = false;
+        boton.innerHTML = htmlOriginal;
+      }
+    });
+  }
+
+  /* Cerrar la identificación o limpiar el formulario para otra persona */
+  const btnCambiarIdentidad = document.getElementById('btn-cambiar-identidad');
+  if (btnCambiarIdentidad) {
+    btnCambiarIdentidad.addEventListener('click', function () {
+      const s = sesion();
+
+      if (s && s.estaIdentificado()) {
+        s.olvidar();
+        JSP.toast('info', 'Identificación cerrada',
+          'Vuelves a ver el panel con el usuario de demostración.');
+        pintarIdentidad();
+        cargar();
+        return;
+      }
+
+      ['identidad-dni', 'identidad-nombres', 'identidad-apellidos'].forEach(function (id) {
+        const campo = document.getElementById(id);
+        if (campo) campo.value = '';
+      });
+      limpiarErroresIdentidad();
+      const primero = document.getElementById('identidad-dni');
+      if (primero) primero.focus();
+    });
+  }
+
   const btnReiniciar = document.getElementById('btn-reiniciar');
   if (btnReiniciar) {
     btnReiniciar.addEventListener('click', async function () {
@@ -225,6 +379,11 @@
       btnReiniciar.disabled = false;
     });
   }
+
+  const sesionInicial = sesion();
+  if (sesionInicial) sesionInicial.alCambiar(pintarIdentidad);
+  limpiarErroresIdentidad();
+  pintarIdentidad();
 
   cargar();
 })();

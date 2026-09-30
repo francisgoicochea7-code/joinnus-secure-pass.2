@@ -15,6 +15,7 @@
 
   let entrada = null;
   let pendiente = null;
+  let dniTitularOk = false;
 
   /* ------------------------------------------------------------------ */
   /* Mostrar la entrada actual                                           */
@@ -71,10 +72,88 @@
              </div>`}
       </div>`;
 
+    // El paso "¿quién transfiere?" sólo se muestra si la entrada admite
+    // transferencia; si no, sólo queda el aviso de estado.
+    const bloqueTitular = $('bloque-titular-actual');
+    if (bloqueTitular) {
+      if (puede) bloqueTitular.classList.remove('hide');
+      else bloqueTitular.classList.add('hide');
+    }
+
     const boton = $('btn-abrir-transferencia');
     if (boton) boton.addEventListener('click', abrirFormulario);
 
+    revisarTitular();
+    cargarSelectorEntradas();
+
     JSP.pintarModo();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 1) Selector de la entrada a transferir                              */
+  /* ------------------------------------------------------------------ */
+  async function cargarSelectorEntradas() {
+    const sel = $('entrada-transferir');
+    if (!sel || !entrada) return;
+
+    const pintar = lista => {
+      sel.innerHTML = lista.map(e =>
+        `<option value="${JSP.escapeHtml(e.codigo)}"${e.codigo === entrada.codigo ? ' selected' : ''}>` +
+        `${JSP.escapeHtml(e.codigo)} — ${JSP.escapeHtml(e.evento)}</option>`).join('');
+    };
+
+    try {
+      const mias = await SecurePassAPI.listarMisEntradas();
+      const lista = mias.slice();
+      // La entrada mostrada siempre debe figurar, aunque acabe de cambiar de titular.
+      if (entrada.codigo && !lista.some(e => e.codigo === entrada.codigo)) {
+        lista.unshift({ codigo: entrada.codigo, evento: entrada.evento });
+      }
+      pintar(lista);
+    } catch (e) {
+      pintar([{ codigo: entrada.codigo, evento: entrada.evento }]);
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 2) ¿Quién transfiere? — DNI del titular actual                      */
+  /* ------------------------------------------------------------------ */
+  /** El DNI escrito debe coincidir con el titular real de la entrada.   */
+  function dniEsTitular(valor) {
+    if (entrada && entrada.dni) return valor === String(entrada.dni);
+    // Sin DNI completo disponible, se contrasta con la sesión identificada.
+    const sesion = (typeof Sesion !== 'undefined' && Sesion && Sesion.dni) ? Sesion.dni() : null;
+    if (sesion) return valor === sesion;
+    return true;   // sin fuente de comparación: sólo se exige el formato
+  }
+
+  function revisarTitular() {
+    const campo = $('dni-titular');
+    const caja = $('error-titular');
+    const boton = $('btn-abrir-transferencia');
+    if (!campo) return;
+
+    const valor = campo.value.replace(/\D/g, '');
+    const formatoOk = valor.length === 8;
+    const coincide = formatoOk && dniEsTitular(valor);
+    dniTitularOk = !!coincide;
+
+    campo.classList.remove('is-invalid', 'is-valid');
+    if (caja) {
+      if (formatoOk && !coincide) {
+        campo.classList.add('is-invalid');
+        caja.classList.add('show');
+        caja.innerHTML = JSP.icon('alert', { size: 15 }) +
+          '<span>El DNI no coincide con el titular de la entrada.</span>';
+      } else {
+        if (coincide) campo.classList.add('is-valid');
+        caja.classList.remove('show');
+      }
+    }
+
+    // Sin el DNI correcto del titular actual no se puede abrir el formulario
+    // del nuevo titular.
+    if (boton) boton.disabled = !coincide;
   }
 
   /* ------------------------------------------------------------------ */
@@ -143,6 +222,15 @@
   /* Modal: paso 1 — formulario                                          */
   /* ------------------------------------------------------------------ */
   function abrirFormulario() {
+    // El paso 2 (datos del nuevo titular) sólo se abre si el titular actual
+    // confirmó su DNI en el paso anterior.
+    revisarTitular();
+    if (!dniTitularOk) {
+      JSP.toast('error', 'Confirma quién transfiere',
+        'Escribe el DNI del titular actual para poder continuar.');
+      return;
+    }
+
     $('paso-formulario').classList.remove('hide');
     $('paso-confirmacion').classList.add('hide');
     $('paso-resultado').classList.add('hide');
@@ -295,6 +383,23 @@
 
     input.addEventListener('blur', function () { revisarCampo(id); });
   });
+
+  /* Paso 1: entrada elegida + DNI del titular actual                    */
+  const campoTitular = $('dni-titular');
+  if (campoTitular) {
+    campoTitular.addEventListener('input', function () {
+      this.value = this.value.replace(/\D/g, '').slice(0, 8);
+      revisarTitular();
+    });
+    campoTitular.addEventListener('blur', revisarTitular);
+  }
+
+  const selEntrada = $('entrada-transferir');
+  if (selEntrada) {
+    selEntrada.addEventListener('change', function () {
+      if (this.value && (!entrada || this.value !== entrada.codigo)) cargarEntrada(this.value);
+    });
+  }
 
   $('form-transferencia')?.addEventListener('submit', function (ev) {
     ev.preventDefault();

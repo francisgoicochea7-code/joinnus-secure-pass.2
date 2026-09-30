@@ -104,7 +104,21 @@
         </div>
       </div>
 
-      <div class="split mt-4" style="align-items:start">
+      <!-- ---------- Búsqueda: la trazabilidad sólo se despliega al buscar ---------- -->
+      <div class="card mt-4">
+        <div class="row-between" style="gap:1rem;flex-wrap:wrap;align-items:center">
+          <div style="min-width:0">
+            <h3 style="margin:0 0 .2rem">Buscar en el historial</h3>
+            <p class="small muted" style="margin:0">Elige una entrada: sólo entonces se despliega su trazabilidad completa.</p>
+          </div>
+          <select class="input" id="filtro-codigo" style="width:auto;min-width:250px;padding:.6rem .9rem;font-size:.9rem">
+            <option value="">Todas las entradas</option>
+          </select>
+        </div>
+        <p class="tiny muted mt-2 mb-0" id="busqueda-aviso">Todavía no se muestra ninguna lista: selecciona una entrada en el desplegable.</p>
+      </div>
+
+      <div class="split mt-4 hide" id="resultados-flujo" style="align-items:start">
 
         <!-- ---------------- Línea de tiempo ---------------- -->
         <div class="card">
@@ -116,9 +130,6 @@
           </div>
           <div class="row-between" style="margin-bottom:1.2rem">
             <span class="tiny muted" id="timeline-info">—</span>
-            <select class="input" id="filtro-codigo" style="width:auto;min-width:170px;padding:.5rem .8rem;font-size:.85rem">
-              <option value="">Todas las entradas</option>
-            </select>
           </div>
           <div class="timeline" id="linea-tiempo">
             <div class="skeleton" style="height:56px"></div>
@@ -156,7 +167,7 @@
       </div>
 
       <!-- ---------------- Tabla ---------------- -->
-      <div class="mt-4">
+      <div class="mt-4 hide" id="registro-historial">
         <div class="row-between" style="margin-bottom:1rem">
           <h2 style="margin:0">Registro completo</h2>
           <span class="badge badge-brand" id="total-registros">0 registros</span>
@@ -194,6 +205,7 @@
 
 <script src="js/qr.js"></script>
 <script src="js/cliente-api.js"></script>
+<script src="js/sesion.js"></script>
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>
 <script src="js/historial.js"></script>

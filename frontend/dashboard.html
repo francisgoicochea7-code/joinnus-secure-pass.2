@@ -27,7 +27,7 @@
         <li><a href="dashboard.html">Dashboard</a></li>
         <li><a href="verificar.html">Verificar entrada</a></li>
         <li><a href="entrada.html">Mi entrada</a></li>
-        <li><a href="transferencia.html">Transferir entrada</a></li>
+                <li><a href="transferencia.html">Transferir entrada</a></li>
         <li><a href="historial.html">Historial</a></li>
         <li><a href="sobre.html">Sobre el proyecto</a></li>
       </ul>
@@ -45,7 +45,7 @@
   <a data-page href="dashboard.html">Dashboard</a>
   <a data-page href="verificar.html">Verificar entrada</a>
   <a data-page href="entrada.html">Mi entrada</a>
-  <a data-page href="transferencia.html">Transferir entrada</a>
+    <a data-page href="transferencia.html">Transferir entrada</a>
   <a data-page href="historial.html">Historial</a>
   <a data-page href="sobre.html">Sobre el proyecto</a>
   <a href="entrada.html" class="btn btn-primary btn-block">Mi entrada</a>
@@ -58,7 +58,7 @@
       <div class="row-between fade-in">
         <div>
           <span class="eyebrow">Panel de control</span>
-          <h1 style="margin-bottom:.2rem">Hola, Carlos <span aria-hidden="true">👋</span></h1>
+          <h1 style="margin-bottom:.2rem" id="saludo">Hola, Carlos <span aria-hidden="true">👋</span></h1>
           <p class="muted" style="margin:0">Resumen de tus entradas digitales ficticias y su estado de seguridad.</p>
         </div>
         <div class="row">
@@ -109,6 +109,82 @@
           </div>
           <div class="stat-value" id="stat-anuladas">0</div>
           <div class="stat-foot">Sin validez de uso</div>
+        </div>
+      </div>
+
+      <!-- Formulario de identidad -->
+      <div class="split mt-4" style="align-items:start" id="seccion-identidad">
+        <div class="card fade-in">
+          <div class="card-title">
+            <span class="icon-box brand">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-4.4 0-8 2.2-8 5v3h16v-3c0-2.8-3.6-5-8-5Z"/></svg>
+            </span>
+            <h3>Formulario de identidad</h3>
+            <span class="badge badge-brand" id="identidad-badge">Sin confirmar</span>
+          </div>
+          <p class="small muted">Elige la persona con la que quieres navegar: el panel muestra <strong>sus</strong> entradas y <strong>sus</strong> movimientos. El sistema sólo comprueba que el DNI y el nombre existan en los datos ficticios: <strong>no hay contraseña</strong>, por eso esto es una simulación y no una autenticación real.</p>
+
+          <form id="form-identidad" novalidate>
+            <div class="field">
+              <label for="identidad-dni">DNI</label>
+              <input class="input mono" type="text" id="identidad-dni" placeholder="12345678"
+                     inputmode="numeric" maxlength="8" autocomplete="off">
+              <div class="help">Exactamente 8 números.</div>
+              <div class="error-msg" id="error-dni-identidad">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg><span></span>
+              </div>
+            </div>
+
+            <div class="grid g-2" style="gap:0 1rem">
+              <div class="field">
+                <label for="identidad-nombres">Nombres</label>
+                <input class="input" type="text" id="identidad-nombres" placeholder="Carlos" autocomplete="off">
+                <div class="error-msg" id="error-nombres-identidad">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg><span></span>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="identidad-apellidos">Apellidos</label>
+                <input class="input" type="text" id="identidad-apellidos" placeholder="Pérez" autocomplete="off">
+                <div class="error-msg" id="error-apellidos-identidad">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg><span></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="alert alert-error hide" id="identidad-error">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg>
+              <p id="identidad-error-texto">—</p>
+            </div>
+
+            <div class="row mt-2">
+              <button type="submit" class="btn btn-primary" id="btn-identificar">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6 12-12-1.4-1.4-10.6 10.6Z"/></svg>
+                Confirmar identidad
+              </button>
+              <button type="button" class="btn btn-ghost" id="btn-cambiar-identidad">Limpiar formulario</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="stack">
+          <div class="card">
+            <div class="card-title">
+              <span class="icon-box ok">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1 3 5v6c0 5.6 3.8 10.7 9 12 5.2-1.3 9-6.4 9-12V5l-9-4Zm0 2.2 7 3.1V11c0 4.7-3 9-7 10.2C8 20 5 15.7 5 11V6.3l7-3.1Z"/></svg>
+              </span>
+              <h3>Identificación actual</h3>
+            </div>
+            <div class="kv"><span class="k">Persona</span><span class="v" id="identidad-nombre">—</span></div>
+            <div class="kv"><span class="k">DNI</span><span class="v mono" id="identidad-dni-actual">—</span></div>
+            <div class="kv"><span class="k">Origen</span><span class="v" id="identidad-origen">—</span></div>
+          </div>
+
+          <div class="alert alert-info">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1 5h2v2h-2V7Zm0 4h2v6h-2v-6Z"/></svg>
+            <p><strong>Usuario de demostración:</strong> DNI <span class="mono">45678945</span> · <strong>Carlos Pérez</strong>. Sin conexión con la API sólo se reconoce esta persona.</p>
+          </div>
         </div>
       </div>
 
@@ -207,6 +283,7 @@
 
 <script src="js/qr.js"></script>
 <script src="js/cliente-api.js"></script>
+<script src="js/sesion.js"></script>
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>
 <script src="js/dashboard.js"></script>

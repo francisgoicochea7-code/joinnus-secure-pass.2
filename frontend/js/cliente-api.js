@@ -41,6 +41,11 @@ const ClienteAPI = (function () {
     const opts = opciones || {};
     const base = baseActiva || CANDIDATOS[0];
 
+    // Si hay una persona identificada, su DNI viaja en cada peticion para que
+    // el backend sepa de quien son los datos que pide (ver sesion.js).
+    const identidad = (typeof window !== 'undefined' && window.Sesion)
+      ? window.Sesion.cabeceras() : {};
+
     const controlador = new AbortController();
     const t = setTimeout(() => controlador.abort(), TIEMPO_LATIDO);
 
@@ -49,6 +54,7 @@ const ClienteAPI = (function () {
         method: opts.method || 'GET',
         headers: Object.assign(
           { 'Content-Type': 'application/json' },
+          identidad,
           opts.headers || {}),
         body: opts.body ? JSON.stringify(opts.body) : undefined,
         signal: controlador.signal
@@ -176,10 +182,22 @@ const ClienteAPI = (function () {
     return r.datos;
   }
 
-  /** OBTENER historial de trazabilidad */
-  async function obtenerHistorial(codigo) {
-    const ruta = '/entradas/' + encodeURIComponent(codigo) + '/historial';
-    const r = await pedir(codigo ? ruta : '/historial');
+  /** IDENTIFICAR a una persona: comprueba que el DNI exista en la base */
+  async function buscarUsuario(dni) {
+    const r = await pedir('/usuarios/' + encodeURIComponent(dni));
+    if (r.status === 404) return null;
+    if (!r.ok) throw Object.assign(new Error('Error del servidor'), { status: r.status, body: r.datos });
+    return r.datos.usuario;
+  }
+
+  /** OBTENER historial de trazabilidad.
+   *  Con dni devuelve solo los movimientos de esa persona. */
+  async function obtenerHistorial(codigo, dni) {
+    let ruta;
+    if (codigo) ruta = '/entradas/' + encodeURIComponent(codigo) + '/historial';
+    else if (dni) ruta = '/historial?dni=' + encodeURIComponent(dni);
+    else ruta = '/historial';
+    const r = await pedir(ruta);
     return (r.datos && r.datos.historial) || [];
   }
 
@@ -204,6 +222,7 @@ const ClienteAPI = (function () {
     reiniciarComprobacion: function () { disponible = null; ultimoChequeo = 0; },
 
     health: health,
+    buscarUsuario: buscarUsuario,
     obtenerResumen: obtenerResumen,
     listarEntradas: listarEntradas,
     consultarEntrada: consultarEntrada,

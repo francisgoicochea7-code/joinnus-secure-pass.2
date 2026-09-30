@@ -82,13 +82,42 @@ const SecurePassAPI = (function () {
   };
 
   /* -------------------------------------------------------------------
-   * Usuario de la sesion (ficticio)
+   * Usuario de la sesion
+   * ------------------------------------------------------------------
+   * Antes era fijo (siempre Carlos). Ahora depende de quien se haya
+   * identificado en sesion.js. Si nadie se ha identificado, se usa el
+   * usuario de demostracion para que el prototipo siga siendo usable
+   * al abrirlo sin Docker.
    * ----------------------------------------------------------------- */
-  const USUARIO = {
+  const USUARIO_DEMO = {
     nombre: 'Carlos Pérez',
     dni: '45678945',
     correo: 'carlos.perez@demo.pe',
     evento: 'Universidad — Proyecto académico'
+  };
+
+  /** El usuario identificado, o el de demostracion como respaldo. */
+  function usuarioSesion() {
+    if (typeof window !== 'undefined' && window.Sesion && window.Sesion.estaIdentificado()) {
+      const u = window.Sesion.usuario();
+      if (u) {
+        return {
+          nombre: u.nombre,
+          dni: u.dni,
+          correo: '',
+          evento: 'Universidad — Proyecto académico'
+        };
+      }
+    }
+    return USUARIO_DEMO;
+  }
+
+  /** Objeto compatible con el USUARIO de siempre (se lee de forma sincrona). */
+  const USUARIO = {
+    get nombre() { return usuarioSesion().nombre; },
+    get dni() { return usuarioSesion().dni; },
+    get correo() { return usuarioSesion().correo; },
+    get evento() { return usuarioSesion().evento; }
   };
 
   /* -------------------------------------------------------------------
@@ -468,13 +497,23 @@ const SecurePassAPI = (function () {
     };
   }
 
-  async function obtenerHistorialLocal(codigo) {
+  async function obtenerHistorialLocal(codigo, dni) {
     await esperar(140);
     const historial = obtenerHistorialCompleto();
-    const filtrado = codigo
-      ? historial.filter(h => h.codigo === String(codigo).trim().toUpperCase())
-      : historial.slice();
-    return filtrado.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+    let filtrado = historial;
+
+    if (codigo) {
+      filtrado = historial.filter(h => h.codigo === String(codigo).trim().toUpperCase());
+    } else if (dni) {
+      // Movimientos de una persona: las entradas que posee ahora mas las que
+      // aparecen en alguna transferencia con su DNI (para que un traspaso no
+      // desaparezca de su historial).
+      const mias = Object.keys(obtenerMapaEntradas())
+        .filter(c => obtenerMapaEntradas()[c].dni === dni);
+      filtrado = historial.filter(h => mias.indexOf(h.codigo) !== -1);
+    }
+
+    return filtrado.slice().sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
   }
 
   async function listarEntradasLocal() {
@@ -664,16 +703,18 @@ const SecurePassAPI = (function () {
   }
 
   /**
-   * obtenerHistorial(codigo)
-   * En modo API:  GET /api/entradas/:codigo/historial
+   * obtenerHistorial(codigo, dni)
+   * - codigo: historial de una entrada concreta
+   * - dni:    historial de los movimientos de esa persona
+   * En modo API:  GET /api/entradas/:codigo/historial  |  GET /api/historial?dni=
    */
-  async function obtenerHistorial(codigo) {
+  async function obtenerHistorial(codigo, dni) {
     if (await usarApi()) {
       try {
-        return await Cliente.obtenerHistorial(codigo);
+        return await Cliente.obtenerHistorial(codigo, dni);
       } catch (e) { degradar(e); }
     }
-    return obtenerHistorialLocal(codigo);
+    return obtenerHistorialLocal(codigo, dni);
   }
 
   /** Normaliza la respuesta de la API al formato interno de la interfaz */

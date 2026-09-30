@@ -475,6 +475,13 @@ async function pruebasPaginas() {
       const click = el => el._fire('click', { target: el });
       const input = (el, v) => { el.value = v; return el._fire('input', { target: el }); };
 
+      // Paso 1: sin el DNI del titular actual no se puede abrir el formulario
+      ok(doc.getElementById('btn-abrir-transferencia').disabled,
+        'La transferencia debe estar bloqueada sin el DNI del titular actual');
+      await input(doc.getElementById('dni-titular'), '45678945');
+      ok(!doc.getElementById('btn-abrir-transferencia').disabled,
+        'El DNI correcto del titular actual no habilito la transferencia');
+
       const abrir = doc.getElementById('btn-abrir-transferencia');
       await click(abrir);
       ok(doc.getElementById('precio-maximo').textContent === 'S/ 120.00',

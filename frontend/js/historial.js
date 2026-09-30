@@ -1,6 +1,11 @@
 /* =========================================================================
  * JOINNUS SECURE PASS — frontend/js/historial.js
  * Línea de tiempo, tabla de trazabilidad y exportación a CSV.
+ *
+ * Sólo se ejecuta en historial.html. La página no despliega la lista larga
+ * de forma automática: los bloques de resultados vienen ocultos y sólo se
+ * muestran cuando el usuario busca una entrada (desplegable o ?codigo=).
+ * Todos los contenedores siguen siendo opcionales.
  * ========================================================================= */
 
 (function () {
@@ -35,6 +40,7 @@
   /* ------------------------------------------------------------------ */
   function pintarLinea(eventos) {
     const cont = $('linea-tiempo');
+    if (!cont) return;
     if (!eventos.length) {
       cont.innerHTML = '<p class="muted small">No hay eventos registrados para este filtro.</p>';
       return;
@@ -87,6 +93,7 @@
   /* ------------------------------------------------------------------ */
   async function pintarEstados() {
     const cont = $('estados-actuales');
+    if (!cont) return;
     const entradas = await SecurePassAPI.listarEntradas();
     cont.innerHTML = entradas.map(e => `
       <a href="entrada.html?codigo=${e.codigo}" class="row-between"
@@ -103,8 +110,9 @@
   /* Filtro por código                                                  */
   /* ------------------------------------------------------------------ */
   async function cargarSelector() {
-    const entradas = await SecurePassAPI.listarEntradas();
     const sel = $('filtro-codigo');
+    if (!sel) return;
+    const entradas = await SecurePassAPI.listarEntradas();
     sel.innerHTML = '<option value="">Todas las entradas</option>' + entradas.map(e =>
       `<option value="${JSP.escapeHtml(e.codigo)}"${e.codigo === filtro ? ' selected' : ''}>
          ${JSP.escapeHtml(e.codigo)} — ${JSP.escapeHtml(e.evento)}
@@ -120,24 +128,37 @@
     pintarLinea(eventos);
     pintarTabla(eventos);
 
-    $('timeline-info').textContent = filtro
-      ? `Mostrando ${eventos.length} evento(s) de ${filtro}`
-      : `Mostrando ${eventos.length} evento(s) de todas las entradas`;
-    $('total-registros').textContent = `${eventos.length} registro${eventos.length === 1 ? '' : 's'}`;
+    const info = $('timeline-info');
+    if (info) {
+      info.textContent = filtro
+        ? `Mostrando ${eventos.length} evento(s) de ${filtro}`
+        : `Mostrando ${eventos.length} evento(s) de todas las entradas`;
+    }
+    const total = $('total-registros');
+    if (total) {
+      total.textContent = `${eventos.length} registro${eventos.length === 1 ? '' : 's'}`;
+    }
 
     const todos = await SecurePassAPI.obtenerHistorial();
-    JSP.animarContador($('stat-eventos'), todos.length);
-    JSP.animarContador($('stat-verificaciones'), todos.filter(h => h.accion === 'verificada').length);
-    JSP.animarContador($('stat-transferencias'), todos.filter(h => h.accion === 'transferida').length);
-    JSP.animarContador($('stat-qr'), todos.filter(h => h.accion === 'qr').length);
+    pintarEstadistica('stat-eventos', todos.length);
+    pintarEstadistica('stat-verificaciones', todos.filter(h => h.accion === 'verificada').length);
+    pintarEstadistica('stat-transferencias', todos.filter(h => h.accion === 'transferida').length);
+    pintarEstadistica('stat-qr', todos.filter(h => h.accion === 'qr').length);
 
     JSP.pintarModo();
+  }
+
+  /** Contador de la tarjeta, sólo si esa tarjeta existe en la página. */
+  function pintarEstadistica(id, valor) {
+    const el = $(id);
+    if (el) JSP.animarContador(el, valor);
   }
 
   /* ------------------------------------------------------------------ */
   /* Exportar CSV                                                        */
   /* ------------------------------------------------------------------ */
-  $('btn-exportar').addEventListener('click', async function () {
+  const btnExportar = $('btn-exportar');
+  if (btnExportar) btnExportar.addEventListener('click', async function () {
     const eventos = await SecurePassAPI.obtenerHistorial(filtro);
     const filas = [['Código', 'Acción', 'Titular', 'Detalle', 'Fecha']];
     eventos.forEach(e => filas.push([e.codigo, e.accion, e.titular, e.detalle || '', JSP.formatFechaHora(e.fecha)]));
@@ -154,14 +175,35 @@
   });
 
   /* ------------------------------------------------------------------ */
+  /* Sólo por búsqueda                                                   */
+  /* ------------------------------------------------------------------ */
+  /** Los bloques largos (línea de tiempo, estados y tabla) vienen ocultos
+   *  en el HTML: se despliegan únicamente cuando el usuario busca, para
+   *  que la página no aparezca toda extendida. */
+  function mostrarResultados() {
+    ['resultados-flujo', 'registro-historial'].forEach(id => {
+      const bloque = $(id);
+      if (bloque) bloque.classList.remove('hide');
+    });
+    const aviso = $('busqueda-aviso');
+    if (aviso) aviso.classList.add('hide');
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Eventos                                                             */
   /* ------------------------------------------------------------------ */
-  $('filtro-codigo').addEventListener('change', function () {
-    filtro = this.value;
-    cargar();
-  });
+  const selectFiltro = $('filtro-codigo');
+  if (selectFiltro) {
+    selectFiltro.addEventListener('change', function () {
+      filtro = this.value;
+      mostrarResultados();
+      cargar();
+    });
+  }
 
   cargarSelector();
+  // Llegada desde otra página con ?codigo=XXXX: eso ya es una búsqueda.
+  if (filtro) mostrarResultados();
   cargar();
   pintarEstados();
 })();
