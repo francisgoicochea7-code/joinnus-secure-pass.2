@@ -650,6 +650,23 @@ const SecurePassAPI = (function () {
     return error;
   }
 
+  /** El servidor YA respondio (400/403/404/409/500): ese es el error real y
+   *  no hay que sustituirlo por el modo local, que trabaja con otros datos y
+   *  esconde el motivo (por ejemplo "esta entrada pertenece a otra persona"
+   *  se habria convertido en un fallo raro de la base local).
+   *  Devuelve null si fue un fallo de red: en ese caso si procede local. */
+  function errorDeServidor(e) {
+    if (!e || typeof e.status !== 'number') return null;
+    const cuerpo = e.body || {};
+    return {
+      ok: false,
+      error: cuerpo.error || e.message || 'El servidor rechazo la operacion.',
+      campos: cuerpo.campos,
+      motivo: cuerpo.motivo,
+      status: e.status
+    };
+  }
+
   /* ===================================================================
    *  PARTE 3 — API PUBLICA (misma firma en los dos modos)
    * =================================================================== */
@@ -682,7 +699,13 @@ const SecurePassAPI = (function () {
           return Object.assign({}, r, { entrada: normalizarRemota(r.entrada) });
         }
         return null;
-      } catch (e) { degradar(e); }
+      } catch (e) {
+        // El servidor ya respondió (403: no es suya, 409: ya usada, 500…).
+        // No se genera un token "local", que no existiría en la base de datos
+        // y que el lector del evento rechazaría después.
+        if (errorDeServidor(e)) return null;
+        degradar(e);
+      }
     }
     return actualizarQRLocal(codigo, opts);
   }
@@ -697,7 +720,15 @@ const SecurePassAPI = (function () {
         const r = await Cliente.transferirEntrada(codigo, nuevoTitular);
         if (r && r.ok) r.entrada = normalizarRemota(r.entrada);
         return r;
-      } catch (e) { degradar(e); }
+      } catch (e) {
+        // 403 (la entrada pertenece a otra persona) o error del servidor: se
+        // devuelve el motivo tal cual. Antes se caía al modo local, que no
+        // conoce la entrada remota y respondía "La entrada no existe en el
+        // sistema", escondiendo la causa real.
+        const delServidor = errorDeServidor(e);
+        if (delServidor) return delServidor;
+        degradar(e);
+      }
     }
     return transferirEntradaLocal(codigo, nuevoTitular);
   }
@@ -773,7 +804,14 @@ const SecurePassAPI = (function () {
       try {
         const entrada = await Cliente.cambiarEstado(codigo, 'usado');
         return normalizarRemota(entrada);
-      } catch (e) { degradar(e); }
+      } catch (e) {
+        // Un "409 ya usada" o "403 no es suya" del servidor NO se convierte
+        // en un cambio de estado local: el lector no debe dar por registrada
+        // una entrada que el backend rechazó. null = no se pudo (igual que en
+        // modo local).
+        if (errorDeServidor(e)) return null;
+        degradar(e);
+      }
     }
     return marcarUsadaLocal(codigo);
   }

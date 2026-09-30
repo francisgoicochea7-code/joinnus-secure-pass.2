@@ -708,6 +708,48 @@ async function pruebasPropiedad() {
 }
 
 /* ===================================================================== */
+/* 4c. Transferencia real: backend sin 500 y errores del servidor visibles */
+/* =================================================================== */
+async function pruebasTransferenciaBackend() {
+  grupo('4c. Transferencia en la API real (regresiones del backend)');
+
+  const backend = fs.readFileSync(path.join(RAIZ, 'backend/index.js'), 'utf8');
+
+  ok(backend.includes('let usuarioNuevoId'),
+    'El id del nuevo titular debe declararse con "let": con "const" toda transferencia hacia un usuario ya registrado terminaba en 500 (Assignment to constant variable)');
+  ok(!/const\s+usuarioNuevoId/.test(backend),
+    'Sigue existiendo "const usuarioNuevoId", que rompia las transferencias');
+
+  const inicio = backend.indexOf('INSERT INTO transferencias');
+  const bloque = inicio >= 0 ? backend.slice(inicio, inicio + 900) : '';
+  ok(inicio >= 0, 'El backend ya no registra la transferencia en la tabla transferencias');
+  ok(bloque.includes('precio_original') && bloque.includes('codigo_operacion'),
+    'El INSERT de transferencias no envia precio_original ni codigo_operacion (columnas NOT NULL sin defecto): devolvia 500');
+  ok(bloque.includes('titularAnteriorId'),
+    'El id del titular anterior debe leerse ANTES de cambiar la titularidad');
+  ok(backend.includes('generarCodigoOperacion()'),
+    'Falta generarCodigoOperacion(), que rellena el codigo_operacion obligatorio');
+  ok(backend.includes("app.set('trust proxy'"),
+    'Falta app.set("trust proxy", 1): express-rate-limit denunciaba el X-Forwarded-For que añade nginx');
+
+  const api = fs.readFileSync(path.join(APP, 'js/api.js'), 'utf8');
+  ok(api.includes('function errorDeServidor'),
+    'Falta errorDeServidor(): el modo local se tragaba los errores reales del servidor');
+  ok(api.includes('if (delServidor) return delServidor'),
+    'transferirEntrada ya no devuelve el error del servidor como si fuese "no existe en el sistema"');
+  ok((api.match(/if \(errorDeServidor\(e\)\) return null;/g) || []).length >= 2,
+    'actualizarQR y marcarUsada deben responder con el motivo del servidor en vez de simular la operación en local');
+
+  const entradaJs = fs.readFileSync(path.join(APP, 'js/entrada.js'), 'utf8');
+  ok(entradaJs.includes('!payload && entrada.qrToken'),
+    'entrada.js dibujaba un QR falso cuando el servidor no emitía token');
+
+  const verificarJs = fs.readFileSync(path.join(APP, 'js/verificar.js'), 'utf8');
+  ok(verificarJs.includes('No se pudo registrar el ingreso'),
+    'verificar.js anunciaba el ingreso aunque el servidor lo hubiese rechazado');
+}
+
+/* ===================================================================== */
 /* 6. Modo API (Docker): el cliente HTTP contra un fetch simulado        */
 /* =================================================================== */
 async function pruebasModoApi() {
@@ -838,6 +880,7 @@ async function pruebasModoApi() {
   await pruebasApi();
   await pruebasPaginas();
   await pruebasPropiedad();
+  await pruebasTransferenciaBackend();
   await pruebasModoApi();
 
   console.log('\n------------------------------------------------------------');

@@ -35,6 +35,11 @@ const path = require('path');
 
 const app = express();
 
+// Detrás de nginx (proxy inverso). Sin esto, express-rate-limit ve siempre la
+// IP del contenedor y denuncia el X-Forwarded-For que añade nginx como un
+// error de configuración; con '1' se toma la IP real del navegador.
+app.set('trust proxy', 1);
+
 /* ---------------------------------------------------------------------
  * Cabeceras de seguridad (helmet): nosniff, X-Frame-Options, etc.
  * ------------------------------------------------------------------ */
@@ -289,7 +294,7 @@ const SELECT_ENTRADA = `
          e.titular_nombre, e.titular_dni, e.titular_correo,
          e.estado, e.precio, e.motivo_anulacion,
          e.qr_ultimo_token, e.qr_anterior_token, e.qr_expira_en, e.qr_generado_en,
-         e.creado_en, e.transferida_en, e.usada_en, e.anulado_en,
+         e.creado_en, e.transferida_en, e.usada_en, e.anulada_en,
          t.nombre AS titular_anterior, t.dni AS dni_anterior
     FROM entradas e
     JOIN eventos ev ON ev.id = e.evento_id
@@ -333,6 +338,19 @@ function generarToken(codigo) {
     firma: firma.slice(0, 32),
     expiraEn: expira
   };
+}
+
+/**
+ * Código de operación de una transferencia: 'TRF-' + 8 caracteres (12 en
+ * total, CHAR(12)). Es obligatorio en transferencias.codigo_operacion
+ * (NOT NULL sin valor por defecto), igual que precio_original.
+ */
+function generarCodigoOperacion() {
+  const alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = crypto.randomBytes(8);
+  let salida = '';
+  for (const b of bytes) salida += alfabeto[b % alfabeto.length];
+  return `TRF-${salida}`;
 }
 
 /** Extrae el token de un payload `JSP|CODIGO|NONCE|HORA` o de un token directo */
@@ -622,12 +640,25 @@ app.post('/api/entradas/:codigo/transferir', limiteEscritura, ruta(async (req, r
   const dniAnterior = fila.titular_dni;
   const tokenAnterior = fila.qr_ultimo_token;
 
+  // Ids de la entrada y del titular ACTUAL: se leen antes de cambiar la
+  // titularidad, porque el registro de transferencia los necesita (si se
+  // leyeran después, "titular_anterior_id" apuntaría al nuevo dueño).
+  const [ids] = await pool.execute(
+    'SELECT id, titular_id FROM entradas WHERE codigo = ? LIMIT 1', [codigo]);
+  const entradaId = ids.length ? ids[0].id : null;
+  const titularAnteriorId = ids.length ? ids[0].titular_id : null;
+  if (!entradaId) return fallo(res, 404, 'La entrada no existe en el sistema.');
+
   // Usuario destino (se crea si no existe, para no romper la FK)
   const [usr] = await pool.execute(
     `INSERT INTO usuarios (nombre, dni, correo) VALUES (?, ?, ?)
      ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), correo = VALUES(correo)`,
     [v.nombre, v.dni, v.correo]);
-  const usuarioNuevoId = usr.insertId || null;
+  // insertId viene en 0 cuando el DNI ya existía (se actualizó la fila), así
+  // que en ese caso se busca el id. Esto era "const" y provocaba un
+  // "Assignment to constant variable" (500) en toda transferencia hacia un
+  // usuario ya registrado.
+  let usuarioNuevoId = usr.insertId || null;
   if (!usuarioNuevoId) {
     const [found] = await pool.execute('SELECT id FROM usuarios WHERE dni = ?', [v.dni]);
     usuarioNuevoId = found.length ? found[0].id : null;
@@ -649,14 +680,19 @@ app.post('/api/entradas/:codigo/transferir', limiteEscritura, ruta(async (req, r
       WHERE codigo = ?`,
     [usuarioNuevoId, v.nombre, v.dni, v.correo, codigo]);
 
-  // Registro de la transferencia
+  // Registro de la transferencia. "precio_original" y "codigo_operacion" son
+  // NOT NULL sin valor por defecto: sin enviarlos el INSERT fallaba con
+  // "Field 'precio_original' doesn't have a default value" y la
+  // transferencia devolvía 500.
   await pool.execute(
     `INSERT INTO transferencias
        (entrada_id, titular_anterior_id, titular_anterior_nombre, titular_anterior_dni,
-        titular_nuevo_id, titular_nuevo_nombre, titular_nuevo_dni, titular_nuevo_correo, precio)
-     SELECT id, titular_id, ?, ?, ?, ?, ?, ?, ?
-       FROM entradas WHERE codigo = ?`,
-    [titularAnterior, dniAnterior, usuarioNuevoId, v.nombre, v.dni, v.correo, v.precio, codigo]);
+        titular_nuevo_id, titular_nuevo_nombre, titular_nuevo_dni, titular_nuevo_correo,
+        precio, precio_original, codigo_operacion)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [entradaId, titularAnteriorId, titularAnterior, dniAnterior,
+     usuarioNuevoId, v.nombre, v.dni, v.correo,
+     v.precio, Number(fila.precio), generarCodigoOperacion()]);
 
   await registrar(codigo, 'transferida', v.nombre,
     `${titularAnterior} → ${v.nombre} · S/ ${v.precio.toFixed(2)}`, 'transferido');

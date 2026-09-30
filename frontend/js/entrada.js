@@ -211,13 +211,20 @@
           pintarDatos(entrada);
         }
       }
-      if (!payload) {
+      if (!payload && entrada.qrToken) {
         payload = SecurePassAPI.construirPayload(entrada.codigo, entrada.qrToken);
       }
 
-      pintarToken(entrada, payload);
-      pintarQR(payload, false);
-      iniciarContador();
+      if (payload) {
+        pintarToken(entrada, payload);
+        pintarQR(payload, false);
+        iniciarContador();
+      } else if (typeof JSP !== 'undefined' && JSP.toast) {
+        // El servidor no quiso emitir el QR (entrada ajena, usada, error…):
+        // no se dibuja un QR falso, se explica el motivo.
+        JSP.toast('error', 'QR no disponible',
+          'El servidor no pudo emitir el QR de esta entrada.');
+      }
     }
 
     document.addEventListener('click', function (ev) {
@@ -249,6 +256,9 @@
         pintarToken(entrada, r.payload);
         pintarQR(r.payload, true);
         JSP.toast('ok', 'QR regenerado', `El token ${r.tokenAnterior || 'anterior'} quedó invalidado.`);
+      } else {
+        JSP.toast('error', 'No se pudo regenerar',
+          'El servidor no emitió un token nuevo; sigue viendo el QR anterior.');
       }
       restante = SEGUNDOS;
       finCiclo = Date.now() + SEGUNDOS * 1000;

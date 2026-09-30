@@ -320,7 +320,15 @@
     const usada = ev.target.closest('#btn-marcar-usada');
     if (usada) {
       usada.disabled = true;
-      SecurePassAPI.marcarUsada(input.value.trim().toUpperCase()).then(function () {
+      SecurePassAPI.marcarUsada(input.value.trim().toUpperCase()).then(function (entrada) {
+        if (!entrada) {
+          // El servidor rechazó la operación (o la entrada no estaba en
+          // estado válido): no se anuncia un ingreso que no ocurrió.
+          JSP.toast('error', 'No se pudo registrar el ingreso',
+            'El servidor no cambió el estado de la entrada. Revisa el motivo e inténtalo de nuevo.');
+          usada.disabled = false;
+          return;
+        }
         JSP.toast('ok', 'Ingreso simulado', 'La entrada pasó a estado “Usado / Ingresado”.');
         consultar(input.value, { silencioso: true });
         cargarBase();
