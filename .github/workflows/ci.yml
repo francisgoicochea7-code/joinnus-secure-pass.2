@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pruebas:
+    name: Pruebas y configuracion Docker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v4
+
+      - name: Instalar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: QR selftest + verificacion de las 7 paginas
+        run: npm test
+
+      - name: La configuracion de Docker es valida
+        env:
+          # QR_SECRET es obligatorio en .env; en CI se usa uno de prueba.
+          QR_SECRET: secreto-de-prueba-para-el-ci-0123456789abcdef
+        run: docker compose config -q
+
+      - name: Las imagenes compilan
+        env:
+          QR_SECRET: secreto-de-prueba-para-el-ci-0123456789abcdef
+        run: docker compose build

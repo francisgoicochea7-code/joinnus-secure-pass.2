@@ -221,6 +221,21 @@
   /* ------------------------------------------------------------------ */
   /* Modal: paso 1 — formulario                                          */
   /* ------------------------------------------------------------------ */
+
+  /** Marca el indicador "1 · Datos → 2 · Confirmar → 3 · Listo" del modal. */
+  function marcarPaso(paso) {
+    const lista = $('pasos-transferencia');
+    if (!lista || typeof lista.querySelectorAll !== 'function') return;
+    const orden = ['formulario', 'confirmacion', 'resultado'];
+    const activo = Math.max(0, orden.indexOf(paso));
+    const items = lista.querySelectorAll('li');
+    for (let i = 0; i < items.length; i++) {
+      items[i].classList.remove('activo', 'hecho');
+      if (i < activo) items[i].classList.add('hecho');
+      else if (i === activo) items[i].classList.add('activo');
+    }
+  }
+
   function abrirFormulario() {
     // El paso 2 (datos del nuevo titular) sólo se abre si el titular actual
     // confirmó su DNI en el paso anterior.
@@ -282,6 +297,7 @@
     $('paso-confirmacion').classList.remove('hide');
     $('acciones-formulario').classList.add('hide');
     $('acciones-confirmacion').classList.remove('hide');
+    marcarPaso('confirmacion');
     $('modal-sub').textContent = 'Revisa los datos y confirma.';
     $('btn-confirmar').focus();
   }
@@ -297,6 +313,7 @@
     $('r-estado').innerHTML = JSP.estadoBadge('transferido');
     $('r-token-anterior').textContent = res.tokenAnterior || '—';
     $('r-token-nuevo').textContent = res.tokenNuevo;
+    marcarPaso('resultado');
 
     $('paso-confirmacion').classList.add('hide');
     $('paso-resultado').classList.remove('hide');
@@ -326,6 +343,7 @@
       $('paso-formulario').classList.remove('hide');
       $('acciones-formulario').classList.remove('hide');
       $('acciones-confirmacion').classList.add('hide');
+      marcarPaso('formulario');
       if (resultado.campos) {
         Object.keys(resultado.campos).forEach(function (campo) {
           marcarError('nuevo-' + campo, resultado.campos[campo]);
@@ -401,6 +419,74 @@
     });
   }
 
+  /* Chips de precio: original · S/ 100 · personalizado                  */
+  const chipsPrecio = $('chips-precio');
+  if (chipsPrecio && typeof chipsPrecio.querySelectorAll === 'function') {
+    const chips = chipsPrecio.querySelectorAll('.chip');
+    for (let i = 0; i < chips.length; i++) {
+      chips[i].addEventListener('click', function () {
+        const campo = $('nuevo-precio');
+        if (!campo) return;
+        const valor = this.getAttribute('data-precio');
+        if (valor === 'original') {
+          campo.value = entrada
+            ? String(entrada.precioOriginal != null ? entrada.precioOriginal : entrada.precio)
+            : '';
+        } else if (valor === '') {
+          campo.value = '';
+          campo.focus();
+        } else {
+          campo.value = valor;
+        }
+        campo.dispatchEvent(new Event('input', { bubbles: true }));
+        revisarCampo('nuevo-precio');
+        for (let j = 0; j < chips.length; j++) chips[j].classList.remove('activo');
+        this.classList.add('activo');
+      });
+    }
+  }
+
+  /* Copiar el código del QR nuevo (paso 3)                             */
+  function copiarAntiguo(texto, alTerminar) {
+    try {
+      const aux = document.createElement('textarea');
+      aux.value = texto;
+      aux.setAttribute('readonly', '');
+      aux.style.position = 'fixed';
+      aux.style.opacity = '0';
+      document.body.appendChild(aux);
+      aux.select();
+      document.execCommand('copy');
+      document.body.removeChild(aux);
+      alTerminar();
+    } catch (e) {
+      JSP.toast('error', 'No se pudo copiar', 'Copia el código manualmente.');
+    }
+  }
+
+  const btnCopiar = $('btn-copiar-qr');
+  if (btnCopiar) {
+    const ICONO_OK = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6 12-12-1.4-1.4-10.6 10.6Z"/></svg>';
+    const ICONO_COPIAR = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg>';
+
+    const alCopiar = function () {
+      btnCopiar.innerHTML = ICONO_OK + ' Código copiado';
+      JSP.toast('ok', 'Código copiado', 'Pégalo donde lo necesites.');
+      setTimeout(function () { btnCopiar.innerHTML = ICONO_COPIAR + ' Copiar código'; }, 2500);
+    };
+
+    btnCopiar.addEventListener('click', function () {
+      const destino = $('r-token-nuevo');
+      const texto = destino ? String(destino.textContent || '').trim() : '';
+      if (!texto || texto === '—') return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(texto).then(alCopiar).catch(function () { copiarAntiguo(texto, alCopiar); });
+      } else {
+        copiarAntiguo(texto, alCopiar);
+      }
+    });
+  }
+
   $('form-transferencia')?.addEventListener('submit', function (ev) {
     ev.preventDefault();
     mostrarConfirmacion();
@@ -414,6 +500,7 @@
     $('paso-formulario').classList.remove('hide');
     $('acciones-confirmacion').classList.add('hide');
     $('acciones-formulario').classList.remove('hide');
+    marcarPaso('formulario');
     $('modal-sub').textContent = 'Completa los datos del nuevo titular.';
   });
 

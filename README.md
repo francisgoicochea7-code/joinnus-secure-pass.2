@@ -22,9 +22,12 @@ Joinnus.
 # 1) Entrar en la carpeta del proyecto
 cd joinnus-secure-pass
 
-# 2) (Opcional) Copiar la configuración de entorno y ajustarla
+# 2) Crear el archivo de entorno (OBLIGATORIO: guarda el QR_SECRET)
 copy .env.example .env        # Windows
 cp .env.example .env          # Linux / macOS
+#    Edita .env y pon tu propia clave de firma QR (mínimo 16 caracteres).
+#    Si no existe, docker compose no arranca a propósito:
+#    node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 # 3) Levantar los tres contenedores
 docker compose up --build     # Docker actual (Compose v2)
@@ -130,13 +133,14 @@ joinnus-secure-pass/
 │   │   ├── verificar.js          Lógica del verificador
 │   │   ├── entrada.js            Ciclo de rotación del QR
 │   │   ├── transferencia.js      Validación y flujo de transferencia
-│   │   └── historial.js          Línea de tiempo y exportación CSV
+│   │   ├── historial.js          Línea de tiempo y exportación CSV
+│   │   └── sesion.js             Sesión de identificación por DNI
 │   ├── assets/                   favicon.svg · logo.svg
 │   └── nginx.conf                Servidor estático + proxy /api
 │
 ├── backend/                      CONTENEDOR 2  (Node.js + Express)
-│   ├── index.js                  API REST completa
-│   ├── package.json              Dependencias (express, mysql2, cors, dotenv)
+│   ├── index.js                  API REST completa (helmet, CORS y límites)
+│   ├── package.json              Dependencias (express, mysql2, cors, helmet…)
 │   ├── Dockerfile                Imagen del servidor
 │   └── .dockerignore
 │
@@ -145,11 +149,16 @@ joinnus-secure-pass/
 │
 ├── Dockerfile                    Build del frontend (contexto raíz)
 ├── docker-compose.yml            Orquestación de los 3 servicios
-├── .env.example                  Configuración de entorno
+├── .env.example                  Plantilla de configuración de entorno
+├── .env                          Tus valores reales (no se sube a git)
+├── .gitignore                    Qué ignora git (.env, node_modules…)
 ├── .dockerignore
 │
 ├── server.js                     Servidor estático local (sin Docker)
 ├── package.json                  Scripts de desarrollo y pruebas
+│
+├── .github/workflows/ci.yml      CI: npm test + docker compose config/build
+│
 ├── test/                         Pruebas automáticas del prototipo
 │   ├── qr-selftest.js            Verificación del generador de QR
 │   ├── verificacion.js           Pruebas funcionales de todas las páginas
@@ -247,8 +256,10 @@ Se definen en `.env` (copia de `.env.example`):
 | `MYSQL_PORT` | `3307` | Puerto de MySQL en tu equipo |
 | `DB_NAME` / `DB_USER` / `DB_PASSWORD` | `joinnus_secure_pass` / `joinnus` / `joinnus_pass` | Credenciales de MySQL |
 | `MYSQL_ROOT_PASSWORD` | `root_pass_demo` | Contraseña root de MySQL |
-| `QR_SECRET` | *(demo)* | **Clave de firma HMAC-SHA256 de los tokens QR** |
+| `QR_SECRET` | *(ninguno, es obligatorio)* | **Clave de firma HMAC-SHA256 de los tokens QR. Sin ella el backend no arranca** |
 | `QR_TTL_SECONDS` | `15` | Vigencia de cada token (y ritmo de rotación del QR) |
+| `CORS_ORIGINS` | `http://localhost:8080,http://127.0.0.1:8080` | Orígenes con permiso para llamar a la API (amplíalos si la demo va en red local) |
+| `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_QR` / `RATE_LIMIT_VALIDAR` / `RATE_LIMIT_ESCRITURA` | `60000` / `30` / `60` / `20` | Ventana en ms y máximo de peticiones: generar QR, validar token y operaciones de escritura |
 | `DEMO_DNI` | `45678945` | DNI del usuario de la sesión (“Mis entradas”) |
 | `TZ` | `America/Lima` | Zona horaria de los contenedores |
 
@@ -273,14 +284,35 @@ Por eso una captura de pantalla deja de funcionar en pocos segundos.
 
 ### Transferencia segura
 
-1. El formulario valida **en el cliente**: nombre completo, DNI de exactamente
+La transferencia ocurre en **dos pasos**, para que siempre se sepa quién
+transfiere y a quién:
+
+1. **Paso 1 · Quién transfiere** — se elige la entrada en el desplegable y se
+   escribe el DNI del titular actual. Mientras ese DNI no coincida con el
+   titular real de la entrada, el botón **Transferir entrada** permanece
+   bloqueado y aparece *“El DNI no coincide con el titular de la entrada”*.
+2. **Paso 2 · A quién** — sólo entonces se abre el formulario del nuevo
+   titular, que valida en el cliente nombre completo, DNI de exactamente
    8 dígitos, correo válido y precio que no supere el original.
-2. Si el precio es mayor, aparece 🔴 *“El precio de transferencia supera el
+3. Si el precio es mayor, aparece 🔴 *“El precio de transferencia supera el
    límite permitido”* y no se puede continuar.
-3. El servidor **vuelve a validar todo** (nunca confía en el navegador) y
+4. El servidor **vuelve a validar todo** (nunca confía en el navegador) y
    ejecuta la transferencia en una transacción: cambia el titular, invalida
    los tokens anteriores, genera uno nuevo y escribe en `transferencias` e
    `historial`.
+
+### Seguridad aplicada
+
+- **Firma HMAC-SHA256 con `QR_SECRET`**: la clave vive en `.env` (fuera del
+  repositorio, ignorada por `.gitignore`) y el backend no arranca sin ella.
+- **Limitador de peticiones** (`express-rate-limit`): 30 generaciones de QR,
+  60 validaciones y 20 operaciones de escritura por minuto, para que nadie
+  pueda martillear los endpoints.
+- **CORS restringido**: sólo el frontend propio y las redes privadas de la
+  sala (ampliable con `CORS_ORIGINS`) pueden llamar a la API.
+- **Helmet** añade las cabeceras de seguridad estándar (nosniff,
+  X-Frame-Options, etc.).
+- **Validación en dos capas**: cliente y servidor, sin confiar en el navegador.
 
 ---
 
@@ -329,10 +361,12 @@ http://192.168.1.25:8080
    Probar **“Simular escaneo QR”**.
 4. **Mi entrada** — señalar el contador de 15 s y cómo el token y la imagen
    cambian. Pulsar **“Validar token en el servidor”**.
-5. **Transferir entrada** — Introduce un precio de `S/ 150` para mostrar el
-   bloqueo; luego `S/ 100` y completa la transferencia. Mostrar que el QR
-   anterior queda invalidado.
-6. **Historial** — la línea de tiempo ya refleja la transferencia y el nuevo QR.
+5. **Transferir entrada** — primero elegir la entrada y escribir el DNI del
+   titular actual (`45678945`): el botón sigue bloqueado si no coincide.
+   En el formulario, `S/ 150` muestra el bloqueo; luego `S/ 100` y completa la
+   transferencia. Señalar que el QR anterior queda invalidado.
+6. **Historial** — buscar `ENTRY001` en el desplegable: la línea de tiempo ya
+   refleja la transferencia y el nuevo QR.
 7. **Sobre el proyecto** — explicar qué es real y qué está simulado.
 
 ### Si algo falla durante la demo
@@ -431,6 +465,15 @@ npm run test:app      # solo los flujos de la aplicación
   QR, las validaciones del formulario de transferencia, el historial, la
   persistencia y la integración con la API de Docker mediante un `fetch`
   simulado.
+
+### Integración continua (GitHub Actions)
+
+`.github/workflows/ci.yml` corre en cada *push* y *pull request*:
+
+1. `npm test` — QR selftest + verificación de las 7 páginas.
+2. `docker compose config -q` — falla si la configuración es inválida o si
+   falta `QR_SECRET`.
+3. `docker compose build` — comprueba que las imágenes compilan.
 
 ---
 

@@ -95,15 +95,15 @@
           </div>
         </div>
 
-        <!-- ---------------- Reglas ---------------- -->
+        <!-- ---------------- Reglas (plegables: la página no queda tan larga) ---------------- -->
         <div class="stack">
-          <div class="card">
-            <div class="card-title">
+          <details class="card">
+            <summary class="card-title">
               <span class="icon-box ok">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1 3 5v6c0 5.6 3.8 10.7 9 12 5.2-1.3 9-6.4 9-12V5l-9-4Zm0 2.2 7 3.1V11c0 4.7-3 9-7 10.2C8 20 5 15.7 5 11V6.3l7-3.1Z"/></svg>
               </span>
               <h3>Reglas de transferencia</h3>
-            </div>
+            </summary>
             <ul class="small" style="color:var(--text-soft);display:flex;flex-direction:column;gap:.6rem;padding-left:1.1rem">
               <li>El DNI del nuevo titular debe tener <strong>exactamente 8 números</strong>.</li>
               <li>El correo debe tener un <strong>formato válido</strong> para recibir la confirmación.</li>
@@ -111,30 +111,30 @@
               <li>Al transferir, el <strong>QR anterior se invalida</strong> y se genera uno nuevo.</li>
               <li>Todo queda registrado en el <strong>historial de trazabilidad</strong>.</li>
             </ul>
-          </div>
+          </details>
 
-          <div class="card">
-            <div class="card-title">
+          <details class="card">
+            <summary class="card-title">
               <span class="icon-box warn">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg>
               </span>
               <h3>¿Qué pasa con el QR?</h3>
-            </div>
+            </summary>
             <p class="small mb-0">En el momento de confirmar la transferencia, el sistema <strong>invalida el token vigente</strong> y emite uno nuevo asociado al nuevo titular. Cualquier captura anterior deja de ser válida.</p>
-          </div>
+          </details>
 
-          <div class="card">
-            <div class="card-title">
+          <details class="card">
+            <summary class="card-title">
               <span class="icon-box info">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 0 0-8.5 6H1l3.5 3.5L8 9H5.6A7 7 0 1 1 6 15H4a9 9 0 1 0 9-12v0Zm-1 5v5l4.2 2.5.7-1.2-3.4-2V8H12Z"/></svg>
               </span>
               <h3>Últimas transferencias</h3>
-            </div>
+            </summary>
             <div id="ultimas-transferencias" class="stack">
               <div class="skeleton" style="height:40px"></div>
               <div class="skeleton" style="height:40px"></div>
             </div>
-          </div>
+          </details>
         </div>
       </div>
 
@@ -149,6 +149,11 @@
       <div>
         <h3>Transferir entrada</h3>
         <p id="modal-sub">Completa los datos del nuevo titular.</p>
+        <ol class="pasos" id="pasos-transferencia" aria-label="Pasos de la transferencia">
+          <li class="paso activo" data-paso="formulario">1 · Datos</li>
+          <li class="paso" data-paso="confirmacion">2 · Confirmar</li>
+          <li class="paso" data-paso="resultado">3 · Listo</li>
+        </ol>
       </div>
       <button class="modal-close" data-modal-close="modal-transferencia" aria-label="Cerrar">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7l1.4-1.4L10.6 10.6l6.3-6.3 1.4 1.4-2.1 2.1 2.1 2.1Z"/></svg>
@@ -191,6 +196,11 @@
                 <input class="input" type="number" id="nuevo-precio" placeholder="0.00" min="0" step="0.01">
               </div>
               <div class="help">Precio original: <strong id="precio-original">—</strong></div>
+              <div class="chips" id="chips-precio">
+                <button class="chip" type="button" data-precio="original">Precio original</button>
+                <button class="chip" type="button" data-precio="100">S/ 100</button>
+                <button class="chip" type="button" data-precio="">Personalizado</button>
+              </div>
               <div class="error-msg" id="error-precio">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg><span></span>
               </div>
@@ -248,6 +258,10 @@
         <div class="kv"><span class="k">Estado</span><span class="v" id="r-estado">—</span></div>
         <div class="kv"><span class="k">QR anterior (invalidado)</span><span class="v mono tiny" id="r-token-anterior">—</span></div>
         <div class="kv"><span class="k">QR nuevo generado</span><span class="v mono tiny" id="r-token-nuevo">—</span></div>
+        <button class="btn btn-ghost" type="button" id="btn-copiar-qr" style="margin-top:1rem">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg>
+          Copiar código
+        </button>
       </div>
     </div>
 
@@ -261,7 +275,7 @@
       </div>
 
       <div id="acciones-confirmacion" class="row hide" style="flex:1;justify-content:flex-end">
-        <button class="btn btn-ghost" id="btn-cancelar-transferencia">Cancelar</button>
+        <button class="btn btn-ghost" id="btn-cancelar-transferencia">← Volver a editar</button>
         <button class="btn btn-ok" id="btn-confirmar">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6 12-12-1.4-1.4-10.6 10.6Z"/></svg>
           Confirmar transferencia

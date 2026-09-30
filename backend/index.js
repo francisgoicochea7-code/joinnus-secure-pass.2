@@ -26,18 +26,83 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const { rateLimit } = require('express-rate-limit');
 const mysql = require('mysql2/promise');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
 const app = express();
-app.use(cors());
+
+/* ---------------------------------------------------------------------
+ * Cabeceras de seguridad (helmet): nosniff, X-Frame-Options, etc.
+ * ------------------------------------------------------------------ */
+app.use(helmet());
+
+/* ---------------------------------------------------------------------
+ * CORS: s\u00f3lo respondemos a los origenes declarados. Ademas del
+ * frontend propio (nginx en :8080) se admiten las redes privadas, para
+ * poder proyectar la demo desde otro equipo de la sala. Se amplia con
+ * CORS_ORIGINS en .env (ver .env.example).
+ * ------------------------------------------------------------------ */
+const ORIGENES = new Set(
+  String(process.env.CORS_ORIGINS || 'http://localhost:8080,http://127.0.0.1:8080')
+    .split(',').map(o => o.trim()).filter(Boolean)
+);
+
+function esRedPrivada(host) {
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1' ||
+    /^192\.168\.\d{1,3}\.\d{1,3}$/.test(host) ||
+    /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(host);
+}
+
+app.use(cors({
+  origin: (origen, cb) => {
+    if (!origen) return cb(null, true);            // mismo origen, curl o Postman
+    let url;
+    try { url = new URL(origen); } catch (e) { return cb(null, false); }
+    cb(null, ORIGENES.has(origen) || esRedPrivada(url.hostname));
+  }
+}));
+
 app.use(express.json({ limit: '128kb' }));
+
+/* ---------------------------------------------------------------------
+ * Limitador de peticiones: nadie puede martillear la generacion ni la
+ * validacion de QR. Los topes se ajustan con RATE_LIMIT_* (.env.example).
+ * ------------------------------------------------------------------ */
+function limitador(cantidad, mensaje) {
+  return rateLimit({
+    windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 60000),
+    limit: cantidad,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { ok: false, error: mensaje }
+  });
+}
+
+const limiteQR = limitador(Number(process.env.RATE_LIMIT_QR || 30),
+  'Demasiadas peticiones de QR: espera un minuto y vuelve a intentarlo.');
+const limiteValidar = limitador(Number(process.env.RATE_LIMIT_VALIDAR || 60),
+  'Demasiadas validaciones: espera un minuto y vuelve a intentarlo.');
+const limiteEscritura = limitador(Number(process.env.RATE_LIMIT_ESCRITURA || 20),
+  'Demasiadas operaciones: espera un minuto y vuelve a intentarlo.');
 
 /* ---------------------------------------------------------------------
  * 1. Configuracion (variables de entorno)
  * ------------------------------------------------------------------- */
+/* El secreto de firma QR es OBLIGATORIO y no tiene valor por defecto en el
+ * repositorio (para que no se publique). Se define en .env —copia
+ * .env.example— y docker-compose se lo pasa al contenedor. */
+const QR_SECRET = String(process.env.QR_SECRET || '').trim();
+if (QR_SECRET.length < 16) {
+  console.error('[CFG] QR_SECRET ausente o demasiado corto (minimo 16 caracteres).');
+  console.error('[CFG] Copia .env.example a .env y pon ahi tu propia clave de firma.');
+  process.exit(1);
+}
+
 const CFG = {
   port: Number(process.env.PORT || 3000),
   db: {
@@ -47,8 +112,8 @@ const CFG = {
     password: process.env.DB_PASSWORD || 'joinnus_pass',
     database: process.env.DB_NAME || 'joinnus_secure_pass'
   },
-  /* Secreto de firma de los tokens QR */
-  qrSecret: process.env.QR_SECRET || 'joinnus-secure-pass-clave-de-demostracion',
+  /* Secreto de firma de los tokens QR (obligatorio, ver arriba) */
+  qrSecret: QR_SECRET,
   /* Vigencia de cada token dinamico, en segundos */
   qrTtl: Number(process.env.QR_TTL_SECONDS || 15),
   /* DNI del usuario de la sesion demo (para "Mis entradas") */
@@ -411,7 +476,7 @@ app.get('/api/verificar/:codigo', ruta(async (req, res) => {
 }));
 
 /** GENERAR token del QR dinamico (invalida el anterior) */
-app.post('/api/entradas/:codigo/qr', ruta(async (req, res) => {
+app.post('/api/entradas/:codigo/qr', limiteQR, ruta(async (req, res) => {
   const codigo = String(req.params.codigo).toUpperCase();
   const registrarEnHistorial = String(req.query.log ?? '1') !== '0';
 
@@ -464,7 +529,7 @@ app.post('/api/entradas/:codigo/qr', ruta(async (req, res) => {
 }));
 
 /** VALIDAR token (lo que haria el lector fisico del evento) */
-app.post('/api/qr/validar', ruta(async (req, res) => {
+app.post('/api/qr/validar', limiteValidar, ruta(async (req, res) => {
   const recibido = req.body && (req.body.token || req.body.payload);
   const token = extraerToken(recibido);
   if (!token) return fallo(res, 400, 'Token de QR con formato inválido.');
@@ -516,7 +581,7 @@ app.post('/api/qr/validar', ruta(async (req, res) => {
 }));
 
 /** TRANSFERIR entrada */
-app.post('/api/entradas/:codigo/transferir', ruta(async (req, res) => {
+app.post('/api/entradas/:codigo/transferir', limiteEscritura, ruta(async (req, res) => {
   const codigo = String(req.params.codigo).toUpperCase();
   const datos = req.body || {};
 
@@ -664,7 +729,7 @@ app.get('/api/entradas/:codigo/historial', ruta(async (req, res) => {
 }));
 
 /** Marcar una entrada como usada o anulada (simula el control de acceso) */
-app.post('/api/entradas/:codigo/estado/:estado', ruta(async (req, res) => {
+app.post('/api/entradas/:codigo/estado/:estado', limiteEscritura, ruta(async (req, res) => {
   const codigo = String(req.params.codigo).toUpperCase();
   const estado = String(req.params.estado).toLowerCase();
   if (!['usado', 'anulado', 'valido'].includes(estado)) {
@@ -691,7 +756,7 @@ app.post('/api/entradas/:codigo/estado/:estado', ruta(async (req, res) => {
 }));
 
 /** Reinicia los datos ficticios de la demo */
-app.post('/api/demo/reiniciar', ruta(async (req, res) => {
+app.post('/api/demo/reiniciar', limiteEscritura, ruta(async (req, res) => {
   // El mismo archivo que usa MySQL al arrancar (fuente unica de verdad).
   // docker-compose.yml lo monta en /app/seed.sql
   const rutas = [

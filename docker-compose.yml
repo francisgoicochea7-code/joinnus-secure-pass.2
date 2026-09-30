@@ -61,8 +61,9 @@ services:
       DB_NAME: ${DB_NAME:-joinnus_secure_pass}
       DB_USER: ${DB_USER:-joinnus}
       DB_PASSWORD: ${DB_PASSWORD:-joinnus_pass}
-      # Secreto de firma de los tokens QR (cambiarlo en produccion)
-      QR_SECRET: ${QR_SECRET:-joinnus-secure-pass-clave-de-demostracion}
+      # Secreto de firma de los tokens QR: OBLIGATORIO (no hay valor por
+      # defecto). Se define en el archivo .env de la raiz del proyecto.
+      QR_SECRET: "${QR_SECRET:?Falta QR_SECRET - copia .env.example a .env y define tu clave}"
       # Vigencia de cada token dinamico, en segundos
       QR_TTL_SECONDS: ${QR_TTL_SECONDS:-15}
       # DNI del usuario de la sesion demo ("Mis entradas")
