@@ -43,7 +43,9 @@
     if (window.JSP && typeof JSP.toast === 'function') JSP.toast(tipo, titulo, texto);
   }
 
-  function recargar() { window.location.reload(); }
+  function recargar() {
+    if (window.location && typeof window.location.reload === 'function') window.location.reload();
+  }
 
   /* ---------------------------------------------------------------------
    * Errores de campo dentro del modal

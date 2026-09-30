@@ -655,6 +655,59 @@ async function pruebasPaginas() {
 }
 
 /* ===================================================================== */
+/* 4b. Propiedad de la entrada: QR propio vs ajeno                       */
+/* =================================================================== */
+async function pruebasPropiedad() {
+  grupo('4b. QR propio vs ajeno (pildora de identificacion y aviso)');
+
+  const ctx = crearContexto();
+  cargarJs(ctx, 'frontend/js/qr.js');
+  cargarJs(ctx, 'frontend/js/cliente-api.js');
+  cargarJs(ctx, 'frontend/js/api.js');
+  cargarPagina(ctx, 'frontend/entrada.html',
+    ['frontend/js/app.js', 'frontend/js/sesion.js', 'frontend/js/identificacion.js',
+     'frontend/js/entrada.js']);
+
+  const doc = ctx.document;
+  const esperar = async (fn, ms = 6000) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) { if (fn()) return true; await dormir(100); }
+    return false;
+  };
+
+  // a) La pildora de identificacion esta en la pagina
+  ok(!!doc.getElementById('pildora-usuario'), 'No se monto la pildora de identificacion');
+  ok(!!doc.getElementById('pildora-btn'), 'La pildora no tiene boton');
+  ok(!!doc.getElementById('modal-identificacion'), 'No existe el modal de identificacion');
+
+  // b) Entrada propia (sesion de demostracion = Carlos): se ve el QR
+  const listo = await esperar(() => doc.getElementById('t-token').textContent &&
+    doc.getElementById('t-token').textContent !== '—');
+  ok(listo, 'La entrada propia no genero su QR');
+  ok(doc.getElementById('aviso-no-mia').classList.contains('hide'),
+    'La entrada propia no debe mostrar el aviso de entrada ajena');
+  ok(!doc.getElementById('ticket-qr').classList.contains('hide'),
+    'La entrada propia debe mostrar el QR');
+
+  // c) Entrada ajena (ENTRY002, de Andrea): aviso y sin QR
+  ctx.sandbox.location.search = '?codigo=ENTRY002';
+  cargarJs(ctx, 'frontend/js/entrada.js');
+  await esperar(() => doc.getElementById('t-codigo').textContent === 'ENTRY002');
+  await dormir(300);
+
+  ok(!doc.getElementById('aviso-no-mia').classList.contains('hide'),
+    'La entrada ajena debe mostrar el aviso "pertenece a otra persona"');
+  ok(doc.getElementById('aviso-no-mia-titular').textContent === 'Andrea Torres',
+    'El aviso no indica el titular real: ' + doc.getElementById('aviso-no-mia-titular').textContent);
+  ok(doc.getElementById('ticket-qr').classList.contains('hide'),
+    'La entrada ajena no debe mostrar el QR');
+  ok(doc.getElementById('panel-token-card').classList.contains('hide'),
+    'La entrada ajena no debe mostrar el panel de token');
+  ok(doc.getElementById('btn-regenerar').disabled === true,
+    'Regenerar el QR de una entrada ajena debe quedar deshabilitado');
+}
+
+/* ===================================================================== */
 /* 6. Modo API (Docker): el cliente HTTP contra un fetch simulado        */
 /* =================================================================== */
 async function pruebasModoApi() {
@@ -784,6 +837,7 @@ async function pruebasModoApi() {
   pruebasEstaticas();
   await pruebasApi();
   await pruebasPaginas();
+  await pruebasPropiedad();
   await pruebasModoApi();
 
   console.log('\n------------------------------------------------------------');
