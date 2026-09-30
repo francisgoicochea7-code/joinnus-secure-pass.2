@@ -39,7 +39,17 @@
       return;
     }
 
-    const puede = entrada.puedeTransferir;
+    const esMia = entrada.esMia !== false;
+    const puede = entrada.puedeTransferir && esMia;
+
+    const avisoPropiedad = !esMia
+      ? `<div class="alert alert-error">
+             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg>
+             <p>Esta entrada pertenece a <strong>${JSP.escapeHtml(entrada.titular || 'otra persona')}</strong>:
+             sólo su titular puede transferirla. Si eres tú, identifícate con la píldora
+             <strong>Identifícate</strong> de abajo a la izquierda.</p>
+           </div>`
+      : '';
 
     detalle.innerHTML = `
       <div class="row-between" style="margin-bottom:1rem">
@@ -61,15 +71,17 @@
       <div class="kv"><span class="k">Precio máximo permitido</span><span class="v">${JSP.precio(entrada.precioOriginal != null ? entrada.precioOriginal : entrada.precio)}</span></div>
 
       <div class="mt-3">
-        ${puede
-          ? `<button class="btn btn-primary btn-block btn-lg" id="btn-abrir-transferencia">
-               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7Zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4Z"/></svg>
-               Transferir entrada
-             </button>`
-          : `<div class="alert alert-warn">
-               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg>
-               <p>${JSP.escapeHtml(entrada.estadoDetalle.descripcion)} Esta entrada no puede transferirse.</p>
-             </div>`}
+        ${!esMia
+          ? avisoPropiedad
+          : puede
+            ? `<button class="btn btn-primary btn-block btn-lg" id="btn-abrir-transferencia">
+                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7Zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4Z"/></svg>
+                 Transferir entrada
+               </button>`
+            : `<div class="alert alert-warn">
+                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg>
+                 <p>${JSP.escapeHtml(entrada.estadoDetalle.descripcion)} Esta entrada no puede transferirse.</p>
+               </div>`}
       </div>`;
 
     // El paso "¿quién transfiere?" sólo se muestra si la entrada admite

@@ -313,6 +313,10 @@ transfiere y a quién:
 - **Helmet** añade las cabeceras de seguridad estándar (nosniff,
   X-Frame-Options, etc.).
 - **Validación en dos capas**: cliente y servidor, sin confiar en el navegador.
+- **Propiedad de la entrada**: generar un QR o transferir devuelve `403` si el
+  DNI identificado no es el titular de esa entrada; el detalle de una entrada
+  ajena tampoco entrega el token vigente (el estado sigue siendo consultable,
+  como en el verificador de la puerta).
 
 ---
 
@@ -434,8 +438,13 @@ Definidas en `docker-compose.yml` (y personalizables en `.env`):
 
 ### ⚠️ Simulado (pendiente para un sistema productivo)
 
-- Autenticación de usuarios: el usuario de la sesión está fijado por
-  `DEMO_DNI`, no hay login ni contraseñas.
+- Autenticación de usuarios: hay **identificación** (DNI + nombres + apellidos,
+  comprobados contra la base) disponible desde el panel y desde la píldora
+  *Identifícate* que aparece en todas las páginas; el servidor exige además que
+  la entrada sea de esa persona para emitir el QR o transferirla (devuelve
+  `403`). Lo que sigue faltando es la **contraseña**: quien conozca los datos de
+  una persona puede identificarse como ella, y eso es identificación, no
+  autenticación.
 - Lector físico de QR y control de acceso en la puerta del evento.
 - Pagos reales y validación de identidad contra RENIEC.
 - Cifrado en reposo de los datos personales y cifrado TLS (en producción hay

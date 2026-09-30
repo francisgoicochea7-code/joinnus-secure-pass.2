@@ -183,23 +183,42 @@
     await cargarSelector(entrada.codigo);
     JSP.pintarModo();
 
-    // Si la entrada todavía no tiene token, se genera el primero
-    let payload;
-    if (!entrada.qrToken) {
-      const generado = await SecurePassAPI.actualizarQR(entrada.codigo, { silencioso: true });
-      if (generado) {
-        entrada = generado.entrada;
-        payload = generado.payload;
-        pintarDatos(entrada);
-      }
-    }
-    if (!payload) {
-      payload = SecurePassAPI.construirPayload(entrada.codigo, entrada.qrToken);
-    }
+    // Sólo el titular ve y rota su QR: si la entrada no es tuya, el servidor
+    // devuelve 403 y aquí sólo se muestra el aviso con el titular real.
+    const esMia = entrada.esMia !== false;
+    const avisoNoMia = $('aviso-no-mia');
+    const avisoTitular = $('aviso-no-mia-titular');
+    const ticket = $('ticket-qr');
+    const panelToken = $('panel-token-card');
+    const btnRegenerarLocal = $('btn-regenerar');
+    const btnValidarLocal = $('btn-validar-token');
 
-    pintarToken(entrada, payload);
-    pintarQR(payload, false);
-    iniciarContador();
+    if (avisoNoMia) { if (esMia) avisoNoMia.classList.add('hide'); else avisoNoMia.classList.remove('hide'); }
+    if (avisoTitular && !esMia) avisoTitular.textContent = entrada.titular || 'otra persona';
+    if (ticket) { if (esMia) ticket.classList.remove('hide'); else ticket.classList.add('hide'); }
+    if (panelToken) { if (esMia) panelToken.classList.remove('hide'); else panelToken.classList.add('hide'); }
+    if (btnRegenerarLocal) btnRegenerarLocal.disabled = !esMia;
+    if (btnValidarLocal) btnValidarLocal.disabled = !esMia;
+
+    if (esMia) {
+      // Si la entrada todavía no tiene token, se genera el primero
+      let payload;
+      if (!entrada.qrToken) {
+        const generado = await SecurePassAPI.actualizarQR(entrada.codigo, { silencioso: true });
+        if (generado) {
+          entrada = generado.entrada;
+          payload = generado.payload;
+          pintarDatos(entrada);
+        }
+      }
+      if (!payload) {
+        payload = SecurePassAPI.construirPayload(entrada.codigo, entrada.qrToken);
+      }
+
+      pintarToken(entrada, payload);
+      pintarQR(payload, false);
+      iniciarContador();
+    }
 
     document.addEventListener('click', function (ev) {
       const boton = ev.target.closest('[data-ir]');

@@ -310,6 +310,50 @@ details.card[open] > summary.card-title { margin-bottom: .8rem; }
 details.card[open] > summary.card-title::after { transform: rotate(-135deg); }
 details.card > summary.card-title:hover h3 { color: var(--brand); }
 
+/* --- Píldora de identidad (js/identificacion.js) ----------------------- */
+.pildora-usuario {
+  position: fixed;
+  left: 1rem;
+  bottom: 1rem;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+}
+.pildora-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  font: inherit;
+  font-size: .85rem;
+  font-weight: 700;
+  padding: .55rem 1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--text);
+  background: var(--surface-solid);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-sm);
+  transition: border-color .2s ease, transform .2s ease;
+}
+.pildora-btn:hover { border-color: var(--brand); transform: translateY(-1px); }
+.pildora-btn svg { width: 16px; height: 16px; color: var(--brand-2); }
+.pildora-salir {
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 700;
+  padding: .5rem .8rem;
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--text-soft);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: color .2s ease, border-color .2s ease;
+}
+.pildora-salir:hover { color: var(--danger); border-color: var(--danger); }
+#modal-identificacion .modal { width: min(100%, 460px); }
+#identif-alerta span { font-size: .85rem; }
+
 /* --- Chips de precio rápido (formulario de transferencia) -------------- */
 .chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .6rem; }
 .chip {

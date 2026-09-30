@@ -146,10 +146,20 @@ function pruebasEstaticas() {
   // Scripts base cargados en cada pagina
   htmls.forEach(pag => {
     const html = fs.readFileSync(path.join(APP, pag), 'utf8');
-    ['js/qr.js', 'js/cliente-api.js', 'js/api.js', 'js/app.js'].forEach(s => {
+    ['js/qr.js', 'js/cliente-api.js', 'js/api.js', 'js/app.js',
+     'js/sesion.js', 'js/identificacion.js'].forEach(s => {
       ok(html.includes('src="' + s + '"'), pag + ': no carga ' + s);
     });
   });
+
+  // Identificacion multiusuario: pildora en todas las paginas y propiedad
+  // de la entrada exigida por el servidor para emitir el QR.
+  ok(fs.existsSync(path.join(APP, 'js', 'identificacion.js')),
+    'Falta frontend/js/identificacion.js (pildora de identidad)');
+  ok(backend.includes("motivo: 'no-es-tuya'"),
+    'backend/index.js no exige ser el titular para emitir el QR o transferir');
+  ok(backend.includes('qrToken: esMia ?'),
+    'backend entrega el QR vivo de una entrada que no es tuya');
 }
 
 /* ===================================================================== */
@@ -298,6 +308,41 @@ async function pruebasApi() {
   const trasReinicio = await API.consultarEntrada('ENTRY001');
   ok(trasReinicio.titular === NOMBRES.carlos, 'reiniciarDemo no restored los datos originales');
   ok(trasReinicio.estado === 'valido', 'reiniciarDemo no restored el estado original');
+
+  /* ------------------------------------------------------------------
+   * 2b. Identificacion de la persona (js/sesion.js)
+   *     El DNI identificado viaja en X-Usuario-DNI y es con el que el
+   *     servidor decide si el QR y la transferencia son de esa persona.
+   * ---------------------------------------------------------------- */
+  grupo('2b. Identificacion de la persona (js/sesion.js)');
+  const ctxSesion = crearContexto();
+  cargarJs(ctxSesion, 'frontend/js/sesion.js');
+  const S = evaluar(ctxSesion, 'window.Sesion');
+
+  ok(!!S && typeof S.identificar === 'function', 'Sesion.identificar no esta disponible');
+  ok(S.estaIdentificado() === false, 'Sin sesion guardada no hay nadie identificado');
+
+  let resId = await S.identificar('123', 'Carlos', 'Perez');
+  ok(resId.ok === false && resId.campo === 'dni', 'Un DNI de 3 digitos debe rechazarse');
+
+  resId = await S.identificar('45678945', 'Carlos', 'P');
+  ok(resId.ok === false && resId.campo === 'apellidos',
+    'Un apellido de 1 caracter debe rechazarse');
+
+  // Sin API conectada (modo local) solo se reconoce el usuario de demostracion
+  resId = await S.identificar('52311878', 'Andrea', 'Torres');
+  ok(resId.ok === false, 'Sin API no debe identificarse un DNI distinto al de demostracion');
+
+  resId = await S.identificar('45678945', 'Carlos', 'Perez');
+  ok(resId.ok === true,
+    'El usuario de demostracion debe poder identificarse: ' + (resId.mensaje || ''));
+  if (resId.ok) {
+    ok(S.dni() === '45678945', 'La sesion no guardo el DNI identificado');
+    ok(S.cabeceras()['X-Usuario-DNI'] === '45678945',
+      'La cabecera X-Usuario-DNI no lleva el DNI de la sesion');
+  }
+  S.olvidar();
+  ok(S.estaIdentificado() === false, 'Tras olvidar() no debe quedar nadie identificado');
 }
 
 /* ===================================================================== */

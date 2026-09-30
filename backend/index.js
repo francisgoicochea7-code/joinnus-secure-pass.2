@@ -229,6 +229,7 @@ function fechaCorta(valor) {
 function enriquecer(fila, dni) {
   if (!fila) return null;
   const meta = ESTADOS[fila.estado] || ESTADOS.valido;
+  const esMia = fila.titular_dni === (dni || CFG.demoDni);
   return {
     codigo: fila.codigo,
     evento: fila.evento,
@@ -248,8 +249,11 @@ function enriquecer(fila, dni) {
     dniAnteriorOculto: fila.dni_anterior ? ocultarDNI(fila.dni_anterior) : null,
     precioOriginal: Number(fila.precio),
     precio: Number(fila.precio),
-    qrToken: fila.qr_ultimo_token,
-    qrAnterior: fila.qr_anterior_token,
+    // El token vivo sólo lo entrega a su titular. El estado de la entrada es
+    // consultable por cualquiera (eso es lo que mira el verificador de la
+    // puerta), pero el QR en curso no se da de una entrada que no es tuya.
+    qrToken: esMia ? fila.qr_ultimo_token : null,
+    qrAnterior: esMia ? fila.qr_anterior_token : null,
     qrExpiraEn: fila.qr_expira_en,
     qrGeneradoEn: fila.qr_generado_en,
     creadoEn: fila.creado_en,
@@ -479,9 +483,18 @@ app.get('/api/verificar/:codigo', ruta(async (req, res) => {
 app.post('/api/entradas/:codigo/qr', limiteQR, ruta(async (req, res) => {
   const codigo = String(req.params.codigo).toUpperCase();
   const registrarEnHistorial = String(req.query.log ?? '1') !== '0';
+  const dni = dniDePeticion(req);
 
   const fila = await obtenerFila(codigo);
   if (!fila) return fallo(res, 404, `La entrada ${codigo} no existe.`);
+
+  // Sólo el titular puede emitir el QR de su entrada. Sin esta guarda, basta
+  // con saber el código para regenerar el QR de una entrada ajena.
+  if (fila.titular_dni !== dni) {
+    return fallo(res, 403,
+      `La entrada ${codigo} pertenece a otra persona: sólo su titular puede generar su QR.`,
+      { motivo: 'no-es-tuya', esMia: false });
+  }
 
   if (fila.estado === 'usado' || fila.estado === 'anulado') {
     return fallo(res, 409, `Una entrada en estado "${ESTADOS[fila.estado].etiqueta}" no emite nuevos códigos QR.`);
@@ -587,6 +600,15 @@ app.post('/api/entradas/:codigo/transferir', limiteEscritura, ruta(async (req, r
 
   const fila = await obtenerFila(codigo);
   if (!fila) return fallo(res, 404, 'La entrada no existe en el sistema.');
+
+  // Sólo el titular actual puede transferir su entrada. El candado del DNI que
+  // hay en el formulario vive en el navegador; esta es la comprobación del
+  // servidor, la que en realidad vale.
+  if (fila.titular_dni !== dniDePeticion(req)) {
+    return fallo(res, 403,
+      `La entrada ${codigo} pertenece a otra persona: sólo su titular puede transferirla.`,
+      { motivo: 'no-es-tuya' });
+  }
 
   if (fila.estado !== 'valido') {
     return fallo(res, 409,
