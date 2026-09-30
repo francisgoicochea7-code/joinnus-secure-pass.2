@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verificar entrada — Joinnus Secure Pass</title>
+<meta name="description" content="Consulta el estado real de una entrada digital ficticia: válida, usada, anulada o transferida.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="page-top">
+
+<header class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="brand">
+      <span class="brand-logo">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 4 5.5v6c0 4.8 3.4 9.3 8 10.5 4.6-1.2 8-5.7 8-10.5v-6L12 2Zm0 2.2 6 2.6v4.7c0 3.7-2.5 7.2-6 8.3-3.5-1.1-6-4.6-6-8.3V6.8l6-2.6Z"/><path d="M10.6 15.4 7.4 12.2 6 13.6l4.6 4.6L18 10.8l-1.4-1.4-6 6Z"/></svg>
+      </span>
+      <span class="brand-name">Joinnus Secure Pass<span>Verifica · Transfiere · Protege</span></span>
+    </a>
+    <nav class="nav-links" aria-label="Navegación principal">
+      <ul>
+        <li><a href="index.html">Inicio</a></li>
+        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="verificar.html">Verificar entrada</a></li>
+        <li><a href="entrada.html">Mi entrada</a></li>
+        <li><a href="transferencia.html">Transferir entrada</a></li>
+        <li><a href="historial.html">Historial</a></li>
+        <li><a href="sobre.html">Sobre el proyecto</a></li>
+      </ul>
+    </nav>
+    <div class="nav-cta">
+      <a href="entrada.html" class="btn btn-primary btn-sm">Mi entrada</a>
+      <button class="nav-toggle" aria-label="Abrir menú" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 6h18v2H3V6Zm0 5h18v2H3v-2Zm0 5h18v2H3v-2Z"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+<div class="nav-mobile" id="nav-mobile">
+  <a data-page href="index.html">Inicio</a>
+  <a data-page href="dashboard.html">Dashboard</a>
+  <a data-page href="verificar.html">Verificar entrada</a>
+  <a data-page href="entrada.html">Mi entrada</a>
+  <a data-page href="transferencia.html">Transferir entrada</a>
+  <a data-page href="historial.html">Historial</a>
+  <a data-page href="sobre.html">Sobre el proyecto</a>
+  <a href="entrada.html" class="btn btn-primary btn-block">Mi entrada</a>
+</div>
+
+<main>
+  <section class="section">
+    <div class="container">
+
+      <div class="section-head">
+        <span class="eyebrow">Verificación en tiempo real</span>
+        <h1>Verificar entrada</h1>
+        <p class="lead">Comprueba el estado de una entrada antes de realizar una compra o asistir a un evento.</p>
+        <p class="tiny muted"><span data-modo>Comprobando conexión…</span></p>
+      </div>
+
+      <div class="split" style="align-items:start">
+
+        <!-- ---------------- Formulario de consulta ---------------- -->
+        <div class="card">
+          <div class="card-title">
+            <span class="icon-box brand">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 3a7 7 0 1 0 4.2 12.6l4.6 4.6 1.4-1.4-4.6-4.6A7 7 0 0 0 10 3Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"/></svg>
+            </span>
+            <h3>Consulta de estado</h3>
+          </div>
+
+          <form id="form-verificar" novalidate>
+            <div class="field">
+              <label for="codigo">Ingrese código de entrada</label>
+              <div class="input-group">
+                <input class="input mono" type="text" id="codigo" name="codigo"
+                       placeholder="Ej.: ENTRY001" autocomplete="off" spellcheck="false"
+                       maxlength="24" required>
+                <button class="btn btn-primary" type="submit" id="btn-verificar">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 3a7 7 0 1 0 4.2 12.6l4.6 4.6 1.4-1.4-4.6-4.6A7 7 0 0 0 10 3Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"/></svg>
+                  Verificar entrada
+                </button>
+              </div>
+              <div class="error-msg" id="error-codigo">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg>
+                <span>Ingrese un código válido (por ejemplo ENTRY001).</span>
+              </div>
+            </div>
+
+            <div class="row-between" style="margin-top:.4rem">
+              <button class="btn btn-ghost btn-sm" type="button" id="btn-escanear">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h7v2H5v5H3V3Zm11 0h7v7h-2V5h-5V3ZM3 14h2v5h5v2H3v-7Zm16 0h2v7h-7v-2h5v-5ZM7 7h2v2H7V7Zm4 0h2v2h-2V7Zm4 0h2v2h-2V7ZM7 11h2v2H7v-2Zm4 0h2v2h-2v-2Zm4 0h2v2h-2v-2ZM7 15h2v2H7v-2Zm4 0h2v2h-2v-2Z"/></svg>
+                Simular escaneo QR
+              </button>
+              <button class="btn-link tiny" type="button" id="btn-limpiar">Limpiar consulta</button>
+            </div>
+          </form>
+
+          <div class="mt-4">
+            <h4 class="small" style="letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Códigos de prueba</h4>
+            <p class="tiny muted">Haz clic en un código para consultarlo inmediatamente.</p>
+            <div class="code-chips" id="chips-codigos"></div>
+          </div>
+
+          <div class="mt-3" id="zona-escaneo" style="position:relative">
+            <div class="scan-overlay" id="scan-overlay">
+              <div class="scan-ring"></div>
+              <span>Escaneando código QR…</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---------------- Resultado ---------------- -->
+        <div class="stack">
+          <div id="resultado" class="result">
+            <div class="result-hero">
+              <div class="rh-icon" id="res-icon">🟢</div>
+              <div>
+                <h2 class="rh-title" id="res-titulo">—</h2>
+                <p class="rh-msg" id="res-mensaje">—</p>
+              </div>
+            </div>
+
+            <div class="card" id="res-detalles">
+              <div class="detail-grid" id="res-datos"></div>
+            </div>
+
+            <div class="row" id="res-acciones"></div>
+          </div>
+
+          <!-- Estado inicial -->
+          <div class="card center" id="inicial">
+            <div class="icon-box" style="margin:0 auto 1rem">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h7v2H5v5H3V3Zm11 0h7v7h-2V5h-5V3ZM3 14h2v5h5v2H3v-7Zm16 0h2v7h-7v-2h5v-5ZM7 7h2v2H7V7Zm4 0h2v2h-2V7Zm4 0h2v2h-2V7ZM7 11h2v2H7v-2Zm4 0h2v2h-2v-2Zm4 0h2v2h-2v-2ZM7 15h2v2H7v-2Zm4 0h2v2h-2v-2Z"/></svg>
+            </div>
+            <h3>Esperando consulta</h3>
+            <p class="small">Ingresa un código de entrada o usa “Simular escaneo QR” para ver el resultado de la verificación en tiempo real.</p>
+          </div>
+
+          <!-- Últimas verificaciones -->
+          <div class="card">
+            <div class="card-title">
+              <span class="icon-box ok">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4-7 7Z"/></svg>
+              </span>
+              <h3>Última verificación</h3>
+            </div>
+            <div class="kv"><span class="k">Fecha y hora</span><span class="v" data-clock>—</span></div>
+            <div class="kv"><span class="k">Resultado anterior</span><span class="v" id="ultima-verificacion">Sin consultas todavía</span></div>
+            <div class="kv"><span class="k">Consultas realizadas</span><span class="v" id="contador-verificaciones">0</span></div>
+            <p class="tiny muted mt-2" style="margin-bottom:0">La fecha y hora se actualiza automáticamente cada segundo.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Base de datos ficticia -->
+      <div class="mt-4">
+        <div class="row-between" style="margin-bottom:1rem">
+          <h2 style="margin:0">Base de datos simulada</h2>
+          <span class="badge badge-brand">Datos ficticios</span>
+        </div>
+        <p class="small muted">Estos códigos existen en el prototipo. Sirven para probar los cuatro estados posibles.</p>
+        <div class="table-wrap">
+          <table class="data db-table" id="tabla-db">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Evento</th>
+                <th>Titular</th>
+                <th>Fecha</th>
+                <th>Estado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer-bottom" style="margin-top:0;border-top:none;padding-top:0">
+      <span>© <span id="anio">2026</span> Joinnus Secure Pass — Prototipo académico. Datos ficticios.</span>
+      <span>Última verificación: <span data-clock>—</span></span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/qr.js"></script>
+<script src="js/cliente-api.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/verificar.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "joinnus-secure-pass",
+  "version": "1.0.0",
+  "description": "Prototipo academico de seguridad para entradas digitales: verificacion en tiempo real, QR dinamicos y transferencia segura con trazabilidad.",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/qr-selftest.js && node test/verificacion.js",
+    "test:qr": "node test/qr-selftest.js",
+    "test:app": "node test/verificacion.js"
+  },
+  "keywords": ["qr", "entradas", "seguridad", "prototipo", "universidad"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=14"
+  }
+}

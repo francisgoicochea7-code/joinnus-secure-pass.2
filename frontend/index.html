@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Joinnus Secure Pass — Verifica, transfiere y protege tus entradas digitales</title>
+<meta name="description" content="Prototipo académico de seguridad para entradas digitales: verificación en tiempo real, códigos QR dinámicos y transferencia segura con trazabilidad.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- ============================ NAVBAR ============================ -->
+<header class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="brand">
+      <span class="brand-logo">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 4 5.5v6c0 4.8 3.4 9.3 8 10.5 4.6-1.2 8-5.7 8-10.5v-6L12 2Zm0 2.2 6 2.6v4.7c0 3.7-2.5 7.2-6 8.3-3.5-1.1-6-4.6-6-8.3V6.8l6-2.6Z"/><path d="M10.6 15.4 7.4 12.2 6 13.6l4.6 4.6L18 10.8l-1.4-1.4-6 6Z"/></svg>
+      </span>
+      <span class="brand-name">Joinnus Secure Pass<span>Verifica · Transfiere · Protege</span></span>
+    </a>
+    <nav class="nav-links" aria-label="Navegación principal">
+      <ul>
+        <li><a href="index.html">Inicio</a></li>
+        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="verificar.html">Verificar entrada</a></li>
+        <li><a href="entrada.html">Mi entrada</a></li>
+        <li><a href="transferencia.html">Transferir entrada</a></li>
+        <li><a href="historial.html">Historial</a></li>
+        <li><a href="sobre.html">Sobre el proyecto</a></li>
+      </ul>
+    </nav>
+    <div class="nav-cta">
+      <a href="verificar.html" class="btn btn-primary btn-sm">Verificar entrada</a>
+      <button class="nav-toggle" aria-label="Abrir menú" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 6h18v2H3V6Zm0 5h18v2H3v-2Zm0 5h18v2H3v-2Z"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+<div class="nav-mobile" id="nav-mobile">
+  <a data-page href="index.html">Inicio</a>
+  <a data-page href="dashboard.html">Dashboard</a>
+  <a data-page href="verificar.html">Verificar entrada</a>
+  <a data-page href="entrada.html">Mi entrada</a>
+  <a data-page href="transferencia.html">Transferir entrada</a>
+  <a data-page href="historial.html">Historial</a>
+  <a data-page href="sobre.html">Sobre el proyecto</a>
+  <a href="verificar.html" class="btn btn-primary btn-block">Verificar entrada</a>
+</div>
+
+<main>
+  <!-- ============================ HERO ============================ -->
+  <section class="hero">
+    <div class="container hero-grid">
+      <div class="fade-in">
+        <span class="eyebrow">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>
+          Prototipo académico universitario
+        </span>
+        <h1>Joinnus <span class="grad-text">Secure Pass</span></h1>
+        <p class="hero-slogan">“Verifica, transfiere y protege tus entradas digitales.”</p>
+        <p class="lead">Sistema de seguridad para la verificación y transferencia controlada de entradas digitales.</p>
+        <div class="hero-cta">
+          <a href="verificar.html" class="btn btn-primary btn-lg">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 3a7 7 0 1 0 4.2 12.6l4.6 4.6 1.4-1.4-4.6-4.6A7 7 0 0 0 10 3Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"/></svg>
+            Verificar entrada
+          </a>
+          <a href="entrada.html" class="btn btn-outline btn-lg">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Zm2 0v2h14V8H5Zm0 6v2h14v-2H5Z"/></svg>
+            Ver mi entrada
+          </a>
+        </div>
+        <div class="hero-stats">
+          <div><div class="n">7</div><div class="l">Entradas ficticias</div></div>
+          <div><div class="n">4</div><div class="l">Estados posibles</div></div>
+          <div><div class="n">15s</div><div class="l">Rotación del QR</div></div>
+          <div><div class="n">3</div><div class="l">Contenedores Docker</div></div>
+        </div>
+      </div>
+
+      <div class="hero-visual fade-in d2">
+        <div class="hero-ticket">
+          <div class="float-chip c1">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4-7 7Z"/></svg>
+            Entrada válida
+          </div>
+          <div class="float-chip c2">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg>
+            QR dinámico
+          </div>
+          <div class="float-chip c3">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7Zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4Z"/></svg>
+            Transferible
+          </div>
+
+          <div class="ht-top">
+            <div>
+              <div class="ht-title">Lima Music Fest</div>
+              <div class="ht-sub">Estadio Nasional · 29/09/2026</div>
+            </div>
+            <span class="badge badge-valido"><span class="dot"></span>Válido</span>
+          </div>
+          <div class="ht-body">
+            <div class="ht-qr">
+              <div class="qr-frame" style="padding:8px">
+                <canvas id="hero-qr" width="180" height="180" aria-label="QR dinámico de demostración"></canvas>
+              </div>
+            </div>
+            <div class="ht-info">
+              <div class="ht-line"><span>Zona</span><span>Preferencial</span></div>
+              <div class="ht-line"><span>Fila / Asiento</span><span>B / 24</span></div>
+              <div class="ht-line"><span>Titular</span><span>Carlos Pérez</span></div>
+              <div class="ht-line"><span>Código</span><span class="mono" id="hero-code">ENTRY001</span></div>
+              <div class="ht-line"><span>Token</span><span class="mono tiny" id="hero-token">—</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ SOLUCIONES ============================ -->
+  <section class="section" id="soluciones">
+    <div class="container">
+      <div class="section-head center">
+        <span class="eyebrow">Cómo lo resolvemos</span>
+        <h2>Tres mecanismos de seguridad</h2>
+        <p>Cada módulo del prototipo resuelve un punto distinto del problema de la reventa informal de entradas digitales.</p>
+      </div>
+      <div class="grid g-3">
+        <article class="card card-hover fade-in">
+          <div class="card-title">
+            <span class="icon-box ok">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4-7 7Z"/></svg>
+            </span>
+            <h3>Verificación en tiempo real</h3>
+          </div>
+          <p>Consulta el estado de una entrada antes de realizar una compra o asistir a un evento.</p>
+          <a href="verificar.html" class="btn-link" style="display:inline-block;margin-top:.8rem">Probar el verificador →</a>
+        </article>
+
+        <article class="card card-hover fade-in d1">
+          <div class="card-title">
+            <span class="icon-box brand">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h8v8H3V3Zm2 2v4h4V5H5Zm8-2h8v8h-8V3Zm2 2v4h4V5h-4ZM3 13h8v8H3v-8Zm2 2v4h4v-4H5Zm8-2h3v3h-3v-3Zm5 0h3v3h-3v-3Zm-5 5h3v3h-3v-3Zm5 0h3v3h-3v-3Z"/></svg>
+            </span>
+            <h3>QR dinámico</h3>
+          </div>
+          <p>Genera códigos QR temporales que se actualizan periódicamente para reducir el riesgo de duplicación.</p>
+          <a href="entrada.html" class="btn-link" style="display:inline-block;margin-top:.8rem">Ver el QR en vivo →</a>
+        </article>
+
+        <article class="card card-hover fade-in d2">
+          <div class="card-title">
+            <span class="icon-box info">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7Zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4Z"/></svg>
+            </span>
+            <h3>Transferencia segura</h3>
+          </div>
+          <p>Transfiere una entrada a otro usuario manteniendo la trazabilidad y actualizando su titularidad.</p>
+          <a href="transferencia.html" class="btn-link" style="display:inline-block;margin-top:.8rem">Transferir una entrada →</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ PROBLEMA ============================ -->
+  <section class="section" id="problema">
+    <div class="container">
+      <div class="section-head center">
+        <span class="eyebrow" style="color:#fda4af;background:rgba(244,63,94,.1);border-color:rgba(244,63,94,.28)">El problema</span>
+        <h2>¿Qué problema solucionamos?</h2>
+      </div>
+
+      <div class="problem-grid">
+        <article class="card problem-card">
+          <div class="card-title">
+            <span class="icon-box danger">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg>
+            </span>
+            <h3>La reventa informal</h3>
+          </div>
+          <p>Las entradas digitales pueden ser revendidas informalmente a varias personas. Cuando una misma entrada es compartida o clonada, solamente la primera persona que utiliza el código QR puede ingresar al evento, mientras los demás compradores pueden perder su dinero.</p>
+          <div class="pill-list">
+            <span class="pill"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4-7 7Z"/></svg>Una entrada, varios compradores</span>
+            <span class="pill"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4-7 7Z"/></svg>Capturas reutilizables</span>
+            <span class="pill"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4-7 7Z"/></svg>Códigos QR clonados</span>
+          </div>
+        </article>
+
+        <article class="card problem-card solution">
+          <div class="card-title">
+            <span class="icon-box ok">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1 3 5v6c0 5.6 3.8 10.7 9 12 5.2-1.3 9-6.4 9-12V5l-9-4Zm0 2.2 7 3.1V11c0 4.7-3 9-7 10.2C8 20 5 15.7 5 11V6.3l7-3.1Z"/></svg>
+            </span>
+            <h3>La propuesta</h3>
+          </div>
+          <p>Joinnus Secure Pass propone mecanismos de verificación, QR dinámicos y transferencia segura para reducir este tipo de situaciones.</p>
+          <div class="pill-list">
+            <span class="pill"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4-7 7Z"/></svg>Consulta de estado</span>
+            <span class="pill"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4-7 7Z"/></svg>QR con token temporal</span>
+            <span class="pill"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4-7 7Z"/></svg>Transferencia con control de precio</span>
+            <span class="pill"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4-7 7Z"/></svg>Trazabilidad total</span>
+          </div>
+        </article>
+      </div>
+
+      <div class="grid g-4 mt-3">
+        <div class="card center">
+          <div class="stat-value grad-text">01</div>
+          <p class="small mt-1"><strong>Venta dudosa</strong><br>Un mismo QR se ofrece a varios compradores.</p>
+        </div>
+        <div class="card center">
+          <div class="stat-value grad-text">02</div>
+          <p class="small mt-1"><strong>Primer ingreso</strong><br>Sólo la primera persona con el código logra entrar.</p>
+        </div>
+        <div class="card center">
+          <div class="stat-value grad-text">03</div>
+          <p class="small mt-1"><strong>Pérdida de dinero</strong><br>Los demás compradores pierden su inversión.</p>
+        </div>
+        <div class="card center">
+          <div class="stat-value grad-text">04</div>
+          <p class="small mt-1"><strong>Sin trazabilidad</strong><br>No se sabe quién compró ni cuántas veces se usó.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ CÓMO FUNCIONA ============================ -->
+  <section class="section" id="como-funciona">
+    <div class="container split">
+      <div>
+        <span class="eyebrow">Flujo del sistema</span>
+        <h2>De la compra al acceso</h2>
+        <p class="lead">Cada operación —verificar, generar el QR o transferir la entrada— queda registrada en MySQL y es consultable desde el historial.</p>
+        <div class="row mt-3">
+          <a href="dashboard.html" class="btn btn-primary">Ir al dashboard</a>
+          <a href="verificar.html" class="btn btn-ghost">Consultar una entrada</a>
+        </div>
+      </div>
+      <div class="flow">
+        <div class="flow-node"><span class="n">1</span><div><div class="t">Entrada original</div><div class="s">Compra verificada por el usuario</div></div></div>
+        <div class="flow-arrow"></div>
+        <div class="flow-node"><span class="n">2</span><div><div class="t">Generación de token temporal</div><div class="s">El servidor firma el token con HMAC</div></div></div>
+        <div class="flow-arrow"></div>
+        <div class="flow-node"><span class="n">3</span><div><div class="t">QR dinámico</div><div class="s">El código cambia cada 15 segundos</div></div></div>
+        <div class="flow-arrow"></div>
+        <div class="flow-node"><span class="n">4</span><div><div class="t">Validación</div><div class="s">El lector consulta el estado real</div></div></div>
+        <div class="flow-arrow"></div>
+        <div class="flow-node"><span class="n">5</span><div><div class="t">Acceso permitido</div><div class="s">Se registra el ingreso y la trazabilidad</div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ CTA ============================ -->
+  <section class="section">
+    <div class="container">
+      <div class="card center" style="background:linear-gradient(120deg,rgba(109,94,252,.18),rgba(34,211,238,.1));padding:2.6rem 1.6rem">
+        <span class="eyebrow">Empieza ahora</span>
+        <h2>Prueba el prototipo completo</h2>
+        <p class="lead" style="margin-inline:auto">Consulta los códigos ficticios, observa cómo el QR cambia cada 15 segundos y completa una transferencia segura con validación en tiempo real.</p>
+        <div class="row mt-3" style="justify-content:center">
+          <a href="verificar.html" class="btn btn-primary btn-lg">Verificar entrada</a>
+          <a href="transferencia.html" class="btn btn-outline btn-lg">Transferir entrada</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============================ FOOTER ============================ -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <a href="index.html" class="brand">
+          <span class="brand-logo">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 4 5.5v6c0 4.8 3.4 9.3 8 10.5 4.6-1.2 8-5.7 8-10.5v-6L12 2Zm0 2.2 6 2.6v4.7c0 3.7-2.5 7.2-6 8.3-3.5-1.1-6-4.6-6-8.3V6.8l6-2.6Z"/><path d="M10.6 15.4 7.4 12.2 6 13.6l4.6 4.6L18 10.8l-1.4-1.4-6 6Z"/></svg>
+          </span>
+          <span class="brand-name">Joinnus Secure Pass<span>Verifica · Transfiere · Protege</span></span>
+        </a>
+        <p class="small mt-2" style="max-width:38ch">“Verifica, transfiere y protege tus entradas digitales.” Prototipo académico desarrollado para un proyecto universitario.</p>
+      </div>
+      <div>
+        <h4>Secciones</h4>
+        <ul>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="verificar.html">Verificar entrada</a></li>
+          <li><a href="entrada.html">Mi entrada digital</a></li>
+          <li><a href="transferencia.html">Transferir entrada</a></li>
+          <li><a href="historial.html">Historial</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Alcance del prototipo</h4>
+        <ul>
+          <li><span class="small">Datos 100% ficticios</span></li>
+          <li><span class="small">MySQL · Express · nginx</span></li>
+          <li><a href="sobre.html">Sobre el proyecto →</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="anio">2026</span> Joinnus Secure Pass — Prototipo académico. Datos ficticios.</span>
+      <span data-modo>Comprobando conexión…</span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/qr.js"></script>
+<script src="js/cliente-api.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/home.js"></script>
+</body>
+</html>

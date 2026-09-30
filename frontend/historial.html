@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Historial de entrada — Joinnus Secure Pass</title>
+<meta name="description" content="Línea de tiempo y tabla con la trazabilidad completa de cada entrada digital.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="page-top">
+
+<header class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="brand">
+      <span class="brand-logo">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 4 5.5v6c0 4.8 3.4 9.3 8 10.5 4.6-1.2 8-5.7 8-10.5v-6L12 2Zm0 2.2 6 2.6v4.7c0 3.7-2.5 7.2-6 8.3-3.5-1.1-6-4.6-6-8.3V6.8l6-2.6Z"/><path d="M10.6 15.4 7.4 12.2 6 13.6l4.6 4.6L18 10.8l-1.4-1.4-6 6Z"/></svg>
+      </span>
+      <span class="brand-name">Joinnus Secure Pass<span>Verifica · Transfiere · Protege</span></span>
+    </a>
+    <nav class="nav-links" aria-label="Navegación principal">
+      <ul>
+        <li><a href="index.html">Inicio</a></li>
+        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="verificar.html">Verificar entrada</a></li>
+        <li><a href="entrada.html">Mi entrada</a></li>
+        <li><a href="transferencia.html">Transferir entrada</a></li>
+        <li><a href="historial.html">Historial</a></li>
+        <li><a href="sobre.html">Sobre el proyecto</a></li>
+      </ul>
+    </nav>
+    <div class="nav-cta">
+      <a href="verificar.html" class="btn btn-primary btn-sm">Verificar</a>
+      <button class="nav-toggle" aria-label="Abrir menú" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 6h18v2H3V6Zm0 5h18v2H3v-2Zm0 5h18v2H3v-2Z"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+<div class="nav-mobile" id="nav-mobile">
+  <a data-page href="index.html">Inicio</a>
+  <a data-page href="dashboard.html">Dashboard</a>
+  <a data-page href="verificar.html">Verificar entrada</a>
+  <a data-page href="entrada.html">Mi entrada</a>
+  <a data-page href="transferencia.html">Transferir entrada</a>
+  <a data-page href="historial.html">Historial</a>
+  <a data-page href="sobre.html">Sobre el proyecto</a>
+  <a href="verificar.html" class="btn btn-primary btn-block">Verificar</a>
+</div>
+
+<main>
+  <section class="section">
+    <div class="container">
+
+      <div class="row-between fade-in">
+        <div>
+          <span class="eyebrow">Trazabilidad</span>
+          <h1 style="margin-bottom:.2rem">Historial de entrada</h1>
+          <p class="muted" style="margin:0">Cada operación queda registrada: creación, verificación, transferencias y emisión de QR.</p>
+        </div>
+        <div class="row">
+          <button class="btn btn-ghost btn-sm" id="btn-exportar">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Zm0 2.8L17.5 8H14V4.8ZM8 12h8v2H8v-2Zm0 4h5v2H8v-2Z"/></svg>
+            Exportar CSV
+          </button>
+        </div>
+      </div>
+
+      <div class="grid g-4 mt-4">
+        <div class="stat brand fade-in">
+          <div class="stat-top">
+            <span class="stat-label">Eventos totales</span>
+            <span class="stat-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 0 0-8.5 6H1l3.5 3.5L8 9H5.6A7 7 0 1 1 6 15H4a9 9 0 1 0 9-12v0Zm-1 5v5l4.2 2.5.7-1.2-3.4-2V8H12Z"/></svg></span>
+          </div>
+          <div class="stat-value" id="stat-eventos">0</div>
+          <div class="stat-foot">Registrados en la base de datos</div>
+        </div>
+        <div class="stat ok fade-in d1">
+          <div class="stat-top">
+            <span class="stat-label">Verificaciones</span>
+            <span class="stat-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 3a7 7 0 1 0 4.2 12.6l4.6 4.6 1.4-1.4-4.6-4.6A7 7 0 0 0 10 3Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"/></svg></span>
+          </div>
+          <div class="stat-value" id="stat-verificaciones">0</div>
+          <div class="stat-foot">Consultas de estado</div>
+        </div>
+        <div class="stat info fade-in d2">
+          <div class="stat-top">
+            <span class="stat-label">Transferencias</span>
+            <span class="stat-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7Zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4Z"/></svg></span>
+          </div>
+          <div class="stat-value" id="stat-transferencias">0</div>
+          <div class="stat-foot">Cambios de titularidad</div>
+        </div>
+        <div class="stat warn fade-in d3">
+          <div class="stat-top">
+            <span class="stat-label">QR generados</span>
+            <span class="stat-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h8v8H3V3Zm2 2v4h4V5H5Zm8-2h8v8h-8V3Zm2 2v4h4V5h-4ZM3 13h8v8H3v-8Zm2 2v4h4v-4H5Zm8-2h3v3h-3v-3Zm5 0h3v3h-3v-3Zm-5 5h3v3h-3v-3Zm5 0h3v3h-3v-3Z"/></svg></span>
+          </div>
+          <div class="stat-value" id="stat-qr">0</div>
+          <div class="stat-foot">Tokens emitidos</div>
+        </div>
+      </div>
+
+      <div class="split mt-4" style="align-items:start">
+
+        <!-- ---------------- Línea de tiempo ---------------- -->
+        <div class="card">
+          <div class="card-title">
+            <span class="icon-box brand">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 0 0-8.5 6H1l3.5 3.5L8 9H5.6A7 7 0 1 1 6 15H4a9 9 0 1 0 9-12v0Zm-1 5v5l4.2 2.5.7-1.2-3.4-2V8H12Z"/></svg>
+            </span>
+            <h3>Línea de tiempo</h3>
+          </div>
+          <div class="row-between" style="margin-bottom:1.2rem">
+            <span class="tiny muted" id="timeline-info">—</span>
+            <select class="input" id="filtro-codigo" style="width:auto;min-width:170px;padding:.5rem .8rem;font-size:.85rem">
+              <option value="">Todas las entradas</option>
+            </select>
+          </div>
+          <div class="timeline" id="linea-tiempo">
+            <div class="skeleton" style="height:56px"></div>
+            <div class="skeleton" style="height:56px;margin-top:1rem"></div>
+            <div class="skeleton" style="height:56px;margin-top:1rem"></div>
+          </div>
+        </div>
+
+        <!-- ---------------- Detalle lateral ---------------- -->
+        <div class="stack">
+          <div class="card">
+            <div class="card-title">
+              <span class="icon-box ok">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1 3 5v6c0 5.6 3.8 10.7 9 12 5.2-1.3 9-6.4 9-12V5l-9-4Zm0 2.2 7 3.1V11c0 4.7-3 9-7 10.2C8 20 5 15.7 5 11V6.3l7-3.1Z"/></svg>
+              </span>
+              <h3>Estado actual por entrada</h3>
+            </div>
+            <div id="estados-actuales" class="stack">
+              <div class="skeleton" style="height:40px"></div>
+              <div class="skeleton" style="height:40px"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <span class="icon-box info">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1 5h2v2h-2V7Zm0 4h2v6h-2v-6Z"/></svg>
+              </span>
+              <h3>Sobre la trazabilidad</h3>
+            </div>
+            <p class="small">Con Docker, los eventos se guardan en la tabla <code>historial</code> de MySQL, con marca de tiempo del servidor. Sin Docker se guardan en <code>localStorage</code> (<code>jsp.historial.v1</code>).</p>
+            <p class="small mb-0">En ambos casos los datos se mantienen aunque se recargue la página.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---------------- Tabla ---------------- -->
+      <div class="mt-4">
+        <div class="row-between" style="margin-bottom:1rem">
+          <h2 style="margin:0">Registro completo</h2>
+          <span class="badge badge-brand" id="total-registros">0 registros</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data" id="tabla-historial">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Acción</th>
+                <th>Titular</th>
+                <th>Estado</th>
+                <th>Código</th>
+                <th>Detalle</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="tiny muted mt-2"><span data-modo>Comprobando conexión…</span></p>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer-bottom" style="margin-top:0;border-top:none;padding-top:0">
+      <span>© <span id="anio">2026</span> Joinnus Secure Pass — Prototipo académico. Datos ficticios.</span>
+      <span data-modo>Comprobando conexión…</span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/qr.js"></script>
+<script src="js/cliente-api.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/historial.js"></script>
+</body>
+</html>

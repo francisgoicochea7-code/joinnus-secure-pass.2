@@ -1,0 +1,116 @@
+# =========================================================================
+#  JOINNUS SECURE PASS — docker-compose.yml
+#  Orquestacion de los tres contenedores del proyecto:
+#     mysql    -> base de datos (MySQL 8)
+#     backend  -> API REST (Node.js + Express)
+#     frontend -> sitio estatico (nginx) + proxy inverso hacia la API
+#
+#  Uso:  docker compose up --build
+# =========================================================================
+
+services:
+
+  # ---------------------------------------------------------------------
+  # 1) BASE DE DATOS — MySQL 8
+  # ---------------------------------------------------------------------
+  mysql:
+    image: mysql:8.0
+    container_name: jsp-mysql
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_pass_demo}
+      MYSQL_DATABASE:      ${DB_NAME:-joinnus_secure_pass}
+      MYSQL_USER:          ${DB_USER:-joinnus}
+      MYSQL_PASSWORD:      ${DB_PASSWORD:-joinnus_pass}
+      TZ:                  ${TZ:-America/Lima}
+    ports:
+      # Solo para inspeccion manual con un cliente MySQL
+      - "${MYSQL_PORT:-3307}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # Se ejecuta SOLO la primera vez (volumen vacio)
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-root_pass_demo}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - jsp_net
+
+  # ---------------------------------------------------------------------
+  # 2) BACKEND — API REST
+  # ---------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: joinnus-secure-pass-backend
+    container_name: jsp-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-joinnus_secure_pass}
+      DB_USER: ${DB_USER:-joinnus}
+      DB_PASSWORD: ${DB_PASSWORD:-joinnus_pass}
+      # Secreto de firma de los tokens QR (cambiarlo en produccion)
+      QR_SECRET: ${QR_SECRET:-joinnus-secure-pass-clave-de-demostracion}
+      # Vigencia de cada token dinamico, en segundos
+      QR_TTL_SECONDS: ${QR_TTL_SECONDS:-15}
+      # DNI del usuario de la sesion demo ("Mis entradas")
+      DEMO_DNI: ${DEMO_DNI:-45678945}
+      TZ: ${TZ:-America/Lima}
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    volumes:
+      # Fuente unica de verdad para reiniciar la demo
+      - ./database/init.sql:/app/seed.sql:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 4s
+      retries: 6
+      start_period: 40s
+    networks:
+      - jsp_net
+
+  # ---------------------------------------------------------------------
+  # 3) FRONTEND — nginx (estatico + proxy /api)
+  # ---------------------------------------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: joinnus-secure-pass-frontend
+    container_name: jsp-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      # Puerto que se abre en el navegador:  http://localhost:8080
+      - "${FRONTEND_PORT:-8080}:80"
+    environment:
+      TZ: ${TZ:-America/Lima}
+    networks:
+      - jsp_net
+
+# -----------------------------------------------------------------------
+#  Redes y volumenes
+# -----------------------------------------------------------------------
+networks:
+  jsp_net:
+    driver: bridge
+    name: jsp_net
+
+volumes:
+  mysql_data:
+    name: jsp_mysql_data

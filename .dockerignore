@@ -1,0 +1,14 @@
+# Contexto de construccion del frontend (raiz del proyecto)
+.git
+.gitignore
+node_modules
+**/node_modules
+test
+**/test
+*.md
+!README.md
+.env
+database
+backend
+docker-compose.yml
+.dockerignore

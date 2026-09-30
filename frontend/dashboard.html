@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard — Joinnus Secure Pass</title>
+<meta name="description" content="Panel de control con tus entradas digitales, estados y códigos de entrada.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="page-top">
+
+<header class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="brand">
+      <span class="brand-logo">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 4 5.5v6c0 4.8 3.4 9.3 8 10.5 4.6-1.2 8-5.7 8-10.5v-6L12 2Zm0 2.2 6 2.6v4.7c0 3.7-2.5 7.2-6 8.3-3.5-1.1-6-4.6-6-8.3V6.8l6-2.6Z"/><path d="M10.6 15.4 7.4 12.2 6 13.6l4.6 4.6L18 10.8l-1.4-1.4-6 6Z"/></svg>
+      </span>
+      <span class="brand-name">Joinnus Secure Pass<span>Verifica · Transfiere · Protege</span></span>
+    </a>
+    <nav class="nav-links" aria-label="Navegación principal">
+      <ul>
+        <li><a href="index.html">Inicio</a></li>
+        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="verificar.html">Verificar entrada</a></li>
+        <li><a href="entrada.html">Mi entrada</a></li>
+        <li><a href="transferencia.html">Transferir entrada</a></li>
+        <li><a href="historial.html">Historial</a></li>
+        <li><a href="sobre.html">Sobre el proyecto</a></li>
+      </ul>
+    </nav>
+    <div class="nav-cta">
+      <a href="entrada.html" class="btn btn-primary btn-sm">Mi entrada</a>
+      <button class="nav-toggle" aria-label="Abrir menú" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 6h18v2H3V6Zm0 5h18v2H3v-2Zm0 5h18v2H3v-2Z"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+<div class="nav-mobile" id="nav-mobile">
+  <a data-page href="index.html">Inicio</a>
+  <a data-page href="dashboard.html">Dashboard</a>
+  <a data-page href="verificar.html">Verificar entrada</a>
+  <a data-page href="entrada.html">Mi entrada</a>
+  <a data-page href="transferencia.html">Transferir entrada</a>
+  <a data-page href="historial.html">Historial</a>
+  <a data-page href="sobre.html">Sobre el proyecto</a>
+  <a href="entrada.html" class="btn btn-primary btn-block">Mi entrada</a>
+</div>
+
+<main>
+  <section class="section">
+    <div class="container">
+
+      <div class="row-between fade-in">
+        <div>
+          <span class="eyebrow">Panel de control</span>
+          <h1 style="margin-bottom:.2rem">Hola, Carlos <span aria-hidden="true">👋</span></h1>
+          <p class="muted" style="margin:0">Resumen de tus entradas digitales ficticias y su estado de seguridad.</p>
+        </div>
+        <div class="row">
+          <a href="verificar.html" class="btn btn-ghost btn-sm">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 3a7 7 0 1 0 4.2 12.6l4.6 4.6 1.4-1.4-4.6-4.6A7 7 0 0 0 10 3Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"/></svg>
+            Verificar
+          </a>
+          <a href="entrada.html" class="btn btn-primary btn-sm">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Zm2 0v2h14V8H5Zm0 6v2h14v-2H5Z"/></svg>
+            Ver mi entrada
+          </a>
+        </div>
+      </div>
+
+      <!-- Tarjetas estadísticas -->
+      <div class="grid g-4 mt-4" id="stats">
+        <div class="stat ok fade-in">
+          <div class="stat-top">
+            <span class="stat-label">Entradas activas</span>
+            <span class="stat-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4-7 7Z"/></svg></span>
+          </div>
+          <div class="stat-value" id="stat-activas">0</div>
+          <div class="stat-foot">Válidas y sin usar</div>
+        </div>
+
+        <div class="stat danger fade-in d1">
+          <div class="stat-top">
+            <span class="stat-label">Entradas usadas</span>
+            <span class="stat-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm3.5 12.1-1.4 1.4L12 13.4l-2.1 2.1-1.4-1.4 2.1-2.1-2.1-2.1 1.4-1.4 2.1 2.1 2.1-2.1 1.4 1.4-2.1 2.1 2.1 2.1Z"/></svg></span>
+          </div>
+          <div class="stat-value" id="stat-usadas">0</div>
+          <div class="stat-foot">Ya ingresaron al evento</div>
+        </div>
+
+        <div class="stat info fade-in d2">
+          <div class="stat-top">
+            <span class="stat-label">Entradas transferidas</span>
+            <span class="stat-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7Zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4Z"/></svg></span>
+          </div>
+          <div class="stat-value" id="stat-transferidas">0</div>
+          <div class="stat-foot">Cambiaron de titular</div>
+        </div>
+
+        <div class="stat warn fade-in d3">
+          <div class="stat-top">
+            <span class="stat-label">Entradas anuladas</span>
+            <span class="stat-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM4 12a8 8 0 0 1 12.9-6.3L5.7 16.9A8 8 0 0 1 4 12Zm8 8a8 8 0 0 1-4.9-1.7L18.3 7.1A8 8 0 0 1 12 20Z"/></svg></span>
+          </div>
+          <div class="stat-value" id="stat-anuladas">0</div>
+          <div class="stat-foot">Sin validez de uso</div>
+        </div>
+      </div>
+
+      <!-- Mis entradas -->
+      <div class="row-between mt-4" style="align-items:flex-end">
+        <div>
+          <h2 style="margin-bottom:.2rem">Mis entradas</h2>
+          <p class="muted small" style="margin:0">Entradas que pertenecen a <strong id="usuario-dni">—</strong></p>
+        </div>
+        <div class="row">
+          <div class="code-chips" id="filtros">
+            <button class="code-chip active" data-filtro="todas" style="font-family:var(--font)">Todas</button>
+            <button class="code-chip" data-filtro="valido" style="font-family:var(--font)">Válidas</button>
+            <button class="code-chip" data-filtro="usado" style="font-family:var(--font)">Usadas</button>
+            <button class="code-chip" data-filtro="transferido" style="font-family:var(--font)">Transferidas</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid g-3 mt-3" id="lista-entradas">
+        <div class="card skeleton" style="height:270px"></div>
+        <div class="card skeleton" style="height:270px"></div>
+        <div class="card skeleton" style="height:270px"></div>
+      </div>
+
+      <!-- Actividad reciente -->
+      <div class="split mt-4" style="align-items:start">
+        <div class="card">
+          <div class="card-title">
+            <span class="icon-box brand">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 0 0-8.5 6H1l3.5 3.5L8 9H5.6A7 7 0 1 1 6 15H4a9 9 0 1 0 9-12v0Zm-1 5v5l4.2 2.5.7-1.2-3.4-2V8H12Z"/></svg>
+            </span>
+            <h3>Actividad reciente</h3>
+          </div>
+          <div id="actividad-reciente" class="stack">
+            <div class="skeleton" style="height:44px"></div>
+            <div class="skeleton" style="height:44px"></div>
+            <div class="skeleton" style="height:44px"></div>
+          </div>
+          <a href="historial.html" class="btn btn-ghost btn-sm mt-3 btn-block">Ver historial completo</a>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span class="icon-box ok">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1 3 5v6c0 5.6 3.8 10.7 9 12 5.2-1.3 9-6.4 9-12V5l-9-4Zm0 2.2 7 3.1V11c0 4.7-3 9-7 10.2C8 20 5 15.7 5 11V6.3l7-3.1Z"/></svg>
+            </span>
+            <h3>Estado del sistema</h3>
+          </div>
+          <div id="estado-sistema" class="stack">
+            <div class="kv"><span class="k">Última verificación</span><span class="v" data-clock>—</span></div>
+            <div class="kv"><span class="k">Entradas registradas</span><span class="v" id="sys-total">—</span></div>
+            <div class="kv"><span class="k">Eventos simulados</span><span class="v" id="sys-eventos">—</span></div>
+            <div class="kv"><span class="k">Fuente de datos</span><span class="v" data-modo>Comprobando…</span></div>
+            <div class="kv"><span class="k">Almacenamiento</span><span class="v" id="sys-almacen">—</span></div>
+          </div>
+          <button class="btn btn-ghost btn-sm mt-3 btn-block" id="btn-reiniciar">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8Z"/></svg>
+            Reiniciar datos de demostración
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<!-- Modal: detalle rápido de entrada -->
+<div class="modal-backdrop" id="modal-detalle">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h3 id="detalle-titulo">Detalle de la entrada</h3>
+        <p id="detalle-sub">—</p>
+      </div>
+      <button class="modal-close" data-modal-close="modal-detalle" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7l1.4-1.4L10.6 10.6l6.3-6.3 1.4 1.4-2.1 2.1 2.1 2.1Z"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="detalle-body"></div>
+    <div class="modal-foot">
+      <a href="verificar.html" class="btn btn-ghost">Verificar esta entrada</a>
+      <a href="entrada.html" class="btn btn-primary" id="detalle-abrir">Ver entrada</a>
+    </div>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer-bottom" style="margin-top:0;border-top:none;padding-top:0">
+      <span>© <span id="anio">2026</span> Joinnus Secure Pass — Prototipo académico. Datos ficticios.</span>
+      <span data-modo>Comprobando conexión…</span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/qr.js"></script>
+<script src="js/cliente-api.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>
