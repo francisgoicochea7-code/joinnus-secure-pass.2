@@ -750,6 +750,60 @@ async function pruebasTransferenciaBackend() {
 }
 
 /* ===================================================================== */
+/* 4d. El QR corresponde a la compra de la persona identificada          */
+/* =================================================================== */
+async function pruebasQrDeLaPersona() {
+  grupo('4d. Cada persona identificada ve SU compra y SU QR');
+
+  const ctx = crearContexto();
+  cargarJs(ctx, 'frontend/js/qr.js');
+  cargarJs(ctx, 'frontend/js/cliente-api.js');
+  cargarJs(ctx, 'frontend/js/api.js');
+  cargarPagina(ctx, 'frontend/entrada.html',
+    ['frontend/js/app.js', 'frontend/js/sesion.js', 'frontend/js/identificacion.js',
+     'frontend/js/entrada.js']);
+
+  const doc = ctx.document;
+  const esperar = async (fn, ms = 6000) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) { if (fn()) return true; await dormir(100); }
+    return false;
+  };
+
+  // a) Sin codigo en la URL se abre la compra de quien esta identificado
+  ok(await esperar(() => doc.getElementById('t-codigo').textContent === 'ENTRY001'),
+    'Sin codigo en la URL no se abrio la compra de la persona identificada');
+  ok(!doc.getElementById('ticket-qr').classList.contains('hide'),
+    'La compra propia debe mostrar su QR');
+
+  // b) Identificarse en la pagina del QR navega a LA COMPRA de esa persona
+  const identif = fs.readFileSync(path.join(RAIZ, 'frontend/js/identificacion.js'), 'utf8');
+  ok(identif.includes('recargarCompraPropia'),
+    'Identificarse en la pagina del QR no lleva a la compra de esa persona');
+  ok(identif.includes('entrada.html?codigo='),
+    'Falta el salto a la entrada de la persona recien identificada');
+
+  // c) Persona identificada sin compras: no se cuelga la entrada de nadie
+  evaluar(ctx, 'SecurePassAPI.listarMisEntradas = async function () { return []; };');
+  cargarJs(ctx, 'frontend/js/entrada.js');
+
+  ok(await esperar(() => doc.getElementById('aviso-titular') &&
+    !doc.getElementById('aviso-titular').classList.contains('hide')),
+    'Sin compras no se explica la situacion en el aviso de titular');
+  ok(doc.getElementById('aviso-titular-texto').innerHTML.indexOf('no tienes entradas') >= 0,
+    'El aviso no indica que esa persona no tiene entradas compradas');
+  ok(doc.getElementById('ticket-qr').classList.contains('hide'),
+    'Sin compras no debe mostrarse ningun QR');
+  ok(doc.getElementById('panel-token-card').classList.contains('hide'),
+    'Sin compras no debe mostrarse el panel de token');
+
+  // d) Regresion: la funcion que evita colgar la entrada de otra persona
+  const entradaJs = fs.readFileSync(path.join(APP, 'js/entrada.js'), 'utf8');
+  ok(entradaJs.includes('pintarSinEntradas'),
+    'Falta pintarSinEntradas() en entrada.js');
+}
+
+/* ===================================================================== */
 /* 6. Modo API (Docker): el cliente HTTP contra un fetch simulado        */
 /* =================================================================== */
 async function pruebasModoApi() {
@@ -881,6 +935,7 @@ async function pruebasModoApi() {
   await pruebasPaginas();
   await pruebasPropiedad();
   await pruebasTransferenciaBackend();
+  await pruebasQrDeLaPersona();
   await pruebasModoApi();
 
   console.log('\n------------------------------------------------------------');

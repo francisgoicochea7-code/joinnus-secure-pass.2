@@ -47,6 +47,29 @@
     if (window.location && typeof window.location.reload === 'function') window.location.reload();
   }
 
+  /**
+   * En la PÁGINA DEL QR, después de identificarse se navega a la COMPRA de
+   * esa persona (su entrada válida) para que el código que se dibuje sea el
+   * suyo y con sus datos de compra, en vez de quedarse en la entrada de otra
+   * persona. En el resto de páginas sólo se recarga, que ya filtran por el
+   * DNI identificado.
+   */
+  async function recargarCompraPropia() {
+    if (!$('qr-canvas') || typeof window.SecurePassAPI === 'undefined') {
+      recargar();
+      return;
+    }
+    try {
+      const mias = await window.SecurePassAPI.listarMisEntradas();
+      const suya = mias.find(function (e) { return e.estado === 'valido'; }) || mias[0];
+      window.location.href = suya
+        ? 'entrada.html?codigo=' + encodeURIComponent(suya.codigo)
+        : 'entrada.html';
+    } catch (e) {
+      recargar();
+    }
+  }
+
   /* ---------------------------------------------------------------------
    * Errores de campo dentro del modal
    * ----------------------------------------------------------------- */
@@ -142,13 +165,13 @@
 
     notificar('ok', 'Identificación correcta',
       (r.usuario && r.usuario.nombre ? r.usuario.nombre : 'Bienvenido') + ' ya ve sus entradas.');
-    recargar();
+    await recargarCompraPropia();
   }
 
   function salir() {
     Sesion.olvidar();
     notificar('ok', 'Sesión cerrada', 'Vuelves a ver el usuario de demostración.');
-    recargar();
+    recargarCompraPropia();
   }
 
   /* ---------------------------------------------------------------------

@@ -162,14 +162,44 @@
   /* ------------------------------------------------------------------ */
   /* Carga inicial                                                      */
   /* ------------------------------------------------------------------ */
+
+  /**
+   * La persona identificada todavía no ha comprado nada: en vez de enseñar
+   * la entrada de otra persona (con su aviso), se explica y se oculta el QR.
+   */
+  function pintarSinEntradas() {
+    const aviso = $('aviso-titular');
+    const texto = $('aviso-titular-texto');
+    if (texto) {
+      texto.innerHTML =
+        'Tu identificación está activa, pero <strong>todavía no tienes entradas compradas</strong>. ' +
+        'Cuando compres, aquí aparecerá <strong>tu compra con su QR</strong>. ' +
+        'Mientras puedes consultar el estado de cualquier entrada desde ' +
+        '<a href="verificar.html">Verificador</a>.';
+    }
+    if (aviso) aviso.classList.remove('hide');
+
+    const ticket = $('ticket-qr');
+    if (ticket) ticket.classList.add('hide');
+    const panel = $('panel-token-card');
+    if (panel) panel.classList.add('hide');
+    const selector = $('selector-entradas');
+    if (selector) selector.innerHTML = '';
+    if ($('aviso-no-mia')) $('aviso-no-mia').classList.add('hide');
+    JSP.pintarModo();
+  }
+
   async function cargar() {
     let codigo = JSP.parametro('codigo');
 
     if (!codigo) {
+      // Sin código en la URL se abre LA COMPRA de la persona identificada
+      // (su entrada válida), no siempre la misma de una sola persona.
       const mias = await SecurePassAPI.listarMisEntradas();
       const preferida = mias.find(e => e.codigo === 'ENTRY001') ||
         mias.find(e => e.estado === 'valido') || mias[0];
-      codigo = preferida ? preferida.codigo : 'ENTRY001';
+      if (!preferida) return pintarSinEntradas();
+      codigo = preferida.codigo;
     }
 
     entrada = await SecurePassAPI.consultarEntrada(codigo);
