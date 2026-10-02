@@ -808,6 +808,91 @@ async function pruebasQrDeLaPersona() {
 }
 
 /* ===================================================================== */
+/* 4e. Los datos de la entrada salen SÓLO DESPUÉS de identificarse       */
+/* =================================================================== */
+async function pruebasEntradaTrasIdentificar() {
+  grupo('4e. La entrada pide identificarse antes de mostrar los datos');
+
+  // El barrido comprueba el estado COMPLETO en un solo paso: otras páginas
+  // abiertas en pruebas anteriores siguen girando su QR por reloj y tocan el
+  // mismo micro-DOM, así no se apoya en una única lectura.
+  const barrido = async fn => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < 6000) { if (fn()) return true; await dormir(5); }
+    return false;
+  };
+
+  // a) Con la API real y SIN identificar: se pide identificarse, sin datos
+  const ctxA = crearContexto();
+  cargarJs(ctxA, 'frontend/js/qr.js');
+  cargarJs(ctxA, 'frontend/js/cliente-api.js');
+  cargarJs(ctxA, 'frontend/js/api.js');
+  evaluar(ctxA, 'SecurePassAPI.usarApi = async function () { return true; };');
+  evaluar(ctxA, 'var consultasA = 0; SecurePassAPI.consultarEntrada = ' +
+    'async function () { consultasA = consultasA + 1; return null; };');
+  cargarPagina(ctxA, 'frontend/entrada.html',
+    ['frontend/js/app.js', 'frontend/js/sesion.js', 'frontend/js/identificacion.js',
+     'frontend/js/entrada.js']);
+
+  const docA = ctxA.document;
+  const estadoA = () => {
+    const aviso = docA.getElementById('aviso-titular');
+    const texto = docA.getElementById('aviso-titular-texto');
+    return !!(aviso && texto && texto.innerHTML.indexOf('Identifícate') >= 0) &&
+      !aviso.classList.contains('hide') &&
+      docA.getElementById('ticket-datos').classList.contains('hide') &&
+      docA.getElementById('ticket-qr').classList.contains('hide');
+  };
+  const listoA = await barrido(estadoA);
+
+  ok(listoA, 'Sin identificarse la entrada debe pedir identificarse y ocultar todo');
+  if (listoA) {
+    ok(docA.getElementById('aviso-titular-texto').innerHTML.indexOf('Identifícate') >= 0,
+      'El aviso no invita a identificarse primero');
+    ok(docA.getElementById('ticket-datos').classList.contains('hide'),
+      'Sin identificarse deben ocultarse los datos de la entrada');
+    ok(docA.getElementById('ticket-qr').classList.contains('hide'),
+      'Sin identificarse no debe mostrarse el QR');
+  }
+  ok(evaluar(ctxA, 'consultasA') === 0,
+    'Sin identificarse no se debio consultar ninguna entrada');
+
+  // b) Ya identificada: recién salen LOS DATOS de esa persona y su QR
+  const ctxB = crearContexto();
+  ctxB.localStorage.setItem('jsp.sesion.usuario.v1', JSON.stringify({
+    dni: '45678945', nombre: 'Carlos Pérez', nombres: 'Carlos', apellidos: 'Pérez'
+  }));
+  cargarJs(ctxB, 'frontend/js/qr.js');
+  cargarJs(ctxB, 'frontend/js/cliente-api.js');
+  cargarJs(ctxB, 'frontend/js/api.js');
+  evaluar(ctxB, 'SecurePassAPI.usarApi = async function () { return false; };');
+  cargarPagina(ctxB, 'frontend/entrada.html',
+    ['frontend/js/app.js', 'frontend/js/sesion.js', 'frontend/js/identificacion.js',
+     'frontend/js/entrada.js']);
+
+  const docB = ctxB.document;
+  const estadoB = () =>
+    docB.getElementById('t-evento').textContent === 'Lima Music Fest' &&
+    !docB.getElementById('ticket-datos').classList.contains('hide');
+  const listoB = await barrido(estadoB);
+
+  ok(listoB, 'Identificado: no salieron los datos de su compra');
+  if (listoB) {
+    ok(!docB.getElementById('ticket-datos').classList.contains('hide'),
+      'Identificado: los datos de su entrada deben verse');
+    ok(!docB.getElementById('ticket-qr').classList.contains('hide'),
+      'Identificado: su QR debe mostrarse');
+  }
+
+  // c) Regresion: la funcion que exige identificarse sigue en entrada.js
+  const entradaJs = fs.readFileSync(path.join(APP, 'js/entrada.js'), 'utf8');
+  ok(entradaJs.includes('pintarIdentificacionRequerida'),
+    'Falta pintarIdentificacionRequerida() en entrada.js');
+  ok(entradaJs.indexOf('estaIdentificado()') >= 0,
+    'La entrada ya no comprueba si hay alguien identificado');
+}
+
+/* ===================================================================== */
 /* 6. Modo API (Docker): el cliente HTTP contra un fetch simulado        */
 /* =================================================================== */
 async function pruebasModoApi() {
@@ -940,6 +1025,7 @@ async function pruebasModoApi() {
   await pruebasPropiedad();
   await pruebasTransferenciaBackend();
   await pruebasQrDeLaPersona();
+  await pruebasEntradaTrasIdentificar();
   await pruebasModoApi();
 
   console.log('\n------------------------------------------------------------');

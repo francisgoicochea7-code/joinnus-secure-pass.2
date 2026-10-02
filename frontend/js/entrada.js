@@ -179,6 +179,8 @@
     }
     if (aviso) aviso.classList.remove('hide');
 
+    const datos = $('ticket-datos');
+    if (datos) datos.classList.add('hide');
     const ticket = $('ticket-qr');
     if (ticket) ticket.classList.add('hide');
     const panel = $('panel-token-card');
@@ -189,7 +191,45 @@
     JSP.pintarModo();
   }
 
+  /**
+   * Todavía nadie se ha identificado: no se muestran los datos de ninguna
+   * entrada ni el QR. Primero la identificación (píldora "Identifícate") y,
+   * una vez identificada, recién salen los datos de SU compra y SU QR.
+   *
+   * Sólo aplica con la API real (base de datos), donde hay varios usuarios:
+   * en la demostración local no se exige, porque ahí no hay sesión real.
+   */
+  function pintarIdentificacionRequerida() {
+    const aviso = $('aviso-titular');
+    const texto = $('aviso-titular-texto');
+    if (texto) {
+      texto.innerHTML =
+        '<strong>Identifícate para ver tu entrada.</strong> Pulsa el botón ' +
+        '<strong>Identifícate</strong> (abajo a la izquierda) y escribe tu DNI, nombres y ' +
+        'apellidos: enseguida aparecerán <strong>los datos de tu compra</strong> y tu QR.';
+    }
+    if (aviso) aviso.classList.remove('hide');
+    ['ticket-datos', 'ticket-qr', 'panel-token-card', 'selector-entradas'].forEach(function (id) {
+      const el = $(id);
+      if (el) el.classList.add('hide');
+    });
+    if ($('aviso-no-mia')) $('aviso-no-mia').classList.add('hide');
+    JSP.pintarModo();
+  }
+
   async function cargar() {
+    // Los datos salen SÓLO DESPUÉS de identificarse (con la API real): así
+    // cada persona identificada ve su propia compra y su propio QR.
+    const enApi = await SecurePassAPI.usarApi();
+    const identificado = typeof Sesion !== 'undefined' && Sesion.estaIdentificado();
+    if (enApi && !identificado) return pintarIdentificacionRequerida();
+
+    // Si había quedado el aviso de identificación, se retira lo que ocultó
+    ['ticket-datos', 'ticket-qr', 'panel-token-card', 'selector-entradas'].forEach(function (id) {
+      const el = $(id);
+      if (el) el.classList.remove('hide');
+    });
+
     let codigo = JSP.parametro('codigo');
 
     if (!codigo) {
