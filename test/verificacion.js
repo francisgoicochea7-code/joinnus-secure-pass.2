@@ -392,6 +392,10 @@ async function pruebasPaginas() {
       ok(!!doc.getElementById('codigo'), 'No se encontro el campo de codigo');
       ok(doc.getElementById('chips-codigos').innerHTML.includes('ENTRY001'),
         'Los chips de codigos de prueba no se rellenaron');
+      // En el micro-DOM el class del HTML queda en getAttribute; className y
+      // classList sólo reflejan los cambios hechos por JavaScript.
+      ok(String(doc.getElementById('chips-codigos').getAttribute('class') || '').includes('hide'),
+        'Los chips de codigos de prueba deben estar ocultos en la interfaz');
       ok(doc.getElementById('tabla-db').innerHTML.includes('ENTRY001'),
         'La tabla de la base de datos no se relleno');
     },

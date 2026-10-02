@@ -105,8 +105,10 @@
               <h4 class="small" style="letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0">Códigos de prueba</h4>
               <button type="button" class="btn-link tiny" data-modal-open="modal-entradas">Ver ficha completa</button>
             </div>
-            <p class="tiny muted">Haz clic en un código para consultarlo inmediatamente.</p>
-            <div class="code-chips" id="chips-codigos"></div>
+            <!-- Ocultado a petición: los códigos de prueba ya no se muestran
+                 en la interfaz (siguen en el DOM, el modal y las pruebas) -->
+            <p class="tiny muted hide">Haz clic en un código para consultarlo inmediatamente.</p>
+            <div class="code-chips hide" id="chips-codigos"></div>
           </div>
 
           <div class="mt-3" id="zona-escaneo" style="position:relative">
