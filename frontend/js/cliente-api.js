@@ -208,6 +208,18 @@ const ClienteAPI = (function () {
     return r.datos.entrada;
   }
 
+  /** REGISTRAR una persona nueva (alta en la base de usuarios).
+   *  400 = datos inválidos y 409 = DNI ya registrado: se devuelven tal cual,
+   *  con su campo y su mensaje, para que el formulario los marque. */
+  async function crearUsuario(datos) {
+    const r = await pedir('/usuarios', { method: 'POST', body: datos });
+    if (r.status === 400 || r.status === 409) {
+      return r.datos || { ok: false, error: 'No se pudo completar el registro.' };
+    }
+    if (!r.ok) throw Object.assign(new Error('Error del servidor'), { status: r.status, body: r.datos });
+    return r.datos;
+  }
+
   /** Reiniciar los datos ficticios */
   async function reiniciarDemo() {
     const r = await pedir('/demo/reiniciar', { method: 'POST' });
@@ -223,6 +235,7 @@ const ClienteAPI = (function () {
 
     health: health,
     buscarUsuario: buscarUsuario,
+    crearUsuario: crearUsuario,
     obtenerResumen: obtenerResumen,
     listarEntradas: listarEntradas,
     consultarEntrada: consultarEntrada,

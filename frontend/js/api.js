@@ -734,6 +734,59 @@ const SecurePassAPI = (function () {
   }
 
   /**
+   * crearUsuario(datos)   datos = {dni, nombres, apellidos, correo}
+   * En modo API:  POST /api/usuarios  (alta real en la base de datos)
+   * En modo local: no hay base de datos, se explica y no se inventa el alta.
+   * Devuelve {ok:true, usuario} o {ok:false, campo, mensaje}, el mismo
+   * contrato que Sesion.identificar, para que el formulario marque el campo.
+   */
+  async function crearUsuario(datos) {
+    const d = datos || {};
+
+    const vDni = validarDNI(d.dni);
+    if (!vDni.ok) return { ok: false, campo: 'dni', mensaje: vDni.mensaje };
+
+    const nombres = String(d.nombres || '').replace(/\s+/g, ' ').trim();
+    const apellidos = String(d.apellidos || '').replace(/\s+/g, ' ').trim();
+    if (nombres.length < 2 || !/^\p{L}[\p{L}\s'.-]*$/u.test(nombres)) {
+      return { ok: false, campo: 'nombres', mensaje: 'Escribe tus nombres (sólo letras).' };
+    }
+    if (apellidos.length < 2 || !/^\p{L}[\p{L}\s'.-]*$/u.test(apellidos)) {
+      return { ok: false, campo: 'apellidos', mensaje: 'Escribe tus apellidos (sólo letras).' };
+    }
+
+    const vCorreo = validarCorreo(d.correo);
+    if (!vCorreo.ok) return { ok: false, campo: 'correo', mensaje: vCorreo.mensaje };
+
+    if (await usarApi()) {
+      try {
+        const r = await Cliente.crearUsuario({
+          dni: vDni.valor,
+          nombre: nombres + ' ' + apellidos,
+          correo: String(vCorreo.valor).toLowerCase()
+        });
+        if (r && r.ok) return { ok: true, usuario: r.usuario };
+        // 400 (datos inválidos) o 409 (DNI ya registrado): el servidor ya
+        // dijo el motivo y el campo, se devuelve tal cual.
+        return {
+          ok: false,
+          campo: (r && r.campo) || 'dni',
+          mensaje: (r && (r.mensaje || r.error)) || 'No se pudo crear la cuenta.'
+        };
+      } catch (e) {
+        const delServidor = errorDeServidor(e);
+        if (delServidor) return { ok: false, campo: 'dni', mensaje: delServidor.error };
+        degradar(e);
+      }
+    }
+    return {
+      ok: false,
+      campo: 'dni',
+      mensaje: 'El registro está disponible con la base de datos: arranca Docker (modo API).'
+    };
+  }
+
+  /**
    * obtenerHistorial(codigo, dni)
    * - codigo: historial de una entrada concreta
    * - dni:    historial de los movimientos de esa persona
@@ -862,6 +915,7 @@ const SecurePassAPI = (function () {
     consultarEntrada: consultarEntrada,
     actualizarQR: actualizarQR,
     transferirEntrada: transferirEntrada,
+    crearUsuario: crearUsuario,
     obtenerHistorial: obtenerHistorial,
 
     // Funciones de apoyo de la interfaz

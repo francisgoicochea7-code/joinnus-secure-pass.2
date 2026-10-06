@@ -183,6 +183,8 @@ Todos responden JSON. `ok: true` indica éxito.
 | `GET` | `/api/verificar/:codigo` | **Verificar estado** (y registra el evento) |
 | `POST` | `/api/entradas/:codigo/qr?log=0\|1` | **Generar token del QR** (`log=0` en rotaciones automáticas) |
 | `POST` | `/api/qr/validar` | **Validar token** (recibe `{ "token": "JSP-ENTRY001-XXXXXXXX" }` o el payload `JSP\|CODIGO\|TOKEN\|HORA`) |
+| `POST` | `/api/usuarios` | **Registrar usuario nuevo** (alta: `{ "dni", "nombre", "correo" }`; `409` si el DNI ya existe) |
+| `GET` | `/api/usuarios/:dni` | **Comprobar identidad** (DNI de la persona que se identifica) |
 | `POST` | `/api/entradas/:codigo/transferir` | **Transferir entrada** |
 | `GET` | `/api/entradas/:codigo/historial` | **Obtener historial** |
 | `POST` | `/api/entradas/:codigo/estado/:estado` | Marcar como `usado`, `anulado` o `valido` |
@@ -209,6 +211,14 @@ curl -X POST http://localhost:3000/api/qr/validar \
 curl -X POST http://localhost:3000/api/entradas/ENTRY001/transferir \
      -H "Content-Type: application/json" \
      -d '{"nombre":"Andrea Torres","dni":"52311878","correo":"andrea.torres@demo.pe","precio":100}'
+
+# Registrar una persona nueva (alta en la base de usuarios)
+curl -X POST http://localhost:3000/api/usuarios \
+     -H "Content-Type: application/json" \
+     -d '{"dni":"77665544","nombre":"Ana Maria Gomez","correo":"ana@correo.pe"}'
+
+# Ese DNI ya se puede usar para identificarse
+curl http://localhost:3000/api/usuarios/77665544
 
 # Historial
 curl http://localhost:3000/api/entradas/ENTRY001/historial

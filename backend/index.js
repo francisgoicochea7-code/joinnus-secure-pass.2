@@ -732,6 +732,54 @@ app.post('/api/entradas/:codigo/transferir', limiteEscritura, ruta(async (req, r
   });
 }));
 
+/** REGISTRAR una persona nueva: la da de alta en la base para que a partir
+ *  de ahí pueda identificarse (DNI + nombre). No es una cuenta con clave,
+ *  es un alta de usuario: el límite de peticiones por minuto es el freno. */
+app.post('/api/usuarios', limiteEscritura, ruta(async (req, res) => {
+  const b = req.body || {};
+
+  const dni = String(b.dni || '').trim();
+  if (!/^\d{8}$/.test(dni)) {
+    return fallo(res, 400, 'El DNI debe tener exactamente 8 números.', { campo: 'dni' });
+  }
+
+  const nombre = String(b.nombre || '').replace(/\s+/g, ' ').trim();
+  if (nombre.length < 3 || nombre.length > 120 || !/^\p{L}[\p{L}\s'.-]*$/u.test(nombre)) {
+    return fallo(res, 400, 'Escribe el nombre completo (sólo letras).', { campo: 'nombre' });
+  }
+
+  const correo = String(b.correo || '').trim().toLowerCase();
+  if (correo.length > 160 || !/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(correo)) {
+    return fallo(res, 400, 'El correo no tiene un formato válido (ej. ana@correo.com).',
+      { campo: 'correo' });
+  }
+
+  // El DNI es la identidad del sistema: no puede repetirse. Si dos personas
+  // se registran a la vez, la clave única uq_usuarios_dni decide (ER_DUP_ENTRY).
+  const [existe] = await pool.execute('SELECT id FROM usuarios WHERE dni = ? LIMIT 1', [dni]);
+  if (existe.length) {
+    return fallo(res, 409, 'Ese DNI ya está registrado: identifícate con tu nombre.',
+      { campo: 'dni' });
+  }
+
+  const telefono = String(b.telefono || '').trim().slice(0, 30) || null;
+  try {
+    const [alta] = await pool.execute(
+      'INSERT INTO usuarios (nombre, dni, correo, telefono) VALUES (?, ?, ?, ?)',
+      [nombre, dni, correo, telefono]);
+    return res.status(201).json({
+      ok: true,
+      usuario: { id: alta.insertId, nombre: nombre, dni: dni, correo: correo }
+    });
+  } catch (e) {
+    if (e && e.code === 'ER_DUP_ENTRY') {
+      return fallo(res, 409, 'Ese DNI ya está registrado: identifícate con tu nombre.',
+        { campo: 'dni' });
+    }
+    throw e;
+  }
+}));
+
 /** IDENTIFICAR a una persona: comprueba que el DNI existe y que el nombre
  *  escrito coincide con el registrado. NO es autenticacion (no hay
  *  contrasena): solo evita erratas y da un dato coherente que mostrar. */

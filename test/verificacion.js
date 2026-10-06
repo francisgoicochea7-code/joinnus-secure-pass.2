@@ -893,6 +893,171 @@ async function pruebasEntradaTrasIdentificar() {
 }
 
 /* ===================================================================== */
+/* 5. Registro de usuarios nuevos (alta, modal e identificacion)         */
+/* =================================================================== */
+async function pruebasRegistroUsuarios() {
+  grupo('5. Registro de usuarios nuevos');
+
+  // --- a) El backend da de alta en la base -------------------------------
+  const backend = fs.readFileSync(path.join(RAIZ, 'backend/index.js'), 'utf8');
+  const ini = backend.indexOf("app.post('/api/usuarios'");
+  ok(ini >= 0, 'Falta la ruta POST /api/usuarios en el backend');
+  const bloque = ini >= 0 ? backend.slice(ini, ini + 1600) : '';
+
+  ok(bloque.includes('INSERT INTO usuarios'),
+    'La ruta de registro no inserta la persona en la tabla usuarios');
+  ok(bloque.includes('limiteEscritura'),
+    'El registro sin limite de peticiones permitiria inundar la base');
+  ok(bloque.includes('^\\d{8}$'),
+    'El registro no valida que el DNI tenga 8 numeros');
+  ok(bloque.includes('campo: \'dni\'') && bloque.indexOf('409') >= 0,
+    'Un DNI repetido debe responder 409 indicando el campo');
+  ok(bloque.includes('ER_DUP_ENTRY'),
+    'Falta el control de la clave unica uq_usuarios_dni ante dos altas simultaneas');
+
+  // --- b) Capa de datos y cliente HTTP -----------------------------------
+  const api = fs.readFileSync(path.join(APP, 'js/api.js'), 'utf8');
+  ok(api.includes('async function crearUsuario'),
+    'Falta crearUsuario() en api.js');
+  ok(api.includes('crearUsuario: crearUsuario'),
+    'crearUsuario no esta exportado en SecurePassAPI');
+  ok(api.includes('El registro está disponible con la base de datos'),
+    'Sin servidor el registro debe explicar que necesita la base, no fingir un alta');
+
+  const cliente = fs.readFileSync(path.join(APP, 'js/cliente-api.js'), 'utf8');
+  ok(cliente.includes("pedir('/usuarios'") && cliente.includes("method: 'POST'"),
+    'El cliente no llama a POST /api/usuarios');
+  ok(cliente.includes('r.status === 400 || r.status === 409'),
+    'El cliente se traga los 400/409 del registro en vez de devolverlos al formulario');
+
+  const identif = fs.readFileSync(path.join(APP, 'js/identificacion.js'), 'utf8');
+  ok(identif.includes('id="reg-dni"') && identif.includes('id="reg-correo"'),
+    'El modal no monta los campos del formulario de registro');
+  ok(identif.includes('id="reg-enviar"'),
+    'El modal no tiene el boton Crear cuenta');
+  ok(identif.includes('function registrarse'),
+    'Falta registrarse() en identificacion.js');
+  ok(identif.includes('SecurePassAPI.crearUsuario'),
+    'El formulario de registro no usa la capa de datos');
+
+  // --- c) El modal alterna entre identificarse y crear cuenta ------------
+  const ctx = crearContexto();
+  cargarJs(ctx, 'frontend/js/qr.js');
+  cargarJs(ctx, 'frontend/js/cliente-api.js');
+  cargarJs(ctx, 'frontend/js/api.js');
+  cargarPagina(ctx, 'frontend/index.html',
+    ['frontend/js/app.js', 'frontend/js/sesion.js', 'frontend/js/identificacion.js']);
+
+  const doc = ctx.document;
+  ok(!!doc.getElementById('reg-formulario') && !!doc.getElementById('reg-pie'),
+    'El modal no monta la vista de registro');
+  ok(!!doc.getElementById('identif-formulario') && !!doc.getElementById('identif-pie'),
+    'La vista de identificacion desaparecio del modal');
+  ok(!!doc.getElementById('identif-a-registro'),
+    'La vista de identificacion no ofrece crear una cuenta nueva');
+
+  doc.getElementById('identif-a-registro').click();
+  ok(doc.getElementById('identif-formulario').classList.contains('hide'),
+    'Al pulsar "Crea tu cuenta" no se oculta la vista de identificacion');
+  ok(!doc.getElementById('reg-formulario').classList.contains('hide'),
+    'Al pulsar "Crea tu cuenta" no se muestra el formulario de registro');
+
+  doc.getElementById('reg-a-identif').click();
+  ok(!doc.getElementById('identif-formulario').classList.contains('hide'),
+    'Volver desde el registro no restaura la vista de identificacion');
+  ok(doc.getElementById('reg-formulario').classList.contains('hide'),
+    'Volver desde el registro no vuelve a ocultar el formulario');
+
+  // --- d) Validacion del formulario (funciona tambien sin servidor) ------
+  let r = await evaluar(ctx,
+    'SecurePassAPI.crearUsuario({dni:"123", nombres:"Ana", apellidos:"Gómez", correo:"ana@correo.com"})');
+  ok(r && r.ok === false && r.campo === 'dni',
+    'Un DNI de 3 digitos no debe pasar la validacion del registro');
+
+  r = await evaluar(ctx,
+    'SecurePassAPI.crearUsuario({dni:"77665544", nombres:"Ana123", apellidos:"Gómez", correo:"ana@correo.com"})');
+  ok(r && r.ok === false && r.campo === 'nombres',
+    'Un nombre con numeros debe rechazarse');
+
+  r = await evaluar(ctx,
+    'SecurePassAPI.crearUsuario({dni:"77665544", nombres:"Ana", apellidos:"Gómez", correo:"no-es-correo"})');
+  ok(r && r.ok === false && r.campo === 'correo',
+    'Un correo invalido debe marcar el campo correo');
+
+  r = await evaluar(ctx,
+    'SecurePassAPI.crearUsuario({dni:"77665544", nombres:"Ana", apellidos:"Gómez", correo:"ana@correo.com"})');
+  ok(r && r.ok === false && /base de datos/.test(r.mensaje || ''),
+    'Sin servidor el registro debe explicar que hace falta la base de datos');
+
+  // --- e) Con la API simulada: alta real y identificacion inmediata ------
+  const ctx2 = crearContexto();
+  const llamadas = [];
+  ctx2.sandbox.fetch = async (url, opciones) => {
+    opciones = opciones || {};
+    const metodo = opciones.method || 'GET';
+    llamadas.push({ url: String(url), metodo: metodo, cuerpo: opciones.body });
+    const responder = (cuerpo, status) => ({
+      ok: (status || 200) < 400,
+      status: status || 200,
+      json: async () => cuerpo
+    });
+
+    if (String(url).endsWith('/health')) {
+      return responder({ ok: true, baseDatos: 'conectada', tablas: 6 });
+    }
+    if (String(url).includes('/api/usuarios') && metodo === 'POST') {
+      const cuerpo = JSON.parse(opciones.body);
+      if (cuerpo.dni === '44332211') {
+        return responder({
+          ok: false, campo: 'dni',
+          error: 'Ese DNI ya está registrado: identifícate con tu nombre.'
+        }, 409);
+      }
+      return responder({
+        ok: true,
+        usuario: { id: 9, nombre: cuerpo.nombre, dni: cuerpo.dni, correo: cuerpo.correo }
+      }, 201);
+    }
+    if (/\/api\/usuarios\/\d{8}$/.test(String(url))) {
+      const dni = String(url).split('/').pop();
+      return responder({ ok: true, usuario: { id: 9, nombre: 'Ana María Gómez Ríos', dni: dni, correo: 'ana@correo.pe' } });
+    }
+    return responder({ ok: false, error: 'Ruta no simulada: ' + url }, 404);
+  };
+  cargarJs(ctx2, 'frontend/js/qr.js');
+  cargarJs(ctx2, 'frontend/js/cliente-api.js');
+  cargarJs(ctx2, 'frontend/js/api.js');
+  cargarJs(ctx2, 'frontend/js/sesion.js');
+
+  const alta = await evaluar(ctx2,
+    'SecurePassAPI.crearUsuario({dni:"77665544", nombres:"Ana María", apellidos:"Gómez Ríos", correo:"ANA@Correo.pe"})');
+  ok(alta && alta.ok === true && alta.usuario && alta.usuario.dni === '77665544',
+    'Con la API el registro no creo la cuenta');
+
+  const post = llamadas.find(l => l.metodo === 'POST' && l.url.includes('/api/usuarios'));
+  ok(!!post, 'No se llamo a POST /api/usuarios');
+  if (post) {
+    const cuerpo = JSON.parse(post.cuerpo);
+    ok(cuerpo.dni === '77665544', 'El alta no envia el DNI');
+    ok(cuerpo.nombre === 'Ana María Gómez Ríos',
+      'El alta debe enviar el nombre completo (nombres + apellidos)');
+    ok(cuerpo.correo === 'ana@correo.pe', 'El correo debe guardarse en minusculas');
+  }
+
+  const dup = await evaluar(ctx2,
+    'SecurePassAPI.crearUsuario({dni:"44332211", nombres:"Luis", apellidos:"Prado", correo:"luis@correo.pe"})');
+  ok(dup && dup.ok === false && dup.campo === 'dni' && /registrado/.test(dup.mensaje || ''),
+    'Un DNI repetido (409) debe devolver el motivo del servidor marcando el DNI');
+
+  // Recien creada ya se puede identificar con ese DNI (el backend la tiene)
+  const sesion = await evaluar(ctx2, 'Sesion.identificar("77665544", "Ana María", "Gómez Ríos")');
+  ok(sesion && sesion.ok === true,
+    'Creada la cuenta no se pudo identificar con ese DNI');
+  ok(evaluar(ctx2, 'Sesion.estaIdentificado()') === true,
+    'Tras registrarse e identificarse no quedo la sesion activa');
+}
+
+/* ===================================================================== */
 /* 6. Modo API (Docker): el cliente HTTP contra un fetch simulado        */
 /* =================================================================== */
 async function pruebasModoApi() {
@@ -1026,6 +1191,7 @@ async function pruebasModoApi() {
   await pruebasTransferenciaBackend();
   await pruebasQrDeLaPersona();
   await pruebasEntradaTrasIdentificar();
+  await pruebasRegistroUsuarios();
   await pruebasModoApi();
 
   console.log('\n------------------------------------------------------------');
