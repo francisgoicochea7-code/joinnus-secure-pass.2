@@ -102,10 +102,15 @@ frontend  ──(depends_on: healthy)──►  backend  ──(depends_on: heal
 | Puerto (host) | Contenedor | Servicio | ¿Necesario para la demo? |
 |---|---|---|---|
 | **8080** | 80 | nginx / frontend | **Sí** — es la dirección que se abre |
-| 3000 | 3000 | API Express | Opcional (para probar endpoints) |
-| 3307 | 3306 | MySQL | No (sólo para inspección con un cliente SQL) |
+| 3000 | 3000 | API Express | Opcional (para probar endpoints) — **sólo en `127.0.0.1`** |
+| 3307 | 3306 | MySQL | No (sólo inspección SQL) — **sólo en `127.0.0.1`** |
 
 Todos son configurables en `.env`: `FRONTEND_PORT`, `BACKEND_PORT`, `MYSQL_PORT`.
+
+> Los puertos 3000 y 3307 quedan escuchando únicamente en `127.0.0.1`
+> (la máquina local). Así, cuando el proyecto se publica en internet, de la
+> máquina sólo se expone el 80 de nginx: ni la API ni MySQL son alcanzables
+> desde fuera (ver sección 13).
 
 ---
 
@@ -499,3 +504,80 @@ npm run test:app      # solo los flujos de la aplicación
 ## 12. Autoría
 
 Proyecto académico universitario. Datos, eventos y personas son ficticios.
+
+---
+
+## 13. Publicarla en internet (24/7)
+
+Hasta aquí el proyecto vive en tu equipo (`localhost:8080`). Para que otras
+personas entren con un link hacen falta dos cosas: un servidor encendido todo
+el rato y abrir el puerto 80. Hay dos caminos:
+
+### Opción A — Oracle Cloud Always Free (gratis para siempre)
+
+1. **Cuenta**: <https://cloud.oracle.com/free>. Piden tarjeta sólo para
+   verificar identidad; el plan *Always Free* no cobra nada.
+2. **Máquina**: *Create a VM* → imagen **Ubuntu 24.04** (o 22.04) →
+   `VM.Standard.E2.1.Micro` (AMD, 1 GB) o `VM.Standard.A1.Flex` (ARM, hasta
+   24 GB). Al terminar, anota la **IP pública**.
+3. **Abrir el puerto 80**: *Subnet → Security Lists → Add Ingress Rules*,
+   *Destination Port* `80`, *Source* `0.0.0.0/0`.
+4. **Entrar por SSH** (la clave privada se descarga al crear la VM):
+   ```bash
+   ssh -i clave.pem ubuntu@IP_PUBLICA
+   ```
+5. **Instalar Docker**:
+   ```bash
+   curl -fsSL https://get.docker.com | sudo sh
+   sudo usermod -aG docker $USER && newgrp docker
+   ```
+6. **Bajar el proyecto y configurarlo**:
+   ```bash
+   git clone https://github.com/francisgoicochea7-code/joinnus-secure-pass.git
+   cd joinnus-secure-pass
+   cp .env.example .env
+   nano .env      # QR_SECRET, DB_PASSWORD y MYSQL_ROOT_PASSWORD fuertes
+   ```
+7. **Arrancar**:
+   ```bash
+   docker compose up -d --build
+   docker compose ps        # los tres deben aparecer "Up (healthy)"
+   ```
+8. **Probar**: abre `http://IP_PUBLICA` desde cualquier navegador y registra
+   una cuenta nueva en la píldora de identificación.
+
+Los datos (entradas, historial y usuarios registrados) viven en el volumen
+`jsp_mysql_data`: sobreviven a los reinicios (`sudo reboot` y después
+`docker compose up -d`). Para actualizar el código:
+
+```bash
+cd joinnus-secure-pass && git pull && docker compose up -d --build
+```
+
+### Opción B — Un link en 5 minutos (mientras tu PC está encendida)
+
+No se instala nada en la nube; tu equipo sigue sirviendo la app:
+
+```bash
+# Windows (una sola vez): winget install cloudflared
+cloudflared tunnel --url http://localhost:8080
+```
+
+Te da una dirección tipo `https://xxxx.trycloudflare.com` que puedes pasar por
+WhatsApp. Sólo funciona mientras esa terminal y Docker siguen abiertas.
+Alternativa: `ngrok http 8080` (cuenta gratuita).
+
+### Recomendaciones al salir a internet
+
+- Cambia `QR_SECRET`, `DB_PASSWORD` y `MYSQL_ROOT_PASSWORD` en `.env`
+  (ese fichero **nunca** se sube a git: sólo existe en el servidor).
+- Los puertos 3000 (API) y 3307 (MySQL) sólo escuchan en `127.0.0.1`, así que
+  de la máquina sólo se expone el 80 de nginx.
+- Las rutas de escritura tienen límite de peticiones (20/min), el QR rota cada
+  15 s y se firma con HMAC en el servidor; la transferencia exige además que
+  la entrada sea del DNI que la pide.
+- **Límite a recordar (sección 10): no hay contraseña.** Cualquiera que conozca
+  un DNI y un nombre puede identificarse como esa persona. Para compartir con
+  conocidos está bien; si algún día es público de verdad, habría que añadir
+  contraseña (bcrypt) y HTTPS con certificado (por ejemplo Caddy delante de
+  nginx, o certbot).
