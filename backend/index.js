@@ -140,6 +140,18 @@ const CFG = {
 /* ---------------------------------------------------------------------
  * 2. Pool de conexiones a MySQL
  * ------------------------------------------------------------------- */
+/* TLS del MySQL remoto. Algunos proveedores (Aiven) firman con su propia
+ * autoridad y exigen cargar su CA: se pasa en DB_SSL_CA, que admite la ruta
+ * de un fichero .pem o el propio certificado pegado (con \n de salto). */
+function sslDeLaBase() {
+  const ca = String(process.env.DB_SSL_CA || '').trim();
+  if (!ca) return {};
+  const pem = ca.includes('-----BEGIN')
+    ? ca.replace(/\\n/g, '\n')
+    : fs.readFileSync(ca, 'utf8');
+  return { ca: pem };
+}
+
 const pool = mysql.createPool({
   host: CFG.db.host,
   port: CFG.db.port,
@@ -158,10 +170,11 @@ const pool = mysql.createPool({
   namedPlaceholders: true,
   /* MySQL remoto (Aiven, TiDB Serverless, Railway...) exige TLS: se activa con
    * DB_SSL=true en el entorno. En el MySQL de Docker no hace falta y queda
-   * desactivado. Con `ssl: {}` mysql2 usa el almacén de confianza del sistema,
-   * donde entran los certificados firmados por una autoridad pública (los de
-   * Aiven y TiDB). */
-  ...(process.env.DB_SSL === 'true' ? { ssl: {} } : {})
+   * desactivado. Sin DB_SSL_CA, mysql2 usa el almacén de confianza del
+   * sistema (donde entran los certificados firmados por una autoridad
+   * pública, como los de TiDB); con DB_SSL_CA se carga la CA del proveedor
+   * (el caso de Aiven). */
+  ...(process.env.DB_SSL === 'true' ? { ssl: sslDeLaBase() } : {})
 });
 
 /** Espera a que MySQL acepte conexiones (arranque de Docker) */

@@ -526,7 +526,9 @@ externo gratuito.
 1. **Base de datos gratis (una sola vez)** — por ejemplo [Aiven](https://aiven.io)
    (*Create service → MySQL → Free plan*) o [TiDB Serverless](https://tidbcloud.com).
    Copia `.env.remota.example` a `.env.remota` con los datos que te den
-   (host, puerto, usuario, contraseña, `DB_SSL=true`).
+   (host, puerto, usuario, contraseña, `DB_SSL=true`). En Aiven hay que
+   añadir además su certificado CA en `DB_SSL_CA` (Service settings → CA
+   Cert); con TiDB no hace falta.
 2. **Sembrar la base** con el esquema y la demo:
    ```bash
    npm run db:remoto             # crea tablas y usuarios/entradas ficticios

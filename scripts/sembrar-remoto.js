@@ -32,13 +32,25 @@ require('dotenv').config({ path: archivoEnv });
 
 const mysql = require('mysql2/promise');
 
+/* TLS: si el proveedor exige su propia CA (Aiven), DB_SSL_CA admite la ruta de
+ * un fichero .pem o el propio certificado pegado (con \n como salto de línea).
+ * Con TiDB u otros que firman con una autoridad pública no hace falta. */
+function sslDeLaBase() {
+  const ca = String(process.env.DB_SSL_CA || '').trim();
+  if (!ca) return {};
+  const pem = ca.includes('-----BEGIN')
+    ? ca.replace(/\\n/g, '\n')
+    : fs.readFileSync(ca, 'utf8');
+  return { ca: pem };
+}
+
 const cfg = {
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT || 3306),
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME || 'joinnus_secure_pass',
-  ssl: process.env.DB_SSL === 'true' ? {} : undefined
+  ssl: process.env.DB_SSL === 'true' ? sslDeLaBase() : undefined
 };
 
 const falta = ['host', 'user', 'password'].filter(k => !cfg[k]);
