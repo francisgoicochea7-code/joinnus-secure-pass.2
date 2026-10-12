@@ -3,11 +3,21 @@
   "version": "1.0.0",
   "description": "Prototipo academico de seguridad para entradas digitales: verificacion en tiempo real, QR dinamicos y transferencia segura con trazabilidad.",
   "private": true,
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
+    "mysql2": "^3.11.0",
+    "serverless-http": "^3.2.0"
+  },
   "scripts": {
     "start": "node server.js",
     "test": "node test/qr-selftest.js && node test/verificacion.js",
     "test:qr": "node test/qr-selftest.js",
-    "test:app": "node test/verificacion.js"
+    "test:app": "node test/verificacion.js",
+    "db:remoto": "node scripts/sembrar-remoto.js"
   },
   "keywords": ["qr", "entradas", "seguridad", "prototipo", "universidad"],
   "license": "MIT",

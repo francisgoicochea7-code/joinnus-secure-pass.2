@@ -4,6 +4,7 @@ node_modules/
 # Entorno y secretos (nunca se suben al repositorio)
 .env
 .env.local
+.env.remota
 *.pem
 *.key
 

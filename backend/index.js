@@ -63,12 +63,24 @@ function esRedPrivada(host) {
     /^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(host);
 }
 
+/* En Vercel la web se sirve desde un dominio *.vercel.app que no puede
+ * preverse en el repositorio (sale con un sufijo aleatorio al desplegar).
+ * Se admite ese sufijo para que los POST (QR, transferencia, registro)
+ * funcionen desde la propia web publicada: no hay cookies ni credenciales
+ * que robar, el DNI viaja en una cabecera que cualquier navegador podría
+ * enviar, y las rutas de escritura siguen con su limite de peticiones.
+ * Para restringirlo de nuevo basta declararlo en CORS_ORIGINS (.env). */
+function esDominioVercel(host) {
+  return typeof host === 'string' && host.endsWith('.vercel.app');
+}
+
 app.use(cors({
   origin: (origen, cb) => {
     if (!origen) return cb(null, true);            // mismo origen, curl o Postman
     let url;
     try { url = new URL(origen); } catch (e) { return cb(null, false); }
-    cb(null, ORIGENES.has(origen) || esRedPrivada(url.hostname));
+    cb(null, ORIGENES.has(origen) || esRedPrivada(url.hostname) ||
+      esDominioVercel(url.hostname));
   }
 }));
 
@@ -143,7 +155,13 @@ const pool = mysql.createPool({
    * interfaz mostraba las horas 5 atrasadas; las columnas DATE ademas hay
    * que devolverlas con los componentes locales (ver fechaCorta). */
   timezone: 'local',
-  namedPlaceholders: true
+  namedPlaceholders: true,
+  /* MySQL remoto (Aiven, TiDB Serverless, Railway...) exige TLS: se activa con
+   * DB_SSL=true en el entorno. En el MySQL de Docker no hace falta y queda
+   * desactivado. Con `ssl: {}` mysql2 usa el almacén de confianza del sistema,
+   * donde entran los certificados firmados por una autoridad pública (los de
+   * Aiven y TiDB). */
+  ...(process.env.DB_SSL === 'true' ? { ssl: {} } : {})
 });
 
 /** Espera a que MySQL acepte conexiones (arranque de Docker) */

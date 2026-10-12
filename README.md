@@ -511,9 +511,52 @@ Proyecto académico universitario. Datos, eventos y personas son ficticios.
 
 Hasta aquí el proyecto vive en tu equipo (`localhost:8080`). Para que otras
 personas entren con un link hacen falta dos cosas: un servidor encendido todo
-el rato y abrir el puerto 80. Hay dos caminos:
+el rato y la web servida desde un dominio público. Hay tres caminos:
 
-### Opción A — Oracle Cloud Always Free (gratis para siempre)
+### Opción A — Vercel (web + API + MySQL externa)
+
+Vercel sirve la **web** (los estáticos de `frontend/`) y también la **API**,
+pero como *funciones serverless*: `api/index.js` y `api/[...path].js`
+enchufan la misma app Express de `backend/index.js` con `serverless-http`
+(ese archivo ya exporta `app` y sólo hace `listen()` al ejecutarse como
+programa principal, así que **el código fuente sigue siendo uno solo**).
+Vercel **no tiene MySQL**, así que la base de datos vive en un servicio
+externo gratuito.
+
+1. **Base de datos gratis (una sola vez)** — por ejemplo [Aiven](https://aiven.io)
+   (*Create service → MySQL → Free plan*) o [TiDB Serverless](https://tidbcloud.com).
+   Copia `.env.remota.example` a `.env.remota` con los datos que te den
+   (host, puerto, usuario, contraseña, `DB_SSL=true`).
+2. **Sembrar la base** con el esquema y la demo:
+   ```bash
+   npm run db:remoto             # crea tablas y usuarios/entradas ficticios
+   npm run db:remoto -- --reset  # …o empieza de cero
+   ```
+3. **Variables de entorno en Vercel** (Dashboard → *Settings → Environment
+   Variables*, o `vercel env add`): `QR_SECRET`, `DB_HOST`, `DB_PORT`,
+   `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSL=true`, `TZ=America/Lima` y,
+   si se quiere restringir el origen, `CORS_ORIGINS`.
+4. **Desplegar**:
+   ```bash
+   npm i -g vercel     # una sola vez
+   vercel login        # abre un enlace y confirma el correo
+   vercel link         # crea el proyecto (p. ej. joinnus-secure-pass)
+   vercel --prod       # sube la web y la API
+   ```
+   La web queda en `https://NOMBRE.vercel.app` y la API responde en
+   `https://NOMBRE.vercel.app/api/health`.
+
+La configuración del despliegue está en el repositorio: `vercel.json`
+(los estáticos salen de `frontend/`) y `api/`.
+
+**Límites propios de serverless** (documentados, no son fallos):
+
+- El límite de peticiones está en memoria de la función: en Vercel cada
+  instancia tiene el suyo, así que protege menos que en Docker.
+- El primer arranque de una función puede tardar 1-2 s más (arranque en frío).
+- `TZ=America/Lima` evita que las horas se muestren en UTC (zona de Vercel).
+
+### Opción B — Oracle Cloud Always Free (gratis para siempre)
 
 1. **Cuenta**: <https://cloud.oracle.com/free>. Piden tarjeta sólo para
    verificar identidad; el plan *Always Free* no cobra nada.
@@ -554,7 +597,7 @@ Los datos (entradas, historial y usuarios registrados) viven en el volumen
 cd joinnus-secure-pass && git pull && docker compose up -d --build
 ```
 
-### Opción B — Un link en 5 minutos (mientras tu PC está encendida)
+### Opción C — Un link en 5 minutos (mientras tu PC está encendida)
 
 No se instala nada en la nube; tu equipo sigue sirviendo la app:
 
@@ -573,6 +616,9 @@ Alternativa: `ngrok http 8080` (cuenta gratuita).
   (ese fichero **nunca** se sube a git: sólo existe en el servidor).
 - Los puertos 3000 (API) y 3307 (MySQL) sólo escuchan en `127.0.0.1`, así que
   de la máquina sólo se expone el 80 de nginx.
+- En Vercel los secretos (`QR_SECRET`, `DB_*`) viven en las variables de
+  entorno del proyecto, nunca en el repositorio; el CORS admite el sufijo
+  `*.vercel.app` para que la web publicada pueda llamar a su propia API.
 - Las rutas de escritura tienen límite de peticiones (20/min), el QR rota cada
   15 s y se firma con HMAC en el servidor; la transferencia exige además que
   la entrada sea del DNI que la pide.
