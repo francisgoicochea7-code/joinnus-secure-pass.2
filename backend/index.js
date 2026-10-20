@@ -363,7 +363,12 @@ async function registrar(codigo, accion, titular, detalle = '', estado = null) {
  * ------------------------------------------------------------------- */
 function generarToken(codigo) {
   const nonce = crypto.randomBytes(4).toString('hex').toUpperCase();      // 8 hex
-  const expira = new Date(Date.now() + CFG.qrTtl * 1000);
+  /* expira_en es DATETIME, columna SIN milisegundos: MySQL guarda el instante
+   * redondeado al segundo, y al validar la firma se recalcula sobre ese valor
+   * leido de la base. Si se firmase el instante con milisegundos, la firma
+   * guardada NUNCA cuadraria al comprobarla y todo QR daria "firma no
+   * valida". Por eso el instante se redondea ANTES de firmarlo. */
+  const expira = new Date(Math.floor((Date.now() + CFG.qrTtl * 1000) / 1000) * 1000);
   const firma = crypto
     .createHmac('sha256', CFG.qrSecret)
     .update(`${codigo}|${nonce}|${expira.getTime()}`)

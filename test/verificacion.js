@@ -1217,6 +1217,27 @@ async function pruebasEnrutadoVercel() {
 }
 
 /* ===================================================================== */
+/* 8. La firma del QR debe sobrevivir el viaje por la base de datos      */
+/* =================================================================== */
+async function pruebasFirmaQr() {
+  grupo('8. Firma del QR compatible con la columna DATETIME');
+
+  const backend = fs.readFileSync(path.join(RAIZ, 'backend/index.js'), 'utf8');
+
+  const inicio = backend.indexOf('function generarToken');
+  const bloque = inicio >= 0 ? backend.slice(inicio, inicio + 700) : '';
+  ok(inicio >= 0, 'Falta generarToken() en el backend');
+  ok(bloque.includes('Math.floor') && bloque.includes('/ 1000) * 1000'),
+    'generarToken debe redondear la expiracion al segundo ANTES de firmarla: expira_en es DATETIME, que guarda sin milisegundos, y una firma calculada con ms nunca cuadraba al validar (todo QR daba "firma no valida")');
+  ok(bloque.includes('${expira.getTime()}'),
+    'La firma debe calcularse sobre el instante ya redondeado (expira)');
+
+  const validar = backend.slice(backend.indexOf("app.post('/api/qr/validar'"));
+  ok(validar.includes('new Date(expiraEn).getTime()'),
+    'La validacion debe recalcular la firma sobre el instante leido de la base, igual que al generarla');
+}
+
+/* ===================================================================== */
 (async function () {
   pruebasEstaticas();
   await pruebasApi();
@@ -1228,6 +1249,7 @@ async function pruebasEnrutadoVercel() {
   await pruebasRegistroUsuarios();
   await pruebasModoApi();
   await pruebasEnrutadoVercel();
+  await pruebasFirmaQr();
 
   console.log('\n------------------------------------------------------------');
   console.log('  Verificacion funcional: ' + pruebas + ' comprobaciones, ' + fallos + ' fallo(s).');
