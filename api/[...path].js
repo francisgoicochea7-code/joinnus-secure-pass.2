@@ -15,6 +15,10 @@
 
 'use strict';
 
+/* Ver api/index.js: la zona horaria de Lima se fija aqui porque en Vercel el
+ * entorno TZ esta reservado y las funciones corren en UTC. */
+if (!process.env.TZ) process.env.TZ = 'America/Lima';
+
 const serverless = require('serverless-http');
 const app = require('../backend/index');
 

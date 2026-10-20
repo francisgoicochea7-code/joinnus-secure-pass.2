@@ -16,6 +16,12 @@
 
 'use strict';
 
+/* Las funciones de Vercel corren en UTC y el entorno TZ esta reservado (no se
+ * puede declarar en el panel), asi que la hora de Lima se fija aqui, antes de
+ * cargar la app, para que las fechas del historial y de los QR se muestren
+ * igual que en el despliegue local. */
+if (!process.env.TZ) process.env.TZ = 'America/Lima';
+
 const serverless = require('serverless-http');
 const app = require('../backend/index');
 
