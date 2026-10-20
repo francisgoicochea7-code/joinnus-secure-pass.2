@@ -8,9 +8,12 @@
  *   POST /api/entradas/ENTRY001/qr    -> esta funcion
  *   ...
  *
- * serverless-http entrega a Express la ruta COMPLETA de la peticion
- * (/api/entradas/ENTRY001...), que es exactamente como estan declaradas
- * las rutas en backend/index.js, asi que no hay que reescribir nada.
+ * Vercel invoca la funcion como (req, res) de Node y espera la respuesta en
+ * `res`. La app Express de backend/index.js ya es una funcion con esa firma,
+ * asi que se le pasa la peticion tal cual (ver api/index.js): Express recibe
+ * la ruta COMPLETA (/api/entradas/ENTRY001...), que es exactamente como estan
+ * declaradas las rutas en backend/index.js, asi que no hay que reescribir
+ * nada.
  * ========================================================================= */
 
 'use strict';
@@ -19,7 +22,7 @@
  * entorno TZ esta reservado y las funciones corren en UTC. */
 if (!process.env.TZ) process.env.TZ = 'America/Lima';
 
-const serverless = require('serverless-http');
 const app = require('../backend/index');
 
-module.exports = serverless(app);
+/* Aridad 2 explicita: Vercel invoca el handler como (req, res). */
+module.exports = (req, res) => app(req, res);

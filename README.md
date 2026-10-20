@@ -516,10 +516,14 @@ el rato y la web servida desde un dominio público. Hay tres caminos:
 ### Opción A — Vercel (web + API + MySQL externa)
 
 Vercel sirve la **web** (los estáticos de `frontend/`) y también la **API**,
-pero como *funciones serverless*: `api/index.js` y `api/[...path].js`
-enchufan la misma app Express de `backend/index.js` con `serverless-http`
-(ese archivo ya exporta `app` y sólo hace `listen()` al ejecutarse como
-programa principal, así que **el código fuente sigue siendo uno solo**).
+pero como *funciones serverless*: `api/index.js` y `api/[...path].js` le pasan
+las peticiones `(req, res)` directamente a la app Express de
+`backend/index.js` (ese archivo ya exporta `app`, que **es** una función de
+esas características, y sólo hace `listen()` al ejecutarse como programa
+principal, así que **el código fuente sigue siendo uno solo**). *Nota: usar
+`serverless-http` aquí —pensado para AWS Lambda, devuelve la respuesta como
+objeto en vez de escribirla en `res`— dejaba toda petición a `/api` colgada
+sin respuesta.*
 Vercel **no tiene MySQL**, así que la base de datos vive en un servicio
 externo gratuito.
 
