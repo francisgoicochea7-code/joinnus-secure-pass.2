@@ -1183,6 +1183,40 @@ async function pruebasModoApi() {
 }
 
 /* ===================================================================== */
+/* 7. Despliegue en Vercel: la rewrite devuelve a Express la ruta real   */
+/* =================================================================== */
+async function pruebasEnrutadoVercel() {
+  grupo('7. Vercel: rutas de la API con varios tramos');
+
+  const vercel = JSON.parse(fs.readFileSync(path.join(RAIZ, 'vercel.json'), 'utf8'));
+
+  // a) La rewrite captura TODOS los tramos bajo /api y los guarda en __ruta
+  const rewrite = (vercel.rewrites || []).find(r => r.source === '/api/:path*');
+  ok(rewrite, 'Falta la rewrite /api/:path* en vercel.json: sin ella, /api/entradas/ENTRY001 devolvia el 404 HTML de Vercel');
+  ok(rewrite && rewrite.destination === '/api?__ruta=/api/:path*',
+    'La rewrite debe reenviar a /api guardando la ruta original en el parametro __ruta');
+
+  // b) El punto de entrada restaura esa ruta antes de llamar a Express
+  const entrada = fs.readFileSync(path.join(RAIZ, 'api/index.js'), 'utf8');
+  ok(entrada.includes("consulta.get('__ruta')"),
+    'api/index.js no recupera la ruta original desde __ruta: Express veria "/api" y responderia 404');
+  ok(entrada.includes('req.url = ruta'),
+    'api/index.js no devuelve la ruta restaurada a req.url, por la que Express enruta');
+  ok(entrada.includes('app(req, res)'),
+    'api/index.js ya no enchufa la app Express como manejador de Vercel');
+  ok(!fs.existsSync(path.join(RAIZ, 'api/[...path].js')),
+    'api/[...path].js ya no debe existir: Vercel solo casaba un tramo y bloqueaba la rewrite');
+
+  // c) El historial por dni y la rotacion del QR viajan en la query string,
+  //    que la rewrite debe conservar junto a __ruta
+  const cliente = fs.readFileSync(path.join(APP, 'js/cliente-api.js'), 'utf8');
+  ok(cliente.includes("/historial?dni="),
+    'obtenerHistorial debe poder filtrar por dni en la query string');
+  ok(cliente.includes('/qr?log='),
+    'actualizarQR debe enviar el parametro log en la query string');
+}
+
+/* ===================================================================== */
 (async function () {
   pruebasEstaticas();
   await pruebasApi();
@@ -1193,6 +1227,7 @@ async function pruebasModoApi() {
   await pruebasEntradaTrasIdentificar();
   await pruebasRegistroUsuarios();
   await pruebasModoApi();
+  await pruebasEnrutadoVercel();
 
   console.log('\n------------------------------------------------------------');
   console.log('  Verificacion funcional: ' + pruebas + ' comprobaciones, ' + fallos + ' fallo(s).');
