@@ -516,23 +516,29 @@ el rato y la web servida desde un dominio público. Hay tres caminos:
 ### Opción A — Vercel (web + API + MySQL externa)
 
 Vercel sirve la **web** (los estáticos de `frontend/`) y también la **API**,
-pero como *funciones serverless*: `api/index.js` y `api/[...path].js` le pasan
-las peticiones `(req, res)` directamente a la app Express de
-`backend/index.js` (ese archivo ya exporta `app`, que **es** una función de
-esas características, y sólo hace `listen()` al ejecutarse como programa
-principal, así que **el código fuente sigue siendo uno solo**). *Nota: usar
-`serverless-http` aquí —pensado para AWS Lambda, devuelve la respuesta como
-objeto en vez de escribirla en `res`— dejaba toda petición a `/api` colgada
-sin respuesta.*
+pero como *función serverless*: `api/index.js` le pasa las peticiones
+`(req, res)` directamente a la app Express de `backend/index.js` (ese archivo
+ya exporta `app`, que **es** una función de esas características, y sólo hace
+`listen()` al ejecutarse como programa principal, así que **el código fuente
+sigue siendo uno solo**). *Notas: usar `serverless-http` aquí —pensado para
+AWS Lambda, devuelve la respuesta como objeto en vez de escribirla en `res`—
+dejaba toda petición a `/api` colgada sin respuesta; y el enrutado por
+ficheros de Vercel sólo casa rutas sencillas (`/api/health`), de modo que
+`/api/entradas/ENTRY001` devolvía el 404 de la plataforma. La rewrite de
+`vercel.json` (`/api/:path*` → `/api?__ruta=/api/:path*`) reenvía cualquier
+ruta bajo `/api` a la única función, que restaura la ruta original en
+`req.url` antes de llamar a Express.*
 Vercel **no tiene MySQL**, así que la base de datos vive en un servicio
 externo gratuito.
 
 1. **Base de datos gratis (una sola vez)** — por ejemplo [Aiven](https://aiven.io)
    (*Create service → MySQL → Free plan*) o [TiDB Serverless](https://tidbcloud.com).
    Copia `.env.remota.example` a `.env.remota` con los datos que te den
-   (host, puerto, usuario, contraseña, `DB_SSL=true`). En Aiven hay que
-   añadir además su certificado CA en `DB_SSL_CA` (Service settings → CA
-   Cert); con TiDB no hace falta.
+   (host, puerto, usuario, contraseña, `DB_SSL=true`). Si el proveedor sólo
+   exige TLS sin verificar la cadena (el `ssl-mode=REQUIRED` de la *Service
+   URI* de Aiven), basta `DB_SSL_INSECURE=true`; si en cambio pide la CA
+   del proveedor, añade `DB_SSL_CA` con la ruta a su `.pem` (Aiven: *Service
+   settings → CA Cert*). Con TiDB no hace falta ninguna de las dos.
 2. **Sembrar la base** con el esquema y la demo:
    ```bash
    npm run db:remoto             # crea tablas y usuarios/entradas ficticios
@@ -540,8 +546,9 @@ externo gratuito.
    ```
 3. **Variables de entorno en Vercel** (Dashboard → *Settings → Environment
    Variables*, o `vercel env add`): `QR_SECRET`, `DB_HOST`, `DB_PORT`,
-   `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSL=true`, `TZ=America/Lima` y,
-   si se quiere restringir el origen, `CORS_ORIGINS`.
+   `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSL=true` y, si se quiere
+   restringir el origen, `CORS_ORIGINS`. (`TZ` **no** puede declararse ahí:
+   Vercel la reserva; la fija `api/index.js`.)
 4. **Desplegar**:
    ```bash
    npm i -g vercel     # una sola vez
@@ -561,6 +568,8 @@ La configuración del despliegue está en el repositorio: `vercel.json`
   instancia tiene el suyo, así que protege menos que en Docker.
 - El primer arranque de una función puede tardar 1-2 s más (arranque en frío).
 - `TZ=America/Lima` evita que las horas se muestren en UTC (zona de Vercel).
+  En Vercel esa variable está **reservada** y no se puede declarar en el
+  panel, así que se fija en el código, al principio de `api/index.js`.
 
 ### Opción B — Oracle Cloud Always Free (gratis para siempre)
 
