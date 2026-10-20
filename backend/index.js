@@ -142,10 +142,15 @@ const CFG = {
  * ------------------------------------------------------------------- */
 /* TLS del MySQL remoto. Algunos proveedores (Aiven) firman con su propia
  * autoridad y exigen cargar su CA: se pasa en DB_SSL_CA, que admite la ruta
- * de un fichero .pem o el propio certificado pegado (con \n de salto). */
+ * de un fichero .pem o el propio certificado pegado (con \n de salto).
+ * Sin CA, DB_SSL_INSECURE=true cifra sin verificar el certificado del
+ * servidor, que es exactamente lo que hace el ssl-mode=REQUIRED con el que
+ * Aiven publica su Service URI. */
 function sslDeLaBase() {
   const ca = String(process.env.DB_SSL_CA || '').trim();
-  if (!ca) return {};
+  if (!ca) {
+    return process.env.DB_SSL_INSECURE === 'true' ? { rejectUnauthorized: false } : {};
+  }
   const pem = ca.includes('-----BEGIN')
     ? ca.replace(/\\n/g, '\n')
     : fs.readFileSync(ca, 'utf8');

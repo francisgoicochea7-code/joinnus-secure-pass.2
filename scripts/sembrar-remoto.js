@@ -34,10 +34,13 @@ const mysql = require('mysql2/promise');
 
 /* TLS: si el proveedor exige su propia CA (Aiven), DB_SSL_CA admite la ruta de
  * un fichero .pem o el propio certificado pegado (con \n como salto de línea).
- * Con TiDB u otros que firman con una autoridad pública no hace falta. */
+ * Sin CA, DB_SSL_INSECURE=true cifra sin verificar el servidor (lo mismo que
+ * el ssl-mode=REQUIRED de la Service URI de Aiven). */
 function sslDeLaBase() {
   const ca = String(process.env.DB_SSL_CA || '').trim();
-  if (!ca) return {};
+  if (!ca) {
+    return process.env.DB_SSL_INSECURE === 'true' ? { rejectUnauthorized: false } : {};
+  }
   const pem = ca.includes('-----BEGIN')
     ? ca.replace(/\\n/g, '\n')
     : fs.readFileSync(ca, 'utf8');
@@ -64,9 +67,16 @@ if (falta.length) {
   const init = fs.readFileSync(path.join(raiz, 'database', 'init.sql'), 'utf8');
 
   const conn = await mysql.createConnection({
-    ...cfg,
+    host: cfg.host,
+    port: cfg.port,
+    user: cfg.user,
+    password: cfg.password,
+    // Sin `database`: init.sql crea joinnus_secure_pass y hace USE el mismo.
+    // Asi funciona tambien contra un servidor recien creado (que solo trae
+    // su base por defecto, p. ej. defaultdb en Aiven).
     multipleStatements: true,           // init.sql trae todo el guion
     charset: 'utf8mb4_unicode_ci',
+    ssl: cfg.ssl,
     connectTimeout: 25000
   });
   console.log(`[BD] Conectado a ${cfg.host}:${cfg.port}/${cfg.database}`);
