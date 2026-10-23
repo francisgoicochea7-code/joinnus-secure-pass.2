@@ -223,14 +223,12 @@ code { font-family: var(--mono); font-size: .92em; }
 
 .brand { display: flex; align-items: center; gap: .65rem; font-weight: 800; letter-spacing: -.02em; }
 .brand-logo {
-  width: 40px; height: 40px; border-radius: 12px;
-  display: grid; place-items: center;
-  background: var(--grad); box-shadow: 0 8px 22px -8px rgba(109, 94, 252, .9);
+  display: flex; align-items: center;
   flex: none;
 }
-.brand-logo svg { width: 22px; height: 22px; color: #fff; }
+.brand-logo img { height: 38px; width: auto; display: block; }
 .brand-name { font-size: 1.02rem; line-height: 1.1; }
-.brand-name span { display: block; font-size: .66rem; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.brand-name span { display: block; font-size: .66rem; letter-spacing: .2em; text-transform: uppercase; color: #6ee7b7; font-weight: 700; }
 
 /* El <nav> envuelve una <ul>: es la <ul> la que debe ser flex y anular la
    lista por defecto del navegador. Si se dejan estas reglas solo en el

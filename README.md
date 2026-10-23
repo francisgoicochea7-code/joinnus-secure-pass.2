@@ -295,6 +295,10 @@ Se definen en `.env` (copia de `.env.example`):
 5. Cuando el lector escanea, envía el token a `POST /api/qr/validar`, que
    recalcula la firma y comprueba vigencia, invalidación y estado de la entrada.
 
+El vencimiento se **redondea al segundo entero antes de firmarlo**, porque
+MySQL `DATETIME` no guarda milisegundos: si se firmara con los milisegundos
+exactos, la firma recalculada al validar nunca coincidiría con la guardada.
+
 Por eso una captura de pantalla deja de funcionar en pocos segundos.
 
 ### Transferencia segura
@@ -487,8 +491,13 @@ npm run test:app      # solo los flujos de la aplicación
 - `test/verificacion.js` — ejecuta las páginas reales dentro de un micro-DOM y
   comprueba la estructura, los cuatro estados de las entradas, la rotación del
   QR, las validaciones del formulario de transferencia, el historial, la
-  persistencia y la integración con la API de Docker mediante un `fetch`
-  simulado.
+  persistencia, la integración con la API de Docker mediante un `fetch`
+  simulado, el **enrutado de la API en Vercel** (rewrite de rutas de dos y más
+  segmentos) y la **firma de los tokens QR** (válida, rotada, caducada y
+  alterada).
+
+En total, `npm test` ejecuta **1536 comprobaciones** (756 del QR + 780 de la
+aplicación) con 0 fallos.
 
 ### Integración continua (GitHub Actions)
 

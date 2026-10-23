@@ -1,12 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" width="72" height="72" role="img" aria-label="Joinnus">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#6d5efc"/>
-      <stop offset="50%" stop-color="#8b5cf6"/>
-      <stop offset="100%" stop-color="#22d3ee"/>
+    <linearGradient id="jn-f" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3ee08f"/>
+      <stop offset="52%" stop-color="#22c55e"/>
+      <stop offset="100%" stop-color="#0d9473"/>
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="16" fill="url(#g)"/>
-  <path fill="#ffffff" d="M32 12 16 18.5v10.2c0 8.2 5.8 15.8 16 17.9 10.2-2.1 16-9.7 16-17.9V18.5L32 12Zm0 4 12 5v7.7c0 6.3-4.9 12.2-12 14.1-7.1-1.9-12-7.8-12-14.1V21l12-5Z"/>
-  <path fill="#ffffff" d="M29.3 39.6 21.9 32.2l-2.9 2.9 10.3 10.3 18.6-18.6-2.9-2.9-15.7 15.7Z"/>
+  <circle cx="36" cy="36" r="32" fill="url(#jn-f)"/>
+  <circle cx="36" cy="36" r="31.1" fill="none" stroke="rgba(255,255,255,.30)" stroke-width="1.8"/>
+  <g stroke="#ffffff" stroke-width="5.6" stroke-linecap="round" fill="none">
+    <path d="M23 27h11M28.5 27v13.5a5.5 5.5 0 0 1-9.5 3.8"/>
+    <path d="M40 27h11M45.5 27v13.5a5.5 5.5 0 0 1-9.5 3.8"/>
+  </g>
 </svg>
