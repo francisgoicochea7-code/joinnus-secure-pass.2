@@ -223,8 +223,11 @@
     }
     if (insignia) insignia.textContent = u ? 'Identificado' : 'Modo demo';
     if (saludo) {
-      saludo.innerHTML = 'Hola, ' + JSP.escapeHtml(String(actual.nombre).split(' ')[0]) +
-        ' <span aria-hidden="true">👋</span>';
+      // Sin identificar: "Bienvenido"; identificado: el nombre de la persona
+      const nombreSaludo = u
+        ? JSP.escapeHtml(String(actual.nombre).split(' ')[0])
+        : 'Bienvenido';
+      saludo.innerHTML = 'Hola, ' + nombreSaludo + ' <span aria-hidden="true">👋</span>';
     }
 
     if (u) {

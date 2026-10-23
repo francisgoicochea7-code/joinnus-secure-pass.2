@@ -987,3 +987,11 @@ table.data td strong { color: var(--text); }
   .ticket-info-grid { grid-template-columns: 1fr; }
   .qr-frame canvas { width: 100% !important; height: auto !important; }
 }
+
+/* ------------------------------------------------------------------
+ * Ocultos a peticion del usuario (solo visual: el HTML y el JS
+ * siguen funcionando por debajo, no se borra nada)
+ * ------------------------------------------------------------------ */
+
+/* Indicador "API conectada (Docker)" / "Modo local (localStorage)" */
+[data-modo] { display: none !important; }
