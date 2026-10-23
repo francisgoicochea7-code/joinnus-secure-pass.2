@@ -96,6 +96,9 @@
       </div>`).join('');
 
     const acciones = document.getElementById('res-acciones');
+    // "Simular ingreso" NO se enseña aquí: vive junto al QR en Mi entrada, y
+    // sólo si la persona está identificada (clase "hide" = sólo visualmente,
+    // el botón y su guarda de error siguen intactos para no tocar el test).
     acciones.innerHTML = `
       <a href="entrada.html?codigo=${entrada.codigo}" class="btn btn-sm btn-primary">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Zm2 0v2h14V8H5Zm0 6v2h14v-2H5Z"/></svg>
@@ -106,7 +109,7 @@
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7Zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4Z"/></svg>
         Transferir entrada
       </a>
-      <button class="btn btn-sm btn-ok" id="btn-marcar-usada">
+      <button class="btn btn-sm btn-ok hide" id="btn-marcar-usada">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4-7 7Z"/></svg>
         Simular ingreso
       </button>` : ''}

@@ -270,6 +270,15 @@
     if (btnRegenerarLocal) btnRegenerarLocal.disabled = !esMia;
     if (btnValidarLocal) btnValidarLocal.disabled = !esMia;
 
+    // "Simular ingreso" vive junto al QR: sólo aparece si la persona está
+    // identificada (con la API real, sin identificarse ni se llega aquí),
+    // si la entrada es suya y si todavía no se usó ni se anuló.
+    const btnSimular = $('btn-marcar-usada');
+    if (btnSimular) {
+      const puedeSimular = esMia && identificado && entrada.estado === 'valido';
+      btnSimular.classList.toggle('hide', !puedeSimular);
+    }
+
     if (esMia) {
       // Si la entrada todavía no tiene token, se genera el primero
       let payload;
@@ -359,6 +368,26 @@
       } else {
         JSP.toast('error', 'Token rechazado',
           (r && r.mensaje) || 'Motivo: ' + ((r && r.motivo) || 'desconocido'));
+      }
+    });
+  }
+
+  /* Simular el ingreso del titular: marca la entrada como usada */
+  const btnMarcarUsada = $('btn-marcar-usada');
+  if (btnMarcarUsada) {
+    btnMarcarUsada.addEventListener('click', async function () {
+      if (!entrada) return;
+      btnMarcarUsada.disabled = true;
+      const r = await SecurePassAPI.marcarUsada(entrada.codigo);
+      btnMarcarUsada.disabled = false;
+      if (r) {
+        JSP.toast('ok', 'Ingreso simulado', 'La entrada pasó a estado “Usado / Ingresado”.');
+        cargar();
+      } else {
+        // El servidor rechazó la operación (entrada ajena, ya usada…):
+        // no se anuncia un ingreso que no ocurrió.
+        JSP.toast('error', 'No se pudo registrar el ingreso',
+          'El servidor no cambió el estado de la entrada. Revisa el motivo e inténtalo de nuevo.');
       }
     });
   }
