@@ -16,7 +16,8 @@
     "test": "node test/qr-selftest.js && node test/verificacion.js",
     "test:qr": "node test/qr-selftest.js",
     "test:app": "node test/verificacion.js",
-    "db:remoto": "node scripts/sembrar-remoto.js"
+    "db:remoto": "node scripts/sembrar-remoto.js",
+    "db:encargados": "node scripts/migrar-encargados.js"
   },
   "keywords": ["qr", "entradas", "seguridad", "prototipo", "universidad"],
   "license": "MIT",

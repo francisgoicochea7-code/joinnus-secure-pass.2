@@ -1238,6 +1238,74 @@ async function pruebasFirmaQr() {
 }
 
 /* ===================================================================== */
+/* 12. Encargados de puerta (panel staff)                               */
+/* ===================================================================== */
+async function pruebasEncargados() {
+  grupo('12. Encargados de puerta (panel staff)');
+
+  const backend = fs.readFileSync(path.join(RAIZ, 'backend/index.js'), 'utf8');
+  const pagina = path.join(APP, 'staff', 'index.html');
+  const css = path.join(APP, 'staff', 'staff.css');
+  const js = path.join(APP, 'staff', 'staff.js');
+
+  ok(fs.existsSync(pagina), 'Falta frontend/staff/index.html (panel del encargado)');
+  ok(fs.existsSync(css), 'Falta frontend/staff/staff.css');
+  ok(fs.existsSync(js), 'Falta frontend/staff/staff.js');
+  if (!fs.existsSync(pagina) || !fs.existsSync(js)) return;
+
+  const html = fs.readFileSync(pagina, 'utf8');
+  const codigo = fs.readFileSync(js, 'utf8');
+
+  ok(html.includes('href="staff.css"'), 'El panel no carga su hoja de estilos');
+  ok(html.includes('src="staff.js"'), 'El panel no carga su script');
+
+  ['vista-login', 'form-login', 'enc-nombre', 'enc-codigo', 'btn-entrar',
+   'vista-panel', 'btn-salir', 'btn-camara', 'qr-texto', 'btn-verificar',
+   'resultado', 'btn-registrar', 'contador', 'escaneos'].forEach(id => {
+    ok(html.includes('id="' + id + '"'), 'El panel no tiene el id "' + id + '"');
+  });
+
+  // Todo id que usa el JS debe existir en la pagina
+  const idsHtml = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map(m => m[1]));
+  const usados = new Set();
+  for (const m of codigo.matchAll(/el\(\s*'([^']+)'\s*\)/g)) usados.add(m[1]);
+  usados.forEach(id => ok(idsHtml.has(id),
+    'staff.js usa el id "' + id + '" que no existe en staff/index.html'));
+
+  // Cámara y llamadas a la API
+  ok(codigo.includes('getUserMedia'), 'staff.js no abre la cámara del celular');
+  ok(codigo.includes('BarcodeDetector'), 'staff.js no usa BarcodeDetector para leer el QR');
+  ok(codigo.includes('/encargados/login'), 'staff.js no llama al login de encargados');
+  ok(codigo.includes('/encargados/validar'), 'staff.js no llama a la validacion de encargados');
+  ok(codigo.includes('jsp_encargado'), 'staff.js no conserva la sesion del encargado');
+
+  // Backend: endpoints, hash y trazabilidad
+  ok(backend.includes("app.post('/api/encargados/login'"), 'Falta POST /api/encargados/login');
+  ok(backend.includes("app.post('/api/encargados/validar'"), 'Falta POST /api/encargados/validar');
+  ok(backend.includes('hashCodigoEncargado'), 'El backend no hashea el codigo del encargado');
+  ok(backend.includes("createHash('sha256')"), 'El codigo del encargado no se guarda como SHA-256');
+  ok(backend.includes('codigo_hash'), 'El backend no consulta la tabla encargados');
+  ok(backend.includes('Ingreso registrado por ${encargado.nombre}'),
+    'El ingreso no deja constancia del encargado en el historial');
+
+  // Base de datos: tabla y hashes sembrados (sin codigos en claro)
+  const init = fs.readFileSync(path.join(RAIZ, 'database', 'init.sql'), 'utf8');
+  ok(/CREATE TABLE IF NOT EXISTS encargados/.test(init), 'init.sql no crea la tabla encargados');
+  ok(!/INSERT INTO encargados[\s\S]*ANA2026/.test(init),
+    'init.sql no debe guardar el codigo del encargado en claro');
+  ok(init.includes('05d26f322c3fa365dd96e0621e98f86a7b91b3ba1b4a11f9cec8272041414083'),
+    'Falta el hash de Ana Torres en init.sql');
+  ok(init.includes('0e1a8938b8da063e695a1a93c11eb3c61fbf78788269d0689f5b96fabd5df65b'),
+    'Falta el hash de Luis Paredes en init.sql');
+
+  // Enlace desde la web publica y script de migracion
+  const sobre = fs.readFileSync(path.join(APP, 'sobre.html'), 'utf8');
+  ok(sobre.includes('href="staff/"'), 'sobre.html no enlaza al panel de encargados');
+  ok(fs.existsSync(path.join(RAIZ, 'scripts', 'migrar-encargados.js')),
+    'Falta scripts/migrar-encargados.js (migracion de la base remota)');
+}
+
+/* ===================================================================== */
 (async function () {
   pruebasEstaticas();
   await pruebasApi();
@@ -1250,6 +1318,7 @@ async function pruebasFirmaQr() {
   await pruebasModoApi();
   await pruebasEnrutadoVercel();
   await pruebasFirmaQr();
+  await pruebasEncargados();
 
   console.log('\n------------------------------------------------------------');
   console.log('  Verificacion funcional: ' + pruebas + ' comprobaciones, ' + fallos + ' fallo(s).');

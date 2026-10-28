@@ -1,0 +1,242 @@
+/* =========================================================================
+ *  JOINNUS SECURE PASS — staff/staff.css
+ *  Panel móvil del encargado de puerta. Tema oscuro propio, independiente
+ *  del sitio público, pensado para usarse de pie y con una sola mano.
+ * ========================================================================= */
+
+:root {
+  --mint: #3af2d2;
+  --mint-2: #00d3a6;
+  --mint-ink: #00a886;
+  --navy: #06131b;
+  --navy-2: #0b2230;
+  --card: #0e2836;
+  --line: rgba(255, 255, 255, .10);
+  --text: #eaf7f4;
+  --muted: #8fb3c4;
+  --ok: #22c55e;
+  --bad: #f43f5e;
+  --warn: #f59e0b;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  min-height: 100dvh;
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(1200px 500px at 15% -10%, rgba(0, 211, 166, .18), transparent 60%),
+    radial-gradient(900px 450px at 110% 10%, rgba(58, 242, 210, .10), transparent 55%),
+    linear-gradient(170deg, #071822, #040c12 70%);
+  padding-bottom: 2rem;
+}
+
+/* ------------------------------- Cabecera ------------------------------- */
+.st-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 1rem 1.15rem .65rem;
+  max-width: 720px; margin: 0 auto;
+}
+
+.st-brand { display: flex; align-items: center; gap: .6rem; text-decoration: none; }
+
+.st-logo {
+  width: 40px; height: 40px; border-radius: 50%; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 22px; color: var(--navy);
+  background: linear-gradient(135deg, var(--mint), var(--mint-2));
+  box-shadow: 0 6px 16px rgba(0, 211, 166, .35);
+}
+
+.st-brand-txt { display: flex; flex-direction: column; line-height: 1.05; }
+.st-brand-txt b { font-size: 1.05rem; letter-spacing: .08em; }
+.st-brand-txt i {
+  font-style: normal; font-size: .64rem; font-weight: 700;
+  letter-spacing: .24em; color: var(--mint);
+}
+
+.st-chip {
+  font-size: .78rem; font-weight: 700; color: var(--navy);
+  background: linear-gradient(135deg, var(--mint), var(--mint-2));
+  padding: .4rem .7rem; border-radius: 999px; white-space: nowrap;
+}
+
+/* -------------------------------- Layout -------------------------------- */
+.st-main {
+  max-width: 720px; margin: 0 auto; padding: 0 1.15rem;
+  display: flex; flex-direction: column; gap: 1rem;
+}
+
+.st-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .045), rgba(255, 255, 255, .015));
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 1.25rem 1.15rem;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .35);
+  backdrop-filter: blur(6px);
+}
+
+.st-eyebrow {
+  display: inline-block; font-size: .68rem; font-weight: 800;
+  letter-spacing: .18em; text-transform: uppercase; color: var(--mint);
+  margin-bottom: .35rem;
+}
+
+h1 { font-size: 1.55rem; line-height: 1.15; letter-spacing: -.01em; }
+h2 { font-size: 1.25rem; line-height: 1.15; }
+h3 { font-size: 1.1rem; }
+
+.st-lead { color: var(--muted); font-size: .95rem; margin: .5rem 0 1.1rem; }
+
+/* -------------------------------- Campos -------------------------------- */
+.st-field { margin-bottom: .95rem; }
+
+.st-field label {
+  display: block; font-size: .78rem; font-weight: 700;
+  letter-spacing: .04em; color: var(--muted); margin-bottom: .4rem;
+}
+
+.st-input {
+  width: 100%; padding: .85rem .95rem; font-size: 1rem; color: var(--text);
+  background: rgba(2, 10, 15, .55);
+  border: 1.5px solid var(--line); border-radius: 12px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.st-input::placeholder { color: #5f7b8b; }
+.st-input:focus {
+  outline: none; border-color: var(--mint-2);
+  box-shadow: 0 0 0 4px rgba(0, 211, 166, .18);
+}
+
+/* ------------------------------- Botones -------------------------------- */
+.st-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 100%; padding: .9rem 1rem; border: 0; border-radius: 12px;
+  font: inherit; font-size: 1rem; font-weight: 800; cursor: pointer;
+  transition: transform .08s, filter .15s, opacity .15s;
+}
+.st-btn:active { transform: scale(.985); }
+.st-btn:disabled { opacity: .55; cursor: progress; }
+
+.st-btn-primary {
+  color: var(--navy);
+  background: linear-gradient(135deg, var(--mint), var(--mint-2));
+  box-shadow: 0 10px 24px rgba(0, 211, 166, .28);
+}
+.st-btn-primary:hover { filter: brightness(1.05); }
+
+.st-btn-ok {
+  color: #fff; background: linear-gradient(135deg, #22c55e, #16a34a);
+  box-shadow: 0 10px 24px rgba(34, 197, 94, .25);
+}
+
+.st-btn-ghost {
+  width: auto; white-space: nowrap; color: var(--mint);
+  background: rgba(58, 242, 210, .10);
+  border: 1.5px solid rgba(58, 242, 210, .35);
+}
+
+.st-link {
+  background: none; border: 0; font: inherit; font-size: .85rem; font-weight: 700;
+  color: var(--muted); cursor: pointer; text-decoration: underline;
+  text-underline-offset: 3px; padding: .25rem;
+}
+.st-link:hover { color: var(--mint); }
+
+/* ------------------------------- Escáner -------------------------------- */
+.st-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+
+.st-cam {
+  position: relative; margin: .9rem 0;
+  border-radius: 14px; overflow: hidden;
+  border: 1.5px dashed rgba(58, 242, 210, .28);
+  background: radial-gradient(circle at 50% 40%, rgba(58, 242, 210, .08), rgba(2, 10, 15, .7));
+  aspect-ratio: 4 / 3;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.st-cam video { width: 100%; height: 100%; object-fit: cover; }
+
+.st-cam-ph { text-align: center; color: var(--muted); padding: 1rem; }
+.st-cam-ph span { font-size: 2.2rem; display: block; margin-bottom: .35rem; }
+.st-cam-ph p { font-size: .85rem; }
+
+.st-cam.is-live { border-style: solid; border-color: var(--mint-2); }
+.st-cam.is-live #scan-placeholder { display: none; }
+
+.st-or {
+  display: flex; align-items: center; gap: .75rem;
+  margin: 1rem 0 .75rem; color: var(--muted); font-size: .8rem;
+}
+.st-or::before, .st-or::after {
+  content: ""; flex: 1; height: 1px; background: var(--line);
+}
+
+.st-inline { display: flex; gap: .6rem; }
+.st-inline .st-input { flex: 1; min-width: 0; }
+
+/* ------------------------------- Resultado ------------------------------ */
+.st-result { border-color: rgba(58, 242, 210, .22); }
+.st-result.is-ok { border-color: rgba(34, 197, 94, .55); box-shadow: 0 18px 40px rgba(34, 197, 94, .12); }
+.st-result.is-bad { border-color: rgba(244, 63, 94, .55); box-shadow: 0 18px 40px rgba(244, 63, 94, .12); }
+.st-result.is-warn { border-color: rgba(245, 158, 11, .55); }
+
+.st-res-head { display: flex; align-items: center; gap: .8rem; margin-bottom: .85rem; }
+.st-res-icon { font-size: 2rem; line-height: 1; }
+.st-res-head p { color: var(--muted); font-size: .88rem; margin-top: .15rem; }
+
+.st-datos { display: grid; grid-template-columns: auto 1fr; gap: .35rem .9rem; margin: .2rem 0 1rem; }
+.st-datos dt { color: var(--muted); font-size: .8rem; font-weight: 700; }
+.st-datos dd { font-size: .92rem; text-align: right; overflow-wrap: anywhere; }
+
+.st-result .st-btn-ok { margin-top: .2rem; }
+
+/* -------------------------------- Avisos -------------------------------- */
+.st-alert {
+  font-size: .88rem; font-weight: 600; color: #ffd7dd;
+  background: rgba(244, 63, 94, .14);
+  border: 1px solid rgba(244, 63, 94, .4);
+  border-radius: 10px; padding: .65rem .8rem; margin-bottom: .9rem;
+}
+
+.st-hint { font-size: .8rem; color: var(--muted); margin-top: .9rem; line-height: 1.5; }
+.st-hint b { color: var(--text); }
+.st-hint.center { text-align: center; }
+
+/* ------------------------------ Estadísticas ---------------------------- */
+.st-stats { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+
+.st-stat {
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid var(--line); border-radius: 16px;
+  padding: 1rem; text-align: center;
+}
+.st-stat b { display: block; font-size: 1.9rem; color: var(--mint); line-height: 1; }
+.st-stat span { display: block; font-size: .74rem; color: var(--muted); margin-top: .4rem; }
+
+/* -------------------------------- Footer -------------------------------- */
+.st-footer {
+  max-width: 720px; margin: 1.5rem auto 0; padding: 0 1.15rem;
+  display: flex; flex-wrap: wrap; gap: .5rem 1rem; justify-content: space-between;
+  font-size: .78rem; color: var(--muted);
+}
+.st-footer a { color: var(--muted); text-decoration: none; }
+.st-footer a:hover { color: var(--mint); }
+
+/* ------------------------------- Animación ------------------------------ */
+@keyframes aparecer { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.is-nuevo { animation: aparecer .22s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .is-nuevo { animation: none; }
+}
+
+/* ---------------------------- Pantallas grandes ------------------------- */
+@media (min-width: 620px) {
+  h1 { font-size: 1.8rem; }
+  .st-card { padding: 1.5rem 1.4rem; }
+  .st-cam { aspect-ratio: 16 / 9; }
+}

@@ -106,6 +106,8 @@ const limiteValidar = limitador(Number(process.env.RATE_LIMIT_VALIDAR || 60),
   'Demasiadas validaciones: espera un minuto y vuelve a intentarlo.');
 const limiteEscritura = limitador(Number(process.env.RATE_LIMIT_ESCRITURA || 20),
   'Demasiadas operaciones: espera un minuto y vuelve a intentarlo.');
+const limiteEncargado = limitador(Number(process.env.RATE_LIMIT_ENCARGADO || 12),
+  'Demasiados intentos de acceso: espera un minuto y vuelve a intentarlo.');
 
 /* ---------------------------------------------------------------------
  * 1. Configuracion (variables de entorno)
@@ -232,6 +234,15 @@ function ocultarDNI(dni) {
   const d = String(dni || '');
   if (d.length < 4) return '********';
   return '********' + d.slice(-2);
+}
+
+/** Huella del código de un encargado. En la base sólo vive este hash:
+ *  SHA-256 de "nombre:codigo" (nombre sin mayúsculas, código en mayúsculas).
+ *  Así, aunque alguien lea la tabla, no obtiene los códigos de acceso. */
+function hashCodigoEncargado(nombre, codigo) {
+  const n = String(nombre || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const c = String(codigo || '').trim().toUpperCase();
+  return crypto.createHash('sha256').update(`${n}:${c}`).digest('hex');
 }
 
 /* ---------------------------------------------------------------------
@@ -649,6 +660,155 @@ app.post('/api/qr/validar', limiteValidar, ruta(async (req, res) => {
     titular: t.titular_nombre,
     expiraEn: t.expira_en,
     mensaje: 'Token vigente: acceso permitido.'
+  });
+}));
+
+/* =====================================================================
+ * ENCARGADOS DE PUERTA
+ * Se identifican con nombre + código y validan el QR desde el celular.
+ * El código viaja en cada petición (no hay sesión de servidor) y se
+ * comprueba siempre contra el hash guardado en la base.
+ * =================================================================== */
+
+/** ACCESO del encargado: valida nombre + código */
+app.post('/api/encargados/login', limiteEncargado, ruta(async (req, res) => {
+  const datos = req.body || {};
+  const nombre = String(datos.nombre || '').trim();
+  const codigo = String(datos.codigo || '').trim();
+
+  if (!nombre || !codigo) {
+    return fallo(res, 400, 'Escribe tu nombre y tu código de encargado.');
+  }
+
+  const [rows] = await pool.execute(
+    'SELECT id, nombre FROM encargados WHERE codigo_hash = ? AND activo = 1 LIMIT 1',
+    [hashCodigoEncargado(nombre, codigo)]);
+
+  if (!rows.length) {
+    return fallo(res, 401, 'Nombre o código de encargado incorrecto.');
+  }
+
+  ok(res, {
+    encargado: { id: rows[0].id, nombre: rows[0].nombre },
+    mensaje: 'Bienvenido, ' + rows[0].nombre + '.'
+  });
+}));
+
+/** VALIDAR un QR desde la puerta y, si se pide, registrar el ingreso.
+ *  Acepta el payload firmado del QR (JSP|CODIGO|NONCE|HORA) o el token
+ *  directo; sin token, permite buscar por código de entrada (sin firma). */
+app.post('/api/encargados/validar', limiteValidar, ruta(async (req, res) => {
+  const datos = req.body || {};
+  const nombre = String(datos.encargado || datos.nombre || '').trim();
+  const codigoEncargado = String(datos.codigo || '').trim();
+
+  if (!nombre || !codigoEncargado) {
+    return fallo(res, 401, 'Inicia sesión como encargado antes de validar entradas.');
+  }
+
+  const [enc] = await pool.execute(
+    'SELECT id, nombre FROM encargados WHERE codigo_hash = ? AND activo = 1 LIMIT 1',
+    [hashCodigoEncargado(nombre, codigoEncargado)]);
+
+  if (!enc.length) {
+    return fallo(res, 401, 'Tu código de encargado ya no es válido: vuelve a iniciar sesión.');
+  }
+  const encargado = enc[0];
+
+  const token = extraerToken(datos.token || datos.payload);
+  const codigoEntrada = String(datos.entrada || '').trim().toUpperCase();
+
+  if (!token && !/^[A-Z0-9][A-Z0-9-]{3,23}$/.test(codigoEntrada)) {
+    return fallo(res, 400, 'Escanea un QR o escribe el código de la entrada.',
+      { valido: false, motivo: 'formato', encargado: encargado.nombre });
+  }
+
+  let fila = null;
+
+  if (token) {
+    const [rows] = await pool.query(
+      `SELECT t.id, t.token, t.nonce, t.firma, t.expira_en, t.invalidado, t.usado_en,
+              e.codigo, e.estado, e.titular_nombre
+         FROM tokens_qr t
+         JOIN entradas e ON e.id = t.entrada_id
+        WHERE t.token = ? LIMIT 1`, [token]);
+
+    if (!rows.length) {
+      return fallo(res, 200, 'El código QR no pertenece a ninguna entrada emitida.',
+        { valido: false, motivo: 'desconocido', encargado: encargado.nombre });
+    }
+
+    const t = rows[0];
+
+    // La firma se recalcula aquí: un QR alterado no pasa la puerta
+    const esperado = crypto
+      .createHmac('sha256', CFG.qrSecret)
+      .update(`${t.codigo}|${t.nonce}|${new Date(t.expira_en).getTime()}`)
+      .digest('hex').slice(0, 32);
+
+    if (esperado !== t.firma) {
+      return fallo(res, 200, 'La firma del token no es válida.',
+        { valido: false, motivo: 'firma', encargado: encargado.nombre });
+    }
+    if (Number(t.invalidado) === 1) {
+      return fallo(res, 200, 'El token fue invalidado al rotar el código QR.',
+        { valido: false, motivo: 'invalidado', encargado: encargado.nombre });
+    }
+    if (new Date(t.expira_en).getTime() < Date.now()) {
+      return fallo(res, 200, 'El token expiró: pide al asistente que refresque su QR.',
+        { valido: false, motivo: 'expirado', encargado: encargado.nombre });
+    }
+
+    fila = await obtenerFila(t.codigo);
+  } else {
+    fila = await obtenerFila(codigoEntrada);
+  }
+
+  if (!fila) {
+    return fallo(res, 404, `La entrada ${codigoEntrada || token} no existe en el sistema.`,
+      { valido: false, motivo: 'desconocido', encargado: encargado.nombre });
+  }
+
+  // El encargado no es el titular: se enriquece con un DNI ajeno para que
+  // la respuesta no incluya el QR vivo de la entrada.
+  const entrada = enriquecer(fila, '00000000');
+
+  if (fila.estado === 'usado') {
+    return fallo(res, 200, 'La entrada ya fue utilizada para ingresar al evento.',
+      { valido: false, motivo: 'usada', entrada, encargado: encargado.nombre });
+  }
+  if (fila.estado === 'anulado') {
+    return fallo(res, 200, 'La entrada está anulada.',
+      { valido: false, motivo: 'anulada', entrada, encargado: encargado.nombre });
+  }
+
+  const eraValida = true;
+  const registrarIngreso = datos.registrar === true || datos.registrar === 'true';
+  let registrado = false;
+
+  if (registrarIngreso) {
+    await pool.execute(
+      "UPDATE entradas SET estado = 'usado', usada_en = NOW() WHERE codigo = ? AND estado <> 'usado'",
+      [fila.codigo]);
+    if (token) {
+      await pool.execute('UPDATE tokens_qr SET usado_en = NOW() WHERE token = ?', [token]);
+    }
+    await registrar(fila.codigo, 'usada', fila.titular_nombre,
+      `Ingreso registrado por ${encargado.nombre} (encargado)`, 'usado');
+    registrado = true;
+    fila = await obtenerFila(fila.codigo);
+  }
+
+  ok(res, {
+    valido: eraValida,
+    motivo: registrado ? 'registrado' : 'ok',
+    registrado,
+    conFirma: !!token,
+    entrada: enriquecer(fila, '00000000'),
+    encargado: encargado.nombre,
+    mensaje: registrado
+      ? `Ingreso registrado por ${encargado.nombre}.`
+      : (token ? 'QR vigente: acceso permitido.' : 'Entrada válida (código sin token firmado).')
   });
 }));
 

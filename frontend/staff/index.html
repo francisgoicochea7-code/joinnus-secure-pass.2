@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#06131b">
+<title>Acceso encargados — Joinnus Secure Pass</title>
+<meta name="description" content="Panel móvil para el personal autorizado: valida el QR de las entradas en la puerta del evento.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="staff.css">
+</head>
+<body>
+
+<header class="st-header">
+  <a class="st-brand" href="../index.html" title="Volver al sitio">
+    <span class="st-logo">ᴎ</span>
+    <span class="st-brand-txt"><b>JOINNUS</b><i>SECURE PASS</i></span>
+  </a>
+  <span class="st-chip" id="st-chip" hidden></span>
+</header>
+
+<main class="st-main">
+
+  <!-- ==================== 1. ACCESO ==================== -->
+  <section id="vista-login" class="st-card">
+    <span class="st-eyebrow">Modo staff</span>
+    <h1>Acceso de encargados</h1>
+    <p class="st-lead">Identifícate con tu nombre y tu código personal para validar entradas en la puerta del evento.</p>
+
+    <form id="form-login" novalidate>
+      <div class="st-field">
+        <label for="enc-nombre">Nombre del encargado</label>
+        <input id="enc-nombre" class="st-input" name="nombre" autocomplete="name"
+               placeholder="Ana Torres" spellcheck="false" required>
+      </div>
+      <div class="st-field">
+        <label for="enc-codigo">Código de encargado</label>
+        <input id="enc-codigo" class="st-input" name="codigo" type="password"
+               autocomplete="one-time-code" placeholder="ANA2026" spellcheck="false" required>
+      </div>
+      <p id="login-error" class="st-alert" hidden></p>
+      <button id="btn-entrar" class="st-btn st-btn-primary" type="submit">Entrar al panel</button>
+    </form>
+
+    <p class="st-hint">Cuentas de demostración: <b>Ana Torres · ANA2026</b> &nbsp;o&nbsp; <b>Luis Paredes · LUIS2026</b></p>
+  </section>
+
+  <!-- ==================== 2. PANEL ==================== -->
+  <section id="vista-panel" hidden>
+
+    <div class="st-card st-scan">
+      <div class="st-row">
+        <div>
+          <span class="st-eyebrow">Portero digital</span>
+          <h2>Validar entrada</h2>
+        </div>
+        <button id="btn-salir" class="st-link" type="button">Salir</button>
+      </div>
+
+      <div class="st-cam" id="st-cam">
+        <video id="video" playsinline muted hidden></video>
+        <div class="st-cam-ph" id="scan-placeholder">
+          <span>📷</span>
+          <p>Apunta la cámara al QR del asistente</p>
+        </div>
+      </div>
+
+      <button id="btn-camara" class="st-btn st-btn-primary" type="button">Escanear con cámara</button>
+      <p class="st-hint" id="camara-aviso" hidden></p>
+
+      <div class="st-or"><span>o escribe el código de la entrada</span></div>
+
+      <form id="form-verificar" class="st-inline">
+        <input id="qr-texto" class="st-input" placeholder="ENTRY001" spellcheck="false"
+               autocomplete="off" aria-label="Código o token del QR">
+        <button id="btn-verificar" class="st-btn st-btn-ghost" type="submit">Verificar</button>
+      </form>
+    </div>
+
+    <div id="resultado" class="st-card st-result" aria-live="polite" hidden>
+      <div class="st-res-head">
+        <span id="res-icono" class="st-res-icon">✅</span>
+        <div>
+          <h3 id="res-titulo">Entrada válida</h3>
+          <p id="res-motivo"></p>
+        </div>
+      </div>
+      <dl id="res-datos" class="st-datos"></dl>
+      <button id="btn-registrar" class="st-btn st-btn-ok" type="button" hidden>Registrar ingreso</button>
+      <p class="st-hint" id="res-nota" hidden></p>
+    </div>
+
+    <div class="st-stats">
+      <div class="st-stat"><b id="contador">0</b><span>ingresos registrados hoy</span></div>
+      <div class="st-stat"><b id="escaneos">0</b><span>QR verificados en esta sesión</span></div>
+    </div>
+
+    <p class="st-hint center">Sesión de <b id="quien">—</b>. Cada ingreso queda en el historial con tu nombre.</p>
+  </section>
+
+</main>
+
+<footer class="st-footer">
+  <a href="../index.html">← Volver al sitio público</a>
+  <span>Prototipo académico · Joinnus Secure Pass</span>
+</footer>
+
+<script src="staff.js"></script>
+</body>
+</html>

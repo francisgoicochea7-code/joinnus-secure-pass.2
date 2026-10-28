@@ -89,7 +89,7 @@ if (falta.length) {
   if (reiniciar) {
     console.log('[BD] --reset: se borran las tablas existentes…');
     await conn.query('DROP TABLE IF EXISTS ' +
-      'tokens_qr, historial, transferencias, entradas, eventos, usuarios');
+      'encargados, tokens_qr, historial, transferencias, entradas, eventos, usuarios');
   } else if (await contar('usuarios') > 0) {
     console.error('[ERROR] Esa base ya tiene datos (usuarios sembrados).');
     console.error('        Si quieres empezar de cero:  npm run db:remoto -- --reset');

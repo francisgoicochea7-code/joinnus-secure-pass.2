@@ -137,6 +137,19 @@ CREATE TABLE IF NOT EXISTS tokens_qr (
   CONSTRAINT fk_tokens_entrada FOREIGN KEY (entrada_id) REFERENCES entradas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Personal autorizado para validar entradas en la puerta del evento.
+-- El codigo NUNCA se guarda en claro: se almacena SHA-256("nombre:codigo").
+CREATE TABLE IF NOT EXISTS encargados (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  nombre      VARCHAR(120) NOT NULL,
+  codigo_hash CHAR(64)     NOT NULL,
+  activo      TINYINT(1)   NOT NULL DEFAULT 1,
+  creado_en   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_encargados_nombre (nombre),
+  UNIQUE KEY uq_encargados_codigo (codigo_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ---------------------------------------------------------------------------
 -- Datos ficticios de demostracion
 -- (idempotente: se puede reejecutar sin duplicar informacion)
@@ -241,3 +254,10 @@ JOIN entradas e ON e.codigo = h.codigo
 WHERE NOT EXISTS (
   SELECT 1 FROM historial x WHERE x.entrada_id = e.id AND x.accion = h.accion AND x.creado_en = h.creado_en
 );
+
+-- Encargados de demostracion (el codigo se guarda hasheado, nunca en claro:
+-- SHA-256 de "nombre:codigo"; las cuentas demo se documentan en la pagina).
+INSERT INTO encargados (nombre, codigo_hash, activo) VALUES
+  ('Ana Torres',   '05d26f322c3fa365dd96e0621e98f86a7b91b3ba1b4a11f9cec8272041414083', 1),
+  ('Luis Paredes', '0e1a8938b8da063e695a1a93c11eb3c61fbf78788269d0689f5b96fabd5df65b', 1)
+ON DUPLICATE KEY UPDATE codigo_hash = VALUES(codigo_hash), activo = VALUES(activo);

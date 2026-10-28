@@ -161,7 +161,7 @@
             <h3 class="small" style="letter-spacing:.08em;text-transform:uppercase;color:var(--warn)">Simulado en el prototipo</h3>
             <ul class="small" style="color:var(--text-soft);display:flex;flex-direction:column;gap:.5rem;padding-left:1.1rem;margin-bottom:0">
               <li>Autenticación de usuarios y sesión segura (el usuario demo está fijado por variable de entorno).</li>
-              <li>Lector físico de QR y control de acceso en la puerta del evento.</li>
+              <li>Lector de QR físico dedicado: la validación en puerta se hace desde el celular del encargado.</li>
               <li>Pagos reales y validación de identidad contra RENIEC.</li>
               <li>Cifrado en reposo de los datos personales.</li>
               <li>Escalabilidad y alta disponibilidad (una sola instancia de cada servicio).</li>
@@ -211,6 +211,19 @@
           <li>Entra en <strong>http://localhost:8080</strong> desde el navegador.</li>
         </ol>
         <p class="small muted mb-0">Sin Docker también funciona: abre <code>frontend/index.html</code> con doble clic y el prototipo usará localStorage.</p>
+      </div>
+
+      <!-- Acceso del personal de puerta -->
+      <div class="card mt-4" id="acceso-encargados" style="border-left:3px solid var(--brand)">
+        <div class="card-title">
+          <span class="icon-box brand">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Zm0 2.2 6 2.3V11c0 3.9-2.5 7.8-6 9-3.5-1.2-6-5.1-6-9V6.5l6-2.3Zm-1 4.3v5.2l3.5-2.6-1.2-1.6-1.3 1V8.5h-1Z"/></svg>
+          </span>
+          <h3>Acceso para encargados (personal de puerta)</h3>
+        </div>
+        <p class="small" style="color:var(--text-soft)">El personal autorizado entra con su <strong>nombre y código personal</strong> y valida el QR de cada asistente desde el celular. El servidor comprueba la firma del token, marca la entrada como usada y deja el ingreso en el historial con el nombre del encargado.</p>
+        <a class="btn btn-primary" href="staff/">Abrir panel de encargados</a>
+        <p class="small muted mb-0" style="margin-top:.8rem">Cuentas demo: <strong>Ana Torres · ANA2026</strong> y <strong>Luis Paredes · LUIS2026</strong>. El escaneo con cámara necesita HTTPS (Vercel) o localhost.</p>
       </div>
 
     </div>
