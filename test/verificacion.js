@@ -1303,6 +1303,20 @@ async function pruebasEncargados() {
   ok(sobre.includes('href="staff/"'), 'sobre.html no enlaza al panel de encargados');
   ok(fs.existsSync(path.join(RAIZ, 'scripts', 'migrar-encargados.js')),
     'Falta scripts/migrar-encargados.js (migracion de la base remota)');
+
+  // Gestion de cuentas por consola: npm run encargado
+  const gestion = path.join(RAIZ, 'scripts', 'encargado.js');
+  ok(fs.existsSync(gestion), 'Falta scripts/encargado.js (alta y cambios de encargados)');
+  if (fs.existsSync(gestion)) {
+    const codigoGestion = fs.readFileSync(gestion, 'utf8');
+    const paquete = fs.readFileSync(path.join(RAIZ, 'package.json'), 'utf8');
+    ok(/"encargado"\s*:\s*"node scripts\/encargado\.js"/.test(paquete),
+      'package.json no define el script npm run encargado');
+    ok(codigoGestion.includes('--remoto'), 'scripts/encargado.js no admite --remoto (produccion)');
+    ok(codigoGestion.includes("createHash('sha256')"), 'scripts/encargado.js no calcula el hash SHA-256');
+    ok(codigoGestion.includes('--renombrar'), 'scripts/encargado.js no permite cambiar el nombre');
+    ok(codigoGestion.includes('--desactivar'), 'scripts/encargado.js no permite dar de baja cuentas');
+  }
 }
 
 /* ===================================================================== */

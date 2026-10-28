@@ -278,6 +278,38 @@ curl -X POST http://localhost:3000/api/encargados/validar \
 > navegador): se usa la entrada manual, que valida igual el estado de la
 > entrada. En Vercel siempre hay HTTPS, que es lo que exige la cámara.
 
+#### Gestionar encargados (altas, cambios de nombre y de código)
+
+Los códigos **no se guardan** (solo su hash SHA-256), así que no se pueden
+consultar: se **reemplazan** por uno nuevo con estos comandos.
+
+```bash
+# Ver las cuentas (nunca muestra el código: no existe en la base)
+npm run encargado -- --listar
+npm run encargado -- --listar --remoto          # base de producción (Aiven)
+
+# Crear una cuenta nueva o cambiar su código
+npm run encargado -- "Rosa Quispe" "ROSA2026"
+npm run encargado -- "Rosa Quispe" "ROSA2026" --remoto
+
+# Cambiar el nombre (y de paso asignar un código nuevo)
+npm run encargado -- --renombrar "Ana Torres" "Gabriela Paz" "GABI2026"
+npm run encargado -- --renombrar "Ana Torres" "Gabriela Paz" "GABI2026" --remoto
+
+# Dar de baja sin borrar (y volver a activar)
+npm run encargado -- --desactivar "Luis Paredes"
+npm run encargado -- --activar "Luis Paredes"
+```
+
+Sin `--remoto` trabaja sobre la base **local** del Docker; con `--remoto`,
+sobre la de **producción**. Son bases independientes: un cambio en una no
+afecta a la otra.
+
+> El nombre forma parte del hash (`nombre:codigo`). Si cambias el nombre con
+> SQL a mano, la cuenta deja de funcionar: usa `--renombrar`, que recalcula el
+> hash. Las cuentas de la base de producción pueden no coincidir con las de
+> `init.sql`; consúltalas con `--listar --remoto`.
+
 ---
 
 ## 5. Base de datos
