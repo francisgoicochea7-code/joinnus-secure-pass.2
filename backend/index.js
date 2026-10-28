@@ -792,6 +792,14 @@ app.post('/api/encargados/validar', limiteValidar, ruta(async (req, res) => {
       [fila.codigo]);
     if (token) {
       await pool.execute('UPDATE tokens_qr SET usado_en = NOW() WHERE token = ?', [token]);
+    } else {
+      // Registro por codigo (sin QR escaneado): se cierra el token vigente
+      // para que la entrada no deje un QR "vivo" en el celular del asistente.
+      // No se marca usado_en porque ese QR no se escaneo en la puerta.
+      await pool.execute(
+        `UPDATE tokens_qr SET invalidado = 1
+          WHERE invalidado = 0 AND entrada_id =
+            (SELECT id FROM entradas WHERE codigo = ?)`, [fila.codigo]);
     }
     await registrar(fila.codigo, 'usada', fila.titular_nombre,
       `Ingreso registrado por ${encargado.nombre} (encargado)`, 'usado');
@@ -1041,6 +1049,15 @@ app.post('/api/entradas/:codigo/estado/:estado', limiteEscritura, ruta(async (re
   const estado = String(req.params.estado).toLowerCase();
   if (!['usado', 'anulado', 'valido'].includes(estado)) {
     return fallo(res, 400, 'Estado no permitido: ' + estado);
+  }
+
+  // El ingreso en puerta lo registra unicamente el panel de encargados
+  // (/api/encargados/validar). Antes bastaba con conocer el codigo de una
+  // entrada para marcarla como usada desde la web y saltarse la puerta.
+  if (estado === 'usado') {
+    return fallo(res, 403,
+      'El ingreso en puerta solo lo registra un encargado desde /staff/.',
+      { motivo: 'solo-encargado' });
   }
 
   const fila = await obtenerFila(codigo);

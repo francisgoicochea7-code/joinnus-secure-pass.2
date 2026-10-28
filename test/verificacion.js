@@ -1317,6 +1317,18 @@ async function pruebasEncargados() {
     ok(codigoGestion.includes('--renombrar'), 'scripts/encargado.js no permite cambiar el nombre');
     ok(codigoGestion.includes('--desactivar'), 'scripts/encargado.js no permite dar de baja cuentas');
   }
+
+  // El ingreso en puerta solo lo puede registrar un encargado
+  const backendIngreso = fs.readFileSync(path.join(RAIZ, 'backend/index.js'), 'utf8');
+  ok(backendIngreso.includes("motivo: 'solo-encargado'"),
+    'backend/index.js permite marcar una entrada como usada sin pasar por el panel de encargados');
+  ok(/estado === 'usado'\) \{\s*\n\s*return fallo\(res, 403/.test(backendIngreso),
+    'falta el 403 de /api/entradas/:codigo/estado/usado');
+  ok(backendIngreso.includes('WHERE invalidado = 0 AND entrada_id ='),
+    'al registrar por codigo no se cierra el token vigente de la entrada');
+  const jsEntrada = fs.readFileSync(path.join(APP, 'js', 'entrada.js'), 'utf8');
+  ok(!jsEntrada.includes('puedeSimular'),
+    'entrada.js vuelve a mostrar "Simular ingreso" al asistente');
 }
 
 /* ===================================================================== */

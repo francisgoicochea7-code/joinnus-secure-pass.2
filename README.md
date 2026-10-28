@@ -310,6 +310,12 @@ afecta a la otra.
 > hash. Las cuentas de la base de producción pueden no coincidir con las de
 > `init.sql`; consúltalas con `--listar --remoto`.
 
+> **El ingreso en puerta solo lo registra un encargado.** El endpoint que usaba
+> el asistente para marcar su propia entrada como usada ahora responde `403`:
+> el botón "Simular ingreso" quedó retirado de la web. Si el encargado registra
+> escribiendo el código (sin escanear), se invalida el QR vigente de esa
+> entrada, para que no quede ninguno "vivo" en el celular.
+
 ---
 
 ## 5. Base de datos

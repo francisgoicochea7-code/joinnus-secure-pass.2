@@ -270,14 +270,10 @@
     if (btnRegenerarLocal) btnRegenerarLocal.disabled = !esMia;
     if (btnValidarLocal) btnValidarLocal.disabled = !esMia;
 
-    // "Simular ingreso" vive junto al QR: sólo aparece si la persona está
-    // identificada (con la API real, sin identificarse ni se llega aquí),
-    // si la entrada es suya y si todavía no se usó ni se anuló.
+    // El ingreso en puerta lo registra unicamente el panel de encargados:
+    // el asistente no ve este boton (el elemento se mantiene en el HTML).
     const btnSimular = $('btn-marcar-usada');
-    if (btnSimular) {
-      const puedeSimular = esMia && identificado && entrada.estado === 'valido';
-      btnSimular.classList.toggle('hide', !puedeSimular);
-    }
+    if (btnSimular) btnSimular.classList.add('hide');
 
     if (esMia) {
       // Si la entrada todavía no tiene token, se genera el primero
