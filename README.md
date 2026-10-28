@@ -140,6 +140,10 @@ joinnus-secure-pass/
 │   │   ├── transferencia.js      Validación y flujo de transferencia
 │   │   ├── historial.js          Línea de tiempo y exportación CSV
 │   │   └── sesion.js             Sesión de identificación por DNI
+│   ├── staff/                    Panel del encargado de puerta (/staff/)
+│   │   ├── index.html            Acceso con nombre + código y validación
+│   │   ├── staff.css             Estilos del panel (oscuro, móvil)
+│   │   └── staff.js              Login, cámara, verificación e ingreso
 │   ├── assets/                   favicon.svg · logo.svg
 │   └── nginx.conf                Servidor estático + proxy /api
 │
@@ -170,6 +174,10 @@ joinnus-secure-pass/
 │   ├── dom-sim.js                Micro-DOM para ejecutar las páginas en Node
 │   └── debug-tmp.js              Utilidad de depuración
 │
+├── scripts/                      Utilidades sobre la base de datos
+│   ├── sembrar-remoto.js         Siembra una base remota desde init.sql
+│   └── migrar-encargados.js      Añade la tabla encargados a una base ya creada
+│
 └── README.md
 ```
 
@@ -188,6 +196,8 @@ Todos responden JSON. `ok: true` indica éxito.
 | `GET` | `/api/verificar/:codigo` | **Verificar estado** (y registra el evento) |
 | `POST` | `/api/entradas/:codigo/qr?log=0\|1` | **Generar token del QR** (`log=0` en rotaciones automáticas) |
 | `POST` | `/api/qr/validar` | **Validar token** (recibe `{ "token": "JSP-ENTRY001-XXXXXXXX" }` o el payload `JSP\|CODIGO\|TOKEN\|HORA`) |
+| `POST` | `/api/encargados/login` | **Acceso del encargado** (`{ "nombre", "codigo" }`; `401` si no coincide) |
+| `POST` | `/api/encargados/validar` | **Validar el QR en la puerta** y registrar el ingreso (`{ "encargado", "codigo", "token" o "entrada", "registrar" }`) |
 | `POST` | `/api/usuarios` | **Registrar usuario nuevo** (alta: `{ "dni", "nombre", "correo" }`; `409` si el DNI ya existe) |
 | `GET` | `/api/usuarios/:dni` | **Comprobar identidad** (DNI de la persona que se identifica) |
 | `POST` | `/api/entradas/:codigo/transferir` | **Transferir entrada** |
@@ -229,11 +239,50 @@ curl http://localhost:3000/api/usuarios/77665544
 curl http://localhost:3000/api/entradas/ENTRY001/historial
 ```
 
+### Panel de encargados (`/staff/`)
+
+El personal de puerta tiene una página propia, pensada para el celular:
+**http://localhost:8080/staff/**
+
+| Encargado | Código de demostración |
+|---|---|
+| Ana Torres | `ANA2026` |
+| Luis Paredes | `LUIS2026` |
+
+1. El encargado entra con su **nombre y su código personal**.
+2. Escanea el QR del asistente con la cámara (en Android/Chrome) o escribe el
+   código de la entrada (`ENTRY001`).
+3. El servidor recalcula la **firma HMAC** del token y responde si la entrada
+   es válida, ya fue usada, está anulada o el QR caducó.
+4. Si todo está bien, el encargado pulsa **Registrar ingreso**: la entrada pasa
+   a `usado` y el historial guarda
+   *“Ingreso registrado por Ana Torres (encargado)”*.
+
+Los códigos **no se guardan en claro**: en la tabla `encargados` sólo vive el
+SHA-256 de `nombre:codigo`. El login admite 12 intentos por minuto y el código
+se revalida en cada validación (no basta con abrir la página).
+
+```bash
+# Acceso del encargado
+curl -X POST http://localhost:3000/api/encargados/login \
+     -H "Content-Type: application/json" \
+     -d '{"nombre":"Ana Torres","codigo":"ANA2026"}'
+
+# Validar un QR y registrar el ingreso
+curl -X POST http://localhost:3000/api/encargados/validar \
+     -H "Content-Type: application/json" \
+     -d '{"encargado":"Ana Torres","codigo":"ANA2026","token":"JSP-ENTRY001-XXXXXXXX","registrar":true}'
+```
+
+> En iPhone/Safari la cámara no puede leer QR desde la web (limitación del
+> navegador): se usa la entrada manual, que valida igual el estado de la
+> entrada. En Vercel siempre hay HTTPS, que es lo que exige la cámara.
+
 ---
 
 ## 5. Base de datos
 
-`database/init.sql` crea seis tablas y las llena con datos ficticios:
+`database/init.sql` crea siete tablas y las llena con datos ficticios:
 
 | Tabla | Contenido |
 |---|---|
@@ -243,6 +292,11 @@ curl http://localhost:3000/api/entradas/ENTRY001/historial
 | `transferencias` | Histórico de cambios de titularidad |
 | `historial` | Trazabilidad: creación, verificación, QR, transferencia, ingreso |
 | `tokens_qr` | Tokens emitidos, con firma, vencimiento y estado de invalidación |
+| `encargados` | Personal de puerta: nombre y **código hasheado** (SHA-256) |
+
+> Si la base ya estaba creada (por ejemplo la de Aiven en producción),
+> `npm run db:encargados` añade la tabla `encargados` y sus cuentas demo
+> **sin borrar** el resto de los datos.
 
 ### Entradas ficticias de prueba
 
@@ -275,6 +329,7 @@ Se definen en `.env` (copia de `.env.example`):
 | `QR_TTL_SECONDS` | `15` | Vigencia de cada token (y ritmo de rotación del QR) |
 | `CORS_ORIGINS` | `http://localhost:8080,http://127.0.0.1:8080` | Orígenes con permiso para llamar a la API (amplíalos si la demo va en red local) |
 | `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_QR` / `RATE_LIMIT_VALIDAR` / `RATE_LIMIT_ESCRITURA` | `60000` / `30` / `60` / `20` | Ventana en ms y máximo de peticiones: generar QR, validar token y operaciones de escritura |
+| `RATE_LIMIT_ENCARGADO` | `12` | Intentos de acceso al panel de encargados por ventana |
 | `DEMO_DNI` | `45678945` | DNI del usuario de la sesión (“Mis entradas”) |
 | `TZ` | `America/Lima` | Zona horaria de los contenedores |
 
@@ -336,6 +391,11 @@ transfiere y a quién:
   DNI identificado no es el titular de esa entrada; el detalle de una entrada
   ajena tampoco entrega el token vigente (el estado sigue siendo consultable,
   como en el verificador de la puerta).
+- **Códigos de encargado hasheados**: la tabla `encargados` sólo guarda
+  SHA-256 de `nombre:codigo`; el login tiene su propio límite (12/min) y cada
+  validación vuelve a comprobar el código contra la base.
+- **Trazabilidad del portero**: cada ingreso registrado desde `/staff/` queda
+  en `historial` con el nombre de quien lo validó.
 
 ---
 
@@ -370,6 +430,10 @@ http://192.168.1.25:8080
 > (PowerShell como administrador):
 > `New-NetFirewallRule -DisplayName "JSP 8080" -Direction Inbound -LocalPort 8080 -Protocol TCP -Action Allow`
 
+> La **cámara** del celular sólo funciona en HTTPS (Vercel) o en `localhost`.
+> Si abres el panel por la IP de la red (`http://192.168.x.x:8080/staff/`),
+> el propio panel avisa y se usa la **entrada manual** del código.
+
 ### Opción C — Proyectar la pantalla
 
 - Duplica la pantalla (`Win + P`) o conecta el proyector.
@@ -390,7 +454,11 @@ http://192.168.1.25:8080
    transferencia. Señalar que el QR anterior queda invalidado.
 6. **Historial** — buscar `ENTRY001` en el desplegable: la línea de tiempo ya
    refleja la transferencia y el nuevo QR.
-7. **Sobre el proyecto** — explicar qué es real y qué está simulado.
+7. **Panel de encargados** — abrir `/staff/` desde el celular (o la misma
+   pantalla), entrar como **Ana Torres · ANA2026**, escanear el QR de la
+   entrada y pulsar **Registrar ingreso**: la entrada pasa a 🔴 usada y el
+   historial muestra *“Ingreso registrado por Ana Torres (encargado)”*.
+8. **Sobre el proyecto** — explicar qué es real y qué está simulado.
 
 ### Si algo falla durante la demo
 
@@ -454,6 +522,9 @@ Definidas en `docker-compose.yml` (y personalizables en `.env`):
 - Validaciones de DNI, correo, nombre y límite de precio (cliente **y**
   servidor).
 - Trazabilidad completa con línea de tiempo, tabla y exportación a CSV.
+- **Panel de encargados** en `/staff/`: acceso con nombre + código,
+  escaneo del QR desde el celular y registro del ingreso con el nombre de
+  quien lo validó.
 
 ### ⚠️ Simulado (pendiente para un sistema productivo)
 
@@ -464,7 +535,8 @@ Definidas en `docker-compose.yml` (y personalizables en `.env`):
   `403`). Lo que sigue faltando es la **contraseña**: quien conozca los datos de
   una persona puede identificarse como ella, y eso es identificación, no
   autenticación.
-- Lector físico de QR y control de acceso en la puerta del evento.
+- Lector de QR físico dedicado (torniquete): la validación en puerta ya existe,
+  pero se hace desde el celular del encargado en `/staff/`.
 - Pagos reales y validación de identidad contra RENIEC.
 - Cifrado en reposo de los datos personales y cifrado TLS (en producción hay
   que terminar TLS delante de nginx).
@@ -493,10 +565,11 @@ npm run test:app      # solo los flujos de la aplicación
   QR, las validaciones del formulario de transferencia, el historial, la
   persistencia, la integración con la API de Docker mediante un `fetch`
   simulado, el **enrutado de la API en Vercel** (rewrite de rutas de dos y más
-  segmentos) y la **firma de los tokens QR** (válida, rotada, caducada y
-  alterada).
+  segmentos), la **firma de los tokens QR** (válida, rotada, caducada y
+  alterada) y el **panel de encargados** (archivos, ids, cámara, endpoints y
+  códigos hasheados).
 
-En total, `npm test` ejecuta **1536 comprobaciones** (756 del QR + 780 de la
+En total, `npm test` ejecuta **1608 comprobaciones** (756 del QR + 852 de la
 aplicación) con 0 fallos.
 
 ### Integración continua (GitHub Actions)
