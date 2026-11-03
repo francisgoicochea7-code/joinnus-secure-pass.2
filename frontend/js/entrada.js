@@ -24,6 +24,15 @@
 
   const $ = id => document.getElementById(id);
 
+  /* Marca en el DOM: la pagina esta pidiendo identificacion. Impide que una
+     instancia anterior (o su temporizador de rotacion) vuelva a pintar datos
+     encima y tape el aviso de "Identificate". */
+  const REQUIERE_IDENTIFICACION = 'data-requiere-identificacion';
+  function identificacionPendiente() {
+    const aviso = $('aviso-titular');
+    return !!(aviso && aviso.getAttribute(REQUIERE_IDENTIFICACION) === '1');
+  }
+
   /* ------------------------------------------------------------------ */
   /* Render                                                             */
   /* ------------------------------------------------------------------ */
@@ -34,6 +43,7 @@
   }
 
   function pintarDatos(e) {
+    if (identificacionPendiente()) return;
     $('t-evento').textContent = e.evento;
     $('t-cuando').textContent = `${JSP.formatFechaLarga(e.fecha)} · ${e.hora} hrs`;
     $('t-estado').innerHTML = JSP.estadoBadge(e.estado);
@@ -102,6 +112,7 @@
   /* Ciclo del token                                                     */
   /* ------------------------------------------------------------------ */
   async function rotar(animar) {
+    if (identificacionPendiente()) return;
     if (generando || !entrada) return;
     if (entrada.estado === 'usado' || entrada.estado === 'anulado') return;
 
@@ -168,6 +179,7 @@
    * la entrada de otra persona (con su aviso), se explica y se oculta el QR.
    */
   function pintarSinEntradas() {
+    if (identificacionPendiente()) return;
     const aviso = $('aviso-titular');
     const texto = $('aviso-titular-texto');
     if (texto) {
@@ -208,7 +220,10 @@
         '<strong>Identifícate</strong> (abajo a la izquierda) y escribe tu DNI, nombres y ' +
         'apellidos: enseguida aparecerán <strong>los datos de tu compra</strong> y tu QR.';
     }
-    if (aviso) aviso.classList.remove('hide');
+    if (aviso) {
+      aviso.setAttribute(REQUIERE_IDENTIFICACION, '1');
+      aviso.classList.remove('hide');
+    }
     ['ticket-datos', 'ticket-qr', 'panel-token-card', 'selector-entradas'].forEach(function (id) {
       const el = $(id);
       if (el) el.classList.add('hide');
@@ -223,6 +238,13 @@
     const enApi = await SecurePassAPI.usarApi();
     const identificado = typeof Sesion !== 'undefined' && Sesion.estaIdentificado();
     if (enApi && !identificado) return pintarIdentificacionRequerida();
+
+    // Otra instancia todavia pide identificacion: no se pinta nada encima.
+    if (identificacionPendiente()) return;
+
+    // Ya se puede pintar: se retira la marca y lo que ocultaba el aviso.
+    const avisoInicial = $('aviso-titular');
+    if (avisoInicial) avisoInicial.removeAttribute(REQUIERE_IDENTIFICACION);
 
     // Si había quedado el aviso de identificación, se retira lo que ocultó
     ['ticket-datos', 'ticket-qr', 'panel-token-card', 'selector-entradas'].forEach(function (id) {
@@ -251,6 +273,8 @@
 
     pintarDatos(entrada);
     await cargarSelector(entrada.codigo);
+    // Si mientras tanto otra instancia pidio identificacion, no se toca el DOM.
+    if (identificacionPendiente()) return;
     JSP.pintarModo();
 
     // Sólo el titular ve y rota su QR: si la entrada no es tuya, el servidor

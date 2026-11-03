@@ -607,7 +607,7 @@ npm run test:app      # solo los flujos de la aplicación
   alterada) y el **panel de encargados** (archivos, ids, cámara, endpoints y
   códigos hasheados).
 
-En total, `npm test` ejecuta **1608 comprobaciones** (756 del QR + 852 de la
+En total, `npm test` ejecuta **1618 comprobaciones** (756 del QR + 862 de la
 aplicación) con 0 fallos.
 
 ### Integración continua (GitHub Actions)
@@ -618,6 +618,32 @@ aplicación) con 0 fallos.
 2. `docker compose config -q` — falla si la configuración es inválida o si
    falta `QR_SECRET`.
 3. `docker compose build` — comprueba que las imágenes compilan.
+
+### Análisis estático con SonarQube (opcional, local)
+
+SonarQube revisa el código en busca de bugs, vulnerabilidades, *code smells* y
+duplicación. **No forma parte de la demo**: vive en su propio
+`docker-compose.sonar.yml` (SonarQube + PostgreSQL) y solo se usa en desarrollo.
+
+```bash
+# 1) Levantar el servidor (puerto 9000)
+docker compose -f docker-compose.sonar.yml up -d
+
+# 2) Abrir http://localhost:9000 (usuario inicial: admin) y crear un token
+#    en My Account → Security → Generate Tokens
+
+# 3) Analizar el proyecto
+$env:SONAR_TOKEN = "el-token-que-generaste"
+docker compose -f docker-compose.sonar.yml --profile scan run --rm scanner
+
+# 4) Apagar el servidor cuando ya no se use
+docker compose -f docker-compose.sonar.yml down
+```
+
+El análisis se configura en `sonar-project.properties` (qué carpetas entran,
+qué se excluye y dónde están las pruebas). La cobertura no se envía porque la
+suite actual es un script propio sin instrumentar: el *quality gate* de Sonar
+se evalúa sobre el código nuevo.
 
 ---
 

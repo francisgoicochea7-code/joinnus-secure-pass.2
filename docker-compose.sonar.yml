@@ -1,0 +1,84 @@
+# -----------------------------------------------------------------------
+#  SonarQube local para analisis estatico (NO forma parte de la demo)
+# -----------------------------------------------------------------------
+#  La demo sigue siendo docker-compose.yml con sus 3 contenedores.
+#  Este archivo levanta SonarQube + PostgreSQL en el puerto 9000.
+#
+#  Uso:
+#    docker compose -f docker-compose.sonar.yml up -d
+#    docker compose -f docker-compose.sonar.yml --profile scan run --rm scanner
+#
+#  Tablero: http://localhost:9000   (usuario inicial: admin)
+# -----------------------------------------------------------------------
+
+services:
+  sonar-db:
+    image: postgres:16-alpine
+    container_name: jsp-sonar-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: ${SONAR_DB_PASSWORD:-sonar_local}
+      POSTGRES_DB: sonarqube
+    volumes:
+      - sonar_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sonar -d sonarqube"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - sonar_net
+
+  sonarqube:
+    image: sonarqube:community
+    container_name: jsp-sonarqube
+    restart: unless-stopped
+    depends_on:
+      sonar-db:
+        condition: service_healthy
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonar-db:5432/sonarqube
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: ${SONAR_DB_PASSWORD:-sonar_local}
+      # Docker Desktop (Windows/Mac) no aplica los sysctl que pide Elasticsearch
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    ports:
+      - "${SONAR_PORT:-9000}:9000"
+    volumes:
+      - sonar_data:/opt/sonarqube/data
+      - sonar_extensions:/opt/sonarqube/extensions
+      - sonar_logs:/opt/sonarqube/logs
+    networks:
+      - sonar_net
+
+  # Se ejecuta a demanda:
+  #   docker compose -f docker-compose.sonar.yml --profile scan run --rm scanner
+  scanner:
+    image: sonarsource/sonar-scanner-cli:latest
+    container_name: jsp-sonar-scanner
+    profiles: ["scan"]
+    depends_on:
+      - sonarqube
+    working_dir: /usr/src
+    volumes:
+      - .:/usr/src
+    environment:
+      SONAR_HOST_URL: http://sonarqube:9000
+      SONAR_TOKEN: ${SONAR_TOKEN:-}
+    networks:
+      - sonar_net
+
+volumes:
+  sonar_db:
+    name: jsp_sonar_db
+  sonar_data:
+    name: jsp_sonar_data
+  sonar_extensions:
+    name: jsp_sonar_extensions
+  sonar_logs:
+    name: jsp_sonar_logs
+
+networks:
+  sonar_net:
+    name: jsp_sonar_net

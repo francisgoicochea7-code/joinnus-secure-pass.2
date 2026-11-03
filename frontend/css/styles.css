@@ -131,6 +131,19 @@ code { font-family: var(--mono); font-size: .92em; }
 .text-center { text-align: center; }
 .hide { display: none !important; }
 
+/* Texto solo para lectores de pantalla (descripciones de tablas) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .page-top { padding-top: calc(var(--nav-h) + 2.2rem); }
 .page-top .section { padding-top: 1rem; }
 

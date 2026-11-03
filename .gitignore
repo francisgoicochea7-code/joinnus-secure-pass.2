@@ -19,3 +19,9 @@ backup*.sql
 Thumbs.db
 .vscode/
 .idea/
+
+# Analisis estatico (SonarQube)
+.scannerwork/
+.sonar/
+.sonar-token
+sonar-report/
