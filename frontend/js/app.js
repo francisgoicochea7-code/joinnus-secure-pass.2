@@ -92,31 +92,31 @@ const JSP = (function () {
 
   function formatFecha(iso) {
     const d = parseFecha(iso);
-    if (isNaN(d)) return '—';
+    if (Number.isNaN(d)) return '—';
     return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
   }
 
   function formatHora(iso) {
     const d = parseFecha(iso);
-    if (isNaN(d)) return '—';
+    if (Number.isNaN(d)) return '—';
     return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
   function formatFechaHora(iso) {
     const d = parseFecha(iso);
-    if (isNaN(d)) return '—';
+    if (Number.isNaN(d)) return '—';
     return `${formatFecha(d)} - ${formatHora(d)}`;
   }
 
   function formatFechaLarga(iso) {
     const d = parseFecha(iso);
-    if (isNaN(d)) return '—';
+    if (Number.isNaN(d)) return '—';
     return `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`;
   }
 
   function tiempoRelativo(iso) {
     const d = parseFecha(iso);
-    if (isNaN(d)) return '—';
+    if (Number.isNaN(d)) return '—';
     const seg = Math.floor((Date.now() - d.getTime()) / 1000);
     if (seg < 45) return 'hace un momento';
     if (seg < 3600) return `hace ${Math.floor(seg / 60)} min`;
@@ -345,14 +345,16 @@ const JSP = (function () {
           ? '<span class="badge badge-valido"><span class="dot"></span>API conectada (Docker)</span>'
           : '<span class="badge badge-neutral"><span class="dot"></span>Modo local (localStorage)</span>';
         el.title = api
-          ? 'Los datos provienen de MySQL a traves de la API del contenedor backend.'
+          ? 'Los datos provienen de PostgreSQL a traves de la API del contenedor backend.'
           : 'No se detecto la API: los datos se guardan en el navegador (localStorage).';
       });
     };
 
     aplicar();
     // La deteccion es asincrona: se repinta cuando el cliente responde
-    SecurePassAPI.usarApi().then(aplicar);
+    SecurePassAPI.usarApi()
+      .then(aplicar)
+      .catch(() => aplicar());
   }
 
   /* -------------------------------------------------------------------

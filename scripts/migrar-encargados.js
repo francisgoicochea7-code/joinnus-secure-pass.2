@@ -24,7 +24,7 @@ if (!fs.existsSync(archivoEnv)) {
 }
 
 require('dotenv').config({ path: archivoEnv });
-const mysql = require('mysql2/promise');
+const { Client } = require('pg');
 
 function sslDeLaBase() {
   const ca = String(process.env.DB_SSL_CA || '').trim();
@@ -37,7 +37,7 @@ function sslDeLaBase() {
 
 const cfg = {
   host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT || 3306),
+  port: Number(process.env.DB_PORT || 5432),
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME || 'joinnus_secure_pass',
@@ -51,29 +51,28 @@ if (falta.length) {
 }
 
 (async () => {
-  const conn = await mysql.createConnection({
+  const conn = new Client({
     host: cfg.host,
     port: cfg.port,
     user: cfg.user,
     password: cfg.password,
     database: cfg.database,
-    charset: 'utf8mb4_unicode_ci',
     ssl: cfg.ssl,
-    connectTimeout: 25000
+    connectionTimeoutMillis: 25000
   });
+  await conn.connect();
   console.log(`[BD] Conectado a ${cfg.host}:${cfg.port}/${cfg.database}`);
 
   await conn.query(`
     CREATE TABLE IF NOT EXISTS encargados (
-      id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+      id          SERIAL PRIMARY KEY,
       nombre      VARCHAR(120) NOT NULL,
       codigo_hash CHAR(64)     NOT NULL,
-      activo      TINYINT(1)   NOT NULL DEFAULT 1,
+      activo      SMALLINT     NOT NULL DEFAULT 1,
       creado_en   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (id),
-      UNIQUE KEY uq_encargados_nombre (nombre),
-      UNIQUE KEY uq_encargados_codigo (codigo_hash)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      CONSTRAINT uq_encargados_nombre UNIQUE (nombre),
+      CONSTRAINT uq_encargados_codigo UNIQUE (codigo_hash)
+    )
   `);
   console.log('[BD] Tabla encargados lista.');
 
@@ -81,10 +80,12 @@ if (falta.length) {
     INSERT INTO encargados (nombre, codigo_hash, activo) VALUES
       ('Ana Torres',   '05d26f322c3fa365dd96e0621e98f86a7b91b3ba1b4a11f9cec8272041414083', 1),
       ('Luis Paredes', '0e1a8938b8da063e695a1a93c11eb3c61fbf78788269d0689f5b96fabd5df65b', 1)
-    ON DUPLICATE KEY UPDATE codigo_hash = VALUES(codigo_hash), activo = VALUES(activo)
+    ON CONFLICT (nombre) DO UPDATE SET
+      codigo_hash = EXCLUDED.codigo_hash,
+      activo = EXCLUDED.activo
   `);
 
-  const [filas] = await conn.query('SELECT id, nombre, activo FROM encargados ORDER BY id');
+  const { rows: filas } = await conn.query('SELECT id, nombre, activo FROM encargados ORDER BY id');
   console.log('');
   console.log('  ====================================================');
   console.log('   ENCARGADOS DISPONIBLES');

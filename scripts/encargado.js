@@ -33,7 +33,7 @@ if (usaRemoto && !fs.existsSync(archivoEnv)) {
 }
 
 require('dotenv').config({ path: archivoEnv });
-const mysql = require('mysql2/promise');
+const { Client } = require('pg');
 
 /* ----------------------------- Conexión ------------------------------- */
 
@@ -49,16 +49,16 @@ function sslDeLaBase() {
 const cfg = usaRemoto
   ? {
       host: process.env.DB_HOST,
-      port: Number(process.env.DB_PORT || 3306),
+      port: Number(process.env.DB_PORT || 5432),
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME || 'joinnus_secure_pass',
       ssl: process.env.DB_SSL === 'true' ? sslDeLaBase() : undefined
     }
   : {
-      // Base local del docker-compose (el puerto 3307 está publicado)
+      // Base local del docker-compose (el puerto 5433 está publicado)
       host: '127.0.0.1',
-      port: Number(process.env.MYSQL_PORT || 3307),
+      port: Number(process.env.POSTGRES_PORT || 5433),
       user: process.env.DB_USER || 'joinnus',
       password: process.env.DB_PASSWORD || 'joinnus_pass',
       database: process.env.DB_NAME || 'joinnus_secure_pass'
@@ -81,7 +81,7 @@ function normalizarNombre(valor) {
 }
 
 async function listar(conn) {
-  const [filas] = await conn.query(
+  const { rows: filas } = await conn.query(
     'SELECT id, nombre, activo, creado_en FROM encargados ORDER BY id');
   if (!filas.length) {
     console.log('No hay encargados todavía.');
@@ -103,15 +103,15 @@ async function crearOActualizar(conn, nombre, codigo) {
   const h = huella(n, c);
 
   // El código no puede estar repetido en otra persona (el hash es único)
-  const [dueno] = await conn.execute(
-    'SELECT nombre FROM encargados WHERE codigo_hash = ? AND nombre <> ? LIMIT 1', [h, n]);
+  const { rows: dueno } = await conn.query(
+    'SELECT nombre FROM encargados WHERE codigo_hash = $1 AND nombre <> $2 LIMIT 1', [h, n]);
   if (dueno.length) {
     throw new Error(`Ese código ya lo usa ${dueno[0].nombre}. Elige otro.`);
   }
 
-  await conn.execute(
-    `INSERT INTO encargados (nombre, codigo_hash, activo) VALUES (?, ?, 1)
-     ON DUPLICATE KEY UPDATE codigo_hash = VALUES(codigo_hash), activo = 1`,
+  await conn.query(
+    `INSERT INTO encargados (nombre, codigo_hash, activo) VALUES ($1, $2, 1)
+     ON CONFLICT (nombre) DO UPDATE SET codigo_hash = EXCLUDED.codigo_hash, activo = 1`,
     [n, h]);
 
   console.log(`✔ ${n}: código "${c}" asignado en ${ETIQUETA}.`);
@@ -126,17 +126,17 @@ async function renombrar(conn, anterior, nuevo, codigo) {
     throw new Error('Uso: npm run encargado -- --renombrar "<nombre actual>" "<nombre nuevo>" "<codigo nuevo>"');
   }
 
-  const [filas] = await conn.execute(
-    'SELECT id FROM encargados WHERE LOWER(nombre) = LOWER(?) LIMIT 1', [viejo]);
+  const { rows: filas } = await conn.query(
+    'SELECT id FROM encargados WHERE LOWER(nombre) = LOWER($1) LIMIT 1', [viejo]);
   if (!filas.length) throw new Error(`No existe ningún encargado llamado "${viejo}".`);
 
-  const [choque] = await conn.execute(
-    'SELECT nombre FROM encargados WHERE LOWER(nombre) = LOWER(?) AND id <> ? LIMIT 1',
+  const { rows: choque } = await conn.query(
+    'SELECT nombre FROM encargados WHERE LOWER(nombre) = LOWER($1) AND id <> $2 LIMIT 1',
     [n, filas[0].id]);
   if (choque.length) throw new Error(`Ya existe otro encargado llamado "${choque[0].nombre}".`);
 
-  await conn.execute(
-    'UPDATE encargados SET nombre = ?, codigo_hash = ? WHERE id = ?',
+  await conn.query(
+    'UPDATE encargados SET nombre = $1, codigo_hash = $2 WHERE id = $3',
     [n, huella(n, c), filas[0].id]);
 
   console.log(`✔ "${viejo}" ahora es "${n}" con el código "${c}" (${ETIQUETA}).`);
@@ -145,9 +145,9 @@ async function renombrar(conn, anterior, nuevo, codigo) {
 async function cambiarActivo(conn, nombre, activo) {
   const n = normalizarNombre(nombre);
   if (!n) throw new Error('Uso: npm run encargado -- --desactivar "<nombre>"');
-  const [res] = await conn.execute(
-    'UPDATE encargados SET activo = ? WHERE LOWER(nombre) = LOWER(?)', [activo, n]);
-  if (!res.affectedRows) throw new Error(`No existe ningún encargado llamado "${n}".`);
+  const res = await conn.query(
+    'UPDATE encargados SET activo = $1 WHERE LOWER(nombre) = LOWER($2)', [activo, n]);
+  if (!res.rowCount) throw new Error(`No existe ningún encargado llamado "${n}".`);
   console.log(`✔ ${n}: ${activo ? 'activado' : 'desactivado'} en ${ETIQUETA}.`);
 }
 
@@ -158,16 +158,16 @@ async function cambiarActivo(conn, nombre, activo) {
   const opcion = args.find(a => a.startsWith('--')) || '';
   const valores = args.filter(a => !a.startsWith('--'));
 
-  const conn = await mysql.createConnection({
+  const conn = new Client({
     host: cfg.host,
     port: cfg.port,
     user: cfg.user,
     password: cfg.password,
     database: cfg.database,
-    charset: 'utf8mb4_unicode_ci',
     ssl: cfg.ssl,
-    connectTimeout: 20000
+    connectionTimeoutMillis: 20000
   });
+  await conn.connect();
 
   try {
     if (opcion === '--listar' || args.length === 0) {

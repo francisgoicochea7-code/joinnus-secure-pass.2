@@ -206,7 +206,7 @@
     const entradas = await SecurePassAPI.listarEntradas();
     if (!entradas.length) return;
 
-    const elegida = entradas[Math.floor(Math.random() * entradas.length)];
+    const elegida = entradas[Date.now() % entradas.length];
 
     const zona = document.getElementById('zona-escaneo');
     zona.style.minHeight = '120px';

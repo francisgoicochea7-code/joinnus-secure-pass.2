@@ -242,7 +242,7 @@
       avisoCamara('');
 
       detector = new BarcodeDetector({ formats: ['qr_code'] });
-      bucleEscaneo();
+      bucleEscaneo().catch(() => avisoCamara('La lectura de la cámara se detuvo.'));
     } catch (e) {
       avisoCamara('No se pudo abrir la cámara (' + (e.name || 'error') + '). Escribe el código de la entrada.');
       detenerCamara();
@@ -257,7 +257,7 @@
         const texto = codigos[0].rawValue;
         detenerCamara();
         ui.qrTexto.value = texto;
-        verificar(texto);
+        await verificar(texto);
         return;
       }
     } catch (e) { /* fotograma sin QR: se reintenta */ }
@@ -414,12 +414,14 @@
   ui.btnCamara.addEventListener('click', alternarCamara);
   ui.formVerificar.addEventListener('submit', e => {
     e.preventDefault();
-    verificar(ui.qrTexto.value, false);
+    verificar(ui.qrTexto.value, false)
+      .catch(e => console.error('[staff] Error al verificar:', e));
   });
   ui.btnRegistrar.addEventListener('click', () => {
     ui.btnRegistrar.disabled = true;
     ui.btnRegistrar.textContent = 'Registrando…';
-    verificar(ultimoTexto, true);
+    verificar(ultimoTexto, true)
+      .catch(e => console.error('[staff] Error al registrar:', e));
     setTimeout(() => {
       ui.btnRegistrar.textContent = 'Registrar ingreso';
       ui.btnRegistrar.disabled = false;

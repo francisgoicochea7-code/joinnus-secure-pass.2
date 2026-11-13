@@ -11,6 +11,10 @@
 #  Tablero: http://localhost:9000   (usuario inicial: admin)
 # -----------------------------------------------------------------------
 
+# El nombre del proyecto se fija para reutilizar los contenedores y el
+# historial de analisis aunque la carpeta se llame distinto (version .2).
+name: joinnus-secure-pass
+
 services:
   sonar-db:
     image: postgres:16-alpine

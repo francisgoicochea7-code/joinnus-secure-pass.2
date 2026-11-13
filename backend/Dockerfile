@@ -1,6 +1,6 @@
 # =========================================================================
 #  JOINNUS SECURE PASS — backend/Dockerfile
-#  API REST (Node.js + Express + MySQL)
+#  API REST (Node.js + Express + PostgreSQL)
 # =========================================================================
 FROM node:20-alpine
 
@@ -19,8 +19,8 @@ COPY index.js ./
 # 3) Variables de entorno por defecto (docker-compose.yml las sobreescribe)
 ENV NODE_ENV=production \
     PORT=3000 \
-    DB_HOST=mysql \
-    DB_PORT=3306 \
+    DB_HOST=postgres \
+    DB_PORT=5432 \
     DB_NAME=joinnus_secure_pass \
     QR_TTL_SECONDS=15
 

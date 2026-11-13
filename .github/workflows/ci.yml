@@ -18,7 +18,10 @@ jobs:
         with:
           node-version: 20
 
-      - name: QR selftest + verificacion de las 7 paginas
+      - name: Instalar dependencias del backend
+        run: npm ci --prefix backend
+
+      - name: QR selftest + verificacion de las 7 paginas + unitarias
         run: npm test
 
       - name: La configuracion de Docker es valida

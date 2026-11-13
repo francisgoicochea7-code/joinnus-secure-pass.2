@@ -2,7 +2,7 @@
  * JOINNUS SECURE PASS — server.js
  * -------------------------------------------------------------------------
  * Servidor estático opcional, sin dependencias externas (sólo Node.js).
- * Sirve la carpeta frontend/ sin necesidad de Docker ni de MySQL.
+ * Sirve la carpeta frontend/ sin necesidad de Docker ni de PostgreSQL.
  *
  * En este modo SecurePassAPI no encuentra la API y trabaja automáticamente
  * con los datos ficticios de localStorage (ver frontend/js/api.js).

@@ -72,18 +72,18 @@ function pruebasEstaticas() {
 
   // docker-compose.yml debe declarar los tres servicios y sus puertos
   const compose = fs.readFileSync(path.join(RAIZ, 'docker-compose.yml'), 'utf8');
-  ['mysql:', 'backend:', 'frontend:'].forEach(s =>
+  ['postgres:', 'backend:', 'frontend:'].forEach(s =>
     ok(compose.includes(s), 'docker-compose.yml no declara el servicio ' + s));
-  ['"${FRONTEND_PORT:-8080}:80"', '"${BACKEND_PORT:-3000}:3000"',
+  ['"${FRONTEND_PORT:-8081}:80"', '127.0.0.1:${BACKEND_PORT:-3001}:3000',
    './database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro',
-   'condition: service_healthy', 'DB_HOST: mysql'].forEach(f =>
+   'condition: service_healthy', 'DB_HOST: postgres'].forEach(f =>
     ok(compose.includes(f), 'docker-compose.yml no contiene: ' + f));
 
   // Endpoints obligatorios en el backend
   const backend = fs.readFileSync(path.join(RAIZ, 'backend', 'index.js'), 'utf8');
   ['/api/health', '/api/entradas/:codigo', '/api/verificar/:codigo',
    '/api/entradas/:codigo/qr', '/api/qr/validar', '/api/entradas/:codigo/transferir',
-   '/api/entradas/:codigo/historial', 'createHmac', 'multiples' === 'x' ? '' : 'mysql.createPool']
+   '/api/entradas/:codigo/historial', 'createHmac', 'multiples' === 'x' ? '' : 'new Pool']
     .forEach(f => ok(backend.includes(f), 'backend/index.js no contiene: ' + f));
 
   // Tablas obligatorias en el esquema
@@ -912,7 +912,7 @@ async function pruebasRegistroUsuarios() {
     'El registro no valida que el DNI tenga 8 numeros');
   ok(bloque.includes('campo: \'dni\'') && bloque.indexOf('409') >= 0,
     'Un DNI repetido debe responder 409 indicando el campo');
-  ok(bloque.includes('ER_DUP_ENTRY'),
+  ok(bloque.includes('23505'),
     'Falta el control de la clave unica uq_usuarios_dni ante dos altas simultaneas');
 
   // --- b) Capa de datos y cliente HTTP -----------------------------------
@@ -1220,7 +1220,7 @@ async function pruebasEnrutadoVercel() {
 /* 8. La firma del QR debe sobrevivir el viaje por la base de datos      */
 /* =================================================================== */
 async function pruebasFirmaQr() {
-  grupo('8. Firma del QR compatible con la columna DATETIME');
+  grupo('8. Firma del QR compatible con la columna TIMESTAMP');
 
   const backend = fs.readFileSync(path.join(RAIZ, 'backend/index.js'), 'utf8');
 
@@ -1228,12 +1228,16 @@ async function pruebasFirmaQr() {
   const bloque = inicio >= 0 ? backend.slice(inicio, inicio + 700) : '';
   ok(inicio >= 0, 'Falta generarToken() en el backend');
   ok(bloque.includes('Math.floor') && bloque.includes('/ 1000) * 1000'),
-    'generarToken debe redondear la expiracion al segundo ANTES de firmarla: expira_en es DATETIME, que guarda sin milisegundos, y una firma calculada con ms nunca cuadraba al validar (todo QR daba "firma no valida")');
-  ok(bloque.includes('${expira.getTime()}'),
+    'generarToken debe redondear la expiracion al segundo ANTES de firmarla: expira_en es TIMESTAMP, que guarda sin milisegundos, y una firma calculada con ms nunca cuadraba al validar (todo QR daba "firma no valida")');
+  ok(bloque.includes('firmarToken(codigo, nonce, expira)'),
     'La firma debe calcularse sobre el instante ya redondeado (expira)');
+  const inicioFirma = backend.indexOf('function firmarToken');
+  const bloqueFirma = inicioFirma >= 0 ? backend.slice(inicioFirma, inicioFirma + 400) : '';
+  ok(bloqueFirma.includes('expira.getTime()'),
+    'firmarToken debe usar el instante de expiracion para calcular el HMAC');
 
   const validar = backend.slice(backend.indexOf("app.post('/api/qr/validar'"));
-  ok(validar.includes('new Date(expiraEn).getTime()'),
+  ok(validar.includes('firmarToken(t.codigo, nonce, expiraEn)'),
     'La validacion debe recalcular la firma sobre el instante leido de la base, igual que al generarla');
 }
 

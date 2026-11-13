@@ -7,7 +7,7 @@ Sistema completo para reducir la reventa informal de entradas: **verificación e
 tiempo real**, **códigos QR dinámicos** (rotan cada 15 segundos) y
 **transferencia segura con trazabilidad total**.
 
-Todo está dockerizado: una base de datos MySQL, una API REST en Node.js y el
+Todo está dockerizado: una base de datos PostgreSQL, una API REST en Node.js y el
 frontend servido por nginx, orquestados con Docker Compose.
 
 ⚠️ **Todos los datos son ficticios.** Nombres, DNI, correos, eventos y precios
@@ -16,11 +16,28 @@ Joinnus.
 
 ---
 
+## Versión 2 — qué cambia
+
+Este repositorio (`joinnus-secure-pass.2`) es la copia de trabajo de la
+versión 1 para las mejoras del curso:
+
+| Mejora | Dónde se ve |
+|---|---|
+| **Metodología SDD** (especificación → plan → tareas → código) | `specs/` y `docs/DISENO.md` |
+| **PostgreSQL 16** en lugar de MySQL | `docker-compose.yml` y `database/init.sql` |
+| **SonarQube local** (análisis estático en un contenedor aparte) | `docker-compose.sonar.yml` |
+| **Pruebas unitarias** con `node:test` | `test/unit/` y `npm run test:unit` |
+
+La versión 1 puede seguir corriendo al mismo tiempo: la v2 usa los puertos
+**8081 / 3001 / 5433** y sus propios contenedores `jsp2-*`.
+
+---
+
 ## 1. Inicio rápido
 
 ```bash
 # 1) Entrar en la carpeta del proyecto
-cd joinnus-secure-pass
+cd joinnus-secure-pass.2
 
 # 2) Crear el archivo de entorno (OBLIGATORIO: guarda el QR_SECRET)
 copy .env.example .env        # Windows
@@ -33,7 +50,7 @@ cp .env.example .env          # Linux / macOS
 docker compose up --build     # Docker actual (Compose v2)
 
 # 4) Abrir en el navegador
-#    http://localhost:8080
+#    http://localhost:8081
 ```
 
 > Si tu equipo tiene la versión antigua de Compose, los comandos son idénticos
@@ -45,7 +62,7 @@ del contenedor del backend). Cuando los logs muestren
 `Joinnus Secure Pass — API`, el sistema está listo.
 
 **Requisitos:** Docker Desktop instalado (incluye Docker y `docker compose`).
-No hace falta tener Node.js ni MySQL instalados en el equipo.
+No hace falta tener Node.js ni PostgreSQL instalados en el equipo.
 
 ### Detener el proyecto
 
@@ -61,7 +78,7 @@ docker compose down -v
 
 ```bash
 docker compose ps            # los 3 servicios deben estar "running/healthy"
-curl http://localhost:3000/api/health
+curl http://localhost:3001/api/health
 ```
 
 ---
@@ -70,46 +87,46 @@ curl http://localhost:3000/api/health
 
 | Contenedor | Servicio | Imagen / Build | Puerto externo | Función |
 |---|---|---|---|---|
-| **frontend** | nginx | `Dockerfile` (raíz) → `nginx:1.27-alpine` | `8080:80` | Sirve las 7 páginas del prototipo y hace de **proxy inverso** de la API (`/api` → `backend:3000`). |
-| **backend** | Node.js + Express | `backend/Dockerfile` → `node:20-alpine` | `3000:3000` | API REST: consulta, verificación, QR dinámico, transferencia, historial y validación de tokens. Firma los tokens con HMAC-SHA256. |
-| **mysql** | MySQL 8.0 | `mysql:8.0` | `3307:3306` | Almacena usuarios, eventos, entradas, transferencias, historial y tokens QR. Se siembra con `database/init.sql`. |
+| **frontend** | nginx | `Dockerfile` (raíz) → `nginx:1.27-alpine` | `8081:80` | Sirve las 7 páginas del prototipo y hace de **proxy inverso** de la API (`/api` → `backend:3000`). |
+| **backend** | Node.js + Express | `backend/Dockerfile` → `node:20-alpine` | `3001:3000` | API REST: consulta, verificación, QR dinámico, transferencia, historial y validación de tokens. Firma los tokens con HMAC-SHA256. |
+| **postgres** | PostgreSQL 16 | `postgres:16-alpine` | `5433:5432` | Almacena usuarios, eventos, entradas, transferencias, historial y tokens QR. Se siembra con `database/init.sql`. |
 
-Los tres se conectan en la red Docker **`jsp_net`** (bridge) y arrancan en orden:
+Los tres se conectan en la red Docker **`jsp2_net`** (bridge) y arrancan en orden:
 ```
-frontend  ──(depends_on: healthy)──►  backend  ──(depends_on: healthy)──►  mysql
+frontend  ──(depends_on: healthy)──►  backend  ──(depends_on: healthy)──►  postgres
    │                                      │
-   │  http://localhost:8080/api/...       │  DB_HOST=mysql:3306
-   └──── proxy inverso (nginx) ──────────►└────────── mysql2 pool ─────────►
+   │  http://localhost:8081/api/...       │  DB_HOST=postgres:5432
+   └──── proxy inverso (nginx) ──────────►└────────── pg (node-postgres) ─────────►
 ```
 
 ### Cómo se comunican
 
-1. El navegador pide una página a **nginx** (`http://localhost:8080`).
+1. El navegador pide una página a **nginx** (`http://localhost:8081`).
 2. Cuando una función necesita datos, `frontend/js/cliente-api.js` hace
    `fetch('/api/...')`. Al ser **mismo origen**, nginx reenvía la petición a
    `http://backend:3000/api/...`. No hay problemas de CORS.
-3. El **backend** se conecta a MySQL por el nombre de servicio `mysql`
+3. El **backend** se conecta a PostgreSQL por el nombre de servicio `postgres`
    (resuelto por Docker DNS) usando las variables `DB_HOST`, `DB_PORT`,
    `DB_NAME`, `DB_USER` y `DB_PASSWORD`.
-4. `database/init.sql` se monta en `/docker-entrypoint-initdb.d/` y MySQL lo
+4. `database/init.sql` se monta en `/docker-entrypoint-initdb.d/` y PostgreSQL lo
    ejecuta **solo en el primer arranque** (cuando el volumen está vacío).
 
-> **El puerto de MySQL en el host es 3307** (y no 3306) para no chocar con un
-> MySQL local. El contenedor siempre usa 3306.
+> **El puerto de PostgreSQL en el host es 5433** (y no 5432) para no chocar con un
+> PostgreSQL local. El contenedor siempre usa 5432.
 
 ### Puertos
 
 | Puerto (host) | Contenedor | Servicio | ¿Necesario para la demo? |
 |---|---|---|---|
-| **8080** | 80 | nginx / frontend | **Sí** — es la dirección que se abre |
-| 3000 | 3000 | API Express | Opcional (para probar endpoints) — **sólo en `127.0.0.1`** |
-| 3307 | 3306 | MySQL | No (sólo inspección SQL) — **sólo en `127.0.0.1`** |
+| **8081** | 80 | nginx / frontend | **Sí** — es la dirección que se abre |
+| 3001 | 3000 | API Express | Opcional (para probar endpoints) — **sólo en `127.0.0.1`** |
+| 5433 | 5432 | PostgreSQL | No (sólo inspección SQL) — **sólo en `127.0.0.1`** |
 
-Todos son configurables en `.env`: `FRONTEND_PORT`, `BACKEND_PORT`, `MYSQL_PORT`.
+Todos son configurables en `.env`: `FRONTEND_PORT`, `BACKEND_PORT`, `POSTGRES_PORT`.
 
-> Los puertos 3000 y 3307 quedan escuchando únicamente en `127.0.0.1`
+> Los puertos 3001 y 5433 quedan escuchando únicamente en `127.0.0.1`
 > (la máquina local). Así, cuando el proyecto se publica en internet, de la
-> máquina sólo se expone el 80 de nginx: ni la API ni MySQL son alcanzables
+> máquina sólo se expone el 80 de nginx: ni la API ni PostgreSQL son alcanzables
 > desde fuera (ver sección 13).
 
 ---
@@ -117,7 +134,7 @@ Todos son configurables en `.env`: `FRONTEND_PORT`, `BACKEND_PORT`, `MYSQL_PORT`
 ## 3. Estructura del proyecto
 
 ```
-joinnus-secure-pass/
+joinnus-secure-pass.2/
 │
 ├── frontend/                     CONTENEDOR 1  (nginx)
 │   ├── index.html                Inicio
@@ -149,12 +166,15 @@ joinnus-secure-pass/
 │
 ├── backend/                      CONTENEDOR 2  (Node.js + Express)
 │   ├── index.js                  API REST completa (helmet, CORS y límites)
-│   ├── package.json              Dependencias (express, mysql2, cors, helmet…)
+│   ├── package.json              Dependencias (express, pg, cors, helmet…)
 │   ├── Dockerfile                Imagen del servidor
 │   └── .dockerignore
 │
-├── database/                     CONTENEDOR 3  (MySQL 8)
+├── database/                     CONTENEDOR 3  (PostgreSQL 16)
 │   └── init.sql                  Esquema + datos ficticios
+│
+├── specs/                        Especificaciones SDD (qué, cómo y tareas)
+├── docs/                         Documento de diseño y capturas
 │
 ├── Dockerfile                    Build del frontend (contexto raíz)
 ├── docker-compose.yml            Orquestación de los 3 servicios
@@ -171,13 +191,17 @@ joinnus-secure-pass/
 ├── test/                         Pruebas automáticas del prototipo
 │   ├── qr-selftest.js            Verificación del generador de QR
 │   ├── verificacion.js           Pruebas funcionales de todas las páginas
+│   ├── unit/                     Pruebas unitarias con node:test
 │   ├── dom-sim.js                Micro-DOM para ejecutar las páginas en Node
 │   └── debug-tmp.js              Utilidad de depuración
 │
 ├── scripts/                      Utilidades sobre la base de datos
+│   ├── encargado.js              Alta/baja de encargados (local y --remoto)
 │   ├── sembrar-remoto.js         Siembra una base remota desde init.sql
 │   └── migrar-encargados.js      Añade la tabla encargados a una base ya creada
 │
+├── docker-compose.sonar.yml      SonarQube local (análisis estático)
+├── sonar-project.properties      Configuración del análisis
 └── README.md
 ```
 
@@ -189,7 +213,7 @@ Todos responden JSON. `ok: true` indica éxito.
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/api/health` | Estado del servicio y de la conexión con MySQL |
+| `GET` | `/api/health` | Estado del servicio y de la conexión con PostgreSQL |
 | `GET` | `/api/resumen` | Tarjetas estadísticas del dashboard |
 | `GET` | `/api/entradas` | Lista todas las entradas ficticias |
 | `GET` | `/api/entradas/:codigo` | **Consultar entrada** |
@@ -209,40 +233,40 @@ Todos responden JSON. `ok: true` indica éxito.
 
 ```bash
 # Consultar una entrada
-curl http://localhost:3000/api/entradas/ENTRY001
+curl http://localhost:3001/api/entradas/ENTRY001
 
 # Verificar su estado
-curl http://localhost:3000/api/verificar/ENTRY001
+curl http://localhost:3001/api/verificar/ENTRY001
 
 # Generar un token de QR
-curl -X POST "http://localhost:3000/api/entradas/ENTRY001/qr?log=1"
+curl -X POST "http://localhost:3001/api/entradas/ENTRY001/qr?log=1"
 
 # Validar ese token (como el lector de la puerta)
-curl -X POST http://localhost:3000/api/qr/validar \
+curl -X POST http://localhost:3001/api/qr/validar \
      -H "Content-Type: application/json" \
      -d '{"token":"JSP-ENTRY001-XXXXXXXX"}'
 
 # Transferir la entrada
-curl -X POST http://localhost:3000/api/entradas/ENTRY001/transferir \
+curl -X POST http://localhost:3001/api/entradas/ENTRY001/transferir \
      -H "Content-Type: application/json" \
      -d '{"nombre":"Andrea Torres","dni":"52311878","correo":"andrea.torres@demo.pe","precio":100}'
 
 # Registrar una persona nueva (alta en la base de usuarios)
-curl -X POST http://localhost:3000/api/usuarios \
+curl -X POST http://localhost:3001/api/usuarios \
      -H "Content-Type: application/json" \
      -d '{"dni":"77665544","nombre":"Ana Maria Gomez","correo":"ana@correo.pe"}'
 
 # Ese DNI ya se puede usar para identificarse
-curl http://localhost:3000/api/usuarios/77665544
+curl http://localhost:3001/api/usuarios/77665544
 
 # Historial
-curl http://localhost:3000/api/entradas/ENTRY001/historial
+curl http://localhost:3001/api/entradas/ENTRY001/historial
 ```
 
 ### Panel de encargados (`/staff/`)
 
 El personal de puerta tiene una página propia, pensada para el celular:
-**http://localhost:8080/staff/**
+**http://localhost:8081/staff/**
 
 | Encargado | Código de demostración |
 |---|---|
@@ -264,12 +288,12 @@ se revalida en cada validación (no basta con abrir la página).
 
 ```bash
 # Acceso del encargado
-curl -X POST http://localhost:3000/api/encargados/login \
+curl -X POST http://localhost:3001/api/encargados/login \
      -H "Content-Type: application/json" \
      -d '{"nombre":"Ana Torres","codigo":"ANA2026"}'
 
 # Validar un QR y registrar el ingreso
-curl -X POST http://localhost:3000/api/encargados/validar \
+curl -X POST http://localhost:3001/api/encargados/validar \
      -H "Content-Type: application/json" \
      -d '{"encargado":"Ana Torres","codigo":"ANA2026","token":"JSP-ENTRY001-XXXXXXXX","registrar":true}'
 ```
@@ -358,14 +382,13 @@ Se definen en `.env` (copia de `.env.example`):
 
 | Variable | Por defecto | Para qué sirve |
 |---|---|---|
-| `FRONTEND_PORT` | `8080` | Puerto del frontend en tu equipo |
-| `BACKEND_PORT` | `3000` | Puerto de la API en tu equipo |
-| `MYSQL_PORT` | `3307` | Puerto de MySQL en tu equipo |
-| `DB_NAME` / `DB_USER` / `DB_PASSWORD` | `joinnus_secure_pass` / `joinnus` / `joinnus_pass` | Credenciales de MySQL |
-| `MYSQL_ROOT_PASSWORD` | `root_pass_demo` | Contraseña root de MySQL |
+| `FRONTEND_PORT` | `8081` | Puerto del frontend en tu equipo |
+| `BACKEND_PORT` | `3001` | Puerto de la API en tu equipo |
+| `POSTGRES_PORT` | `5433` | Puerto de PostgreSQL en tu equipo |
+| `DB_NAME` / `DB_USER` / `DB_PASSWORD` | `joinnus_secure_pass` / `joinnus` / `joinnus_pass` | Credenciales de PostgreSQL |
 | `QR_SECRET` | *(ninguno, es obligatorio)* | **Clave de firma HMAC-SHA256 de los tokens QR. Sin ella el backend no arranca** |
 | `QR_TTL_SECONDS` | `15` | Vigencia de cada token (y ritmo de rotación del QR) |
-| `CORS_ORIGINS` | `http://localhost:8080,http://127.0.0.1:8080` | Orígenes con permiso para llamar a la API (amplíalos si la demo va en red local) |
+| `CORS_ORIGINS` | `http://localhost:8081,http://127.0.0.1:8081` | Orígenes con permiso para llamar a la API (amplíalos si la demo va en red local) |
 | `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_QR` / `RATE_LIMIT_VALIDAR` / `RATE_LIMIT_ESCRITURA` | `60000` / `30` / `60` / `20` | Ventana en ms y máximo de peticiones: generar QR, validar token y operaciones de escritura |
 | `RATE_LIMIT_ENCARGADO` | `12` | Intentos de acceso al panel de encargados por ventana |
 | `DEMO_DNI` | `45678945` | DNI del usuario de la sesión (“Mis entradas”) |
@@ -389,7 +412,7 @@ Se definen en `.env` (copia de `.env.example`):
    recalcula la firma y comprueba vigencia, invalidación y estado de la entrada.
 
 El vencimiento se **redondea al segundo entero antes de firmarlo**, porque
-MySQL `DATETIME` no guarda milisegundos: si se firmara con los milisegundos
+PostgreSQL `TIMESTAMP` no guarda milisegundos: si se firmara con los milisegundos
 exactos, la firma recalculada al validar nunca coincidiría con la guardada.
 
 Por eso una captura de pantalla deja de funcionar en pocos segundos.
@@ -442,8 +465,8 @@ transfiere y a quién:
 ### Opción A — En el propio equipo (la más sencilla)
 
 1. Deja el proyecto dockerizado y funcionando antes de la exposición.
-2. Abre `http://localhost:8080` y ten una segunda pestaña con
-   `http://localhost:3000/api/health` para enseñar que la API responde.
+2. Abre `http://localhost:8081` y ten una segunda pestaña con
+   `http://localhost:3001/api/health` para enseñar que la API responde.
 3. Deja el proyecto corriendo durante toda la sesión.
 
 ### Opción B — Desde otra máquina de la red local (sala de exposición)
@@ -461,7 +484,7 @@ ip addr  |  hostname -I
 Luego, en cualquier dispositivo conectado a la **misma red**:
 
 ```
-http://192.168.1.25:8080
+http://192.168.1.25:8081
 ```
 
 > Si el firewall del equipo bloquea el puerto, permite el 8080 entrante
@@ -469,7 +492,7 @@ http://192.168.1.25:8080
 > `New-NetFirewallRule -DisplayName "JSP 8080" -Direction Inbound -LocalPort 8080 -Protocol TCP -Action Allow`
 
 > La **cámara** del celular sólo funciona en HTTPS (Vercel) o en `localhost`.
-> Si abres el panel por la IP de la red (`http://192.168.x.x:8080/staff/`),
+> Si abres el panel por la IP de la red (`http://192.168.x.x:8081/staff/`),
 > el propio panel avisa y se usa la **entrada manual** del código.
 
 ### Opción C — Proyectar la pantalla
@@ -525,7 +548,7 @@ El prototipo **también funciona sin Docker**, abriendo
 Opcionalmente, un servidor estático con Node:
 
 ```bash
-node server.js          # http://localhost:8080
+node server.js          # http://localhost:8081
 ```
 
 ---
@@ -537,8 +560,8 @@ Definidas en `docker-compose.yml` (y personalizables en `.env`):
 | Variable | Por defecto | Descripción |
 |---|---|---|
 | `PORT` | `3000` | Puerto de la API |
-| `DB_HOST` | `mysql` | Host de MySQL (nombre del servicio) |
-| `DB_PORT` | `3306` | Puerto interno de MySQL |
+| `DB_HOST` | `postgres` | Host de PostgreSQL (nombre del servicio) |
+| `DB_PORT` | `5432` | Puerto interno de PostgreSQL |
 | `DB_NAME` | `joinnus_secure_pass` | Base de datos |
 | `DB_USER` / `DB_PASSWORD` | `joinnus` / `joinnus_pass` | Credenciales |
 | `QR_SECRET` | *(demo)* | Clave del HMAC-SHA256 |
@@ -556,7 +579,7 @@ Definidas en `docker-compose.yml` (y personalizables en `.env`):
   información de formato y versión, estándar ISO/IEC 18004).
 - Rotación del token **cada 15 segundos** con contador regresivo.
 - **Firma HMAC-SHA256** de los tokens en el servidor y su validación.
-- **Persistencia real en MySQL** (o en `localStorage` si no hay Docker).
+- **Persistencia real en PostgreSQL** (o en `localStorage` si no hay Docker).
 - Validaciones de DNI, correo, nombre y límite de precio (cliente **y**
   servidor).
 - Trazabilidad completa con línea de tiempo, tabla y exportación a CSV.
@@ -589,10 +612,14 @@ Definidas en `docker-compose.yml` (y personalizables en `.env`):
 El proyecto incluye pruebas en Node (no requieren Docker ni navegador):
 
 ```bash
-npm test              # todas
+npm test              # todas (QR + aplicación + unitarias)
 npm run test:qr       # solo el generador de QR
 npm run test:app      # solo los flujos de la aplicación
+npm run test:unit     # solo las unitarias del backend
 ```
+
+> Las pruebas unitarias cargan `backend/index.js`, así que la primera vez hay
+> que instalar sus dependencias: `npm install --prefix backend`.
 
 - `test/qr-selftest.js` — 756 comprobaciones del codificador QR: patrones de
   detección, temporización, alineación, información de formato y versión
@@ -606,18 +633,29 @@ npm run test:app      # solo los flujos de la aplicación
   segmentos), la **firma de los tokens QR** (válida, rotada, caducada y
   alterada) y el **panel de encargados** (archivos, ids, cámara, endpoints y
   códigos hasheados).
+- `test/unit/` — **35 pruebas unitarias** con `node:test`: ocultar el DNI, el
+  hash de los códigos de encargado, la firma HMAC (determinista y sensible al
+  nonce/código/vencimiento), el formato de fechas, los límites del precio en
+  una transferencia y la traducción de marcadores SQL (`?` → `$n`).
 
-En total, `npm test` ejecuta **1618 comprobaciones** (756 del QR + 862 de la
-aplicación) con 0 fallos.
+En total, `npm test` ejecuta **1619 comprobaciones funcionales** (756 del QR +
+863 de la aplicación) y **35 pruebas unitarias**, con 0 fallos.
+
+Para añadir una prueba nueva, crea `test/unit/mi-tema.test.js` con
+`const { test } = require('node:test')` y `node:assert/strict`, importa las
+funciones con `require('../../backend/index').util` y ejecuta
+`npm run test:unit`.
 
 ### Integración continua (GitHub Actions)
 
 `.github/workflows/ci.yml` corre en cada *push* y *pull request*:
 
-1. `npm test` — QR selftest + verificación de las 7 páginas.
-2. `docker compose config -q` — falla si la configuración es inválida o si
+1. `npm ci --prefix backend` — instala las dependencias que cargan las
+   pruebas unitarias.
+2. `npm test` — QR selftest + verificación de las 7 páginas + unitarias.
+3. `docker compose config -q` — falla si la configuración es inválida o si
    falta `QR_SECRET`.
-3. `docker compose build` — comprueba que las imágenes compilan.
+4. `docker compose build` — comprueba que las imágenes compilan.
 
 ### Análisis estático con SonarQube (opcional, local)
 
@@ -642,8 +680,43 @@ docker compose -f docker-compose.sonar.yml down
 
 El análisis se configura en `sonar-project.properties` (qué carpetas entran,
 qué se excluye y dónde están las pruebas). La cobertura no se envía porque la
-suite actual es un script propio sin instrumentar: el *quality gate* de Sonar
-se evalúa sobre el código nuevo.
+suite actual es un script propio sin instrumentar: el *quality gate* se evalúa
+sobre el código nuevo.
+
+**Resultado del análisis (versión 2):**
+
+| Métrica | Valor |
+|---|---|
+| Bugs | **0** |
+| Vulnerabilidades | **0** |
+| Security hotspots | **0** |
+| Code smells | **0** |
+| Duplicación | 3.8 % |
+| Líneas de código | 5 815 (29 archivos) |
+| Quality gate | **OK** |
+
+![Tablero de SonarQube](docs/sonarqube.png)
+
+Se corrigieron los hallazgos que marcó el análisis: siete promesas sin manejar
+(`.then`/`async` sin `await`), un `<select>` sin etiqueta accesible, cuatro usos
+de `Math.random` en la demo y las llamadas a `isNaN`, `parseInt` y `parseFloat`
+(ahora `Number.isNaN`, `Number.parseInt` y `Number.parseFloat`). El *quality
+gate* `JSP - proyecto` evalúa bugs, vulnerabilidades, hotspots, code smells y
+duplicación del código nuevo; no exige cobertura porque la suite no está
+instrumentada.
+
+### Documentos de metodología (SDD)
+
+El proyecto sigue **Spec-Driven Development**: antes de tocar el código se
+escribe qué se necesita, cómo se va a construir y cómo se comprueba.
+
+| Carpeta | Contenido |
+|---|---|
+| `specs/README.md` | Índice y estado de las especificaciones |
+| `specs/001-postgresql/` | Migración a PostgreSQL (requisitos, plan, tareas) |
+| `specs/002-pruebas-unitarias/` | Pruebas unitarias con `node:test` |
+| `specs/003-sonarqube/` | Análisis estático y tablero limpio |
+| `docs/DISENO.md` | Documento de diseño (arquitectura, decisiones y riesgos) |
 
 ---
 
@@ -655,11 +728,11 @@ Proyecto académico universitario. Datos, eventos y personas son ficticios.
 
 ## 13. Publicarla en internet (24/7)
 
-Hasta aquí el proyecto vive en tu equipo (`localhost:8080`). Para que otras
+Hasta aquí el proyecto vive en tu equipo (`localhost:8081`). Para que otras
 personas entren con un link hacen falta dos cosas: un servidor encendido todo
 el rato y la web servida desde un dominio público. Hay tres caminos:
 
-### Opción A — Vercel (web + API + MySQL externa)
+### Opción A — Vercel (web + API + PostgreSQL externa)
 
 Vercel sirve la **web** (los estáticos de `frontend/`) y también la **API**,
 pero como *función serverless*: `api/index.js` le pasa las peticiones
@@ -674,17 +747,18 @@ ficheros de Vercel sólo casa rutas sencillas (`/api/health`), de modo que
 `vercel.json` (`/api/:path*` → `/api?__ruta=/api/:path*`) reenvía cualquier
 ruta bajo `/api` a la única función, que restaura la ruta original en
 `req.url` antes de llamar a Express.*
-Vercel **no tiene MySQL**, así que la base de datos vive en un servicio
+Vercel **no tiene PostgreSQL**, así que la base de datos vive en un servicio
 externo gratuito.
 
 1. **Base de datos gratis (una sola vez)** — por ejemplo [Aiven](https://aiven.io)
-   (*Create service → MySQL → Free plan*) o [TiDB Serverless](https://tidbcloud.com).
+   (*Create service → PostgreSQL → Free plan*), [Neon](https://neon.tech) o
+   [Supabase](https://supabase.com).
    Copia `.env.remota.example` a `.env.remota` con los datos que te den
    (host, puerto, usuario, contraseña, `DB_SSL=true`). Si el proveedor sólo
-   exige TLS sin verificar la cadena (el `ssl-mode=REQUIRED` de la *Service
-   URI* de Aiven), basta `DB_SSL_INSECURE=true`; si en cambio pide la CA
-   del proveedor, añade `DB_SSL_CA` con la ruta a su `.pem` (Aiven: *Service
-   settings → CA Cert*). Con TiDB no hace falta ninguna de las dos.
+   exige TLS sin verificar la cadena, basta `DB_SSL_INSECURE=true`; si en
+   cambio pide la CA del proveedor, añade `DB_SSL_CA` con la ruta a su `.pem`
+   (Aiven: *Service settings → CA Cert*). Neon y Supabase usan una CA pública:
+   no hace falta ninguna de las dos.
 2. **Sembrar la base** con el esquema y la demo:
    ```bash
    npm run db:remoto             # crea tablas y usuarios/entradas ficticios
@@ -737,10 +811,10 @@ La configuración del despliegue está en el repositorio: `vercel.json`
    ```
 6. **Bajar el proyecto y configurarlo**:
    ```bash
-   git clone https://github.com/francisgoicochea7-code/joinnus-secure-pass.git
-   cd joinnus-secure-pass
+   git clone https://github.com/francisgoicochea7-code/joinnus-secure-pass.2.git
+   cd joinnus-secure-pass.2
    cp .env.example .env
-   nano .env      # QR_SECRET, DB_PASSWORD y MYSQL_ROOT_PASSWORD fuertes
+   nano .env      # QR_SECRET y DB_PASSWORD fuertes
    ```
 7. **Arrancar**:
    ```bash
@@ -751,11 +825,11 @@ La configuración del despliegue está en el repositorio: `vercel.json`
    una cuenta nueva en la píldora de identificación.
 
 Los datos (entradas, historial y usuarios registrados) viven en el volumen
-`jsp_mysql_data`: sobreviven a los reinicios (`sudo reboot` y después
+`jsp_postgres_data`: sobreviven a los reinicios (`sudo reboot` y después
 `docker compose up -d`). Para actualizar el código:
 
 ```bash
-cd joinnus-secure-pass && git pull && docker compose up -d --build
+cd joinnus-secure-pass.2 && git pull && docker compose up -d --build
 ```
 
 ### Opción C — Un link en 5 minutos (mientras tu PC está encendida)
@@ -764,18 +838,18 @@ No se instala nada en la nube; tu equipo sigue sirviendo la app:
 
 ```bash
 # Windows (una sola vez): winget install cloudflared
-cloudflared tunnel --url http://localhost:8080
+cloudflared tunnel --url http://localhost:8081
 ```
 
 Te da una dirección tipo `https://xxxx.trycloudflare.com` que puedes pasar por
 WhatsApp. Sólo funciona mientras esa terminal y Docker siguen abiertas.
-Alternativa: `ngrok http 8080` (cuenta gratuita).
+Alternativa: `ngrok http 8081` (cuenta gratuita).
 
 ### Recomendaciones al salir a internet
 
-- Cambia `QR_SECRET`, `DB_PASSWORD` y `MYSQL_ROOT_PASSWORD` en `.env`
+- Cambia `QR_SECRET` y `DB_PASSWORD` en `.env`
   (ese fichero **nunca** se sube a git: sólo existe en el servidor).
-- Los puertos 3000 (API) y 3307 (MySQL) sólo escuchan en `127.0.0.1`, así que
+- Los puertos 3001 (API) y 5433 (PostgreSQL) sólo escuchan en `127.0.0.1`, así que
   de la máquina sólo se expone el 80 de nginx.
 - En Vercel los secretos (`QR_SECRET`, `DB_*`) viven en las variables de
   entorno del proyecto, nunca en el repositorio; el CORS admite el sufijo

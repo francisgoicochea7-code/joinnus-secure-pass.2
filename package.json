@@ -9,13 +9,14 @@
     "express": "^4.19.2",
     "express-rate-limit": "^8.7.0",
     "helmet": "^8.3.0",
-    "mysql2": "^3.11.0"
+    "pg": "^8.13.1"
   },
   "scripts": {
     "start": "node server.js",
-    "test": "node test/qr-selftest.js && node test/verificacion.js",
+    "test": "node test/qr-selftest.js && node test/verificacion.js && node --test \"test/unit/*.test.js\"",
     "test:qr": "node test/qr-selftest.js",
     "test:app": "node test/verificacion.js",
+    "test:unit": "node --test \"test/unit/*.test.js\"",
     "db:remoto": "node scripts/sembrar-remoto.js",
     "db:encargados": "node scripts/migrar-encargados.js",
     "encargado": "node scripts/encargado.js"

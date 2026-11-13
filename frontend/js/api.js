@@ -3,7 +3,7 @@
  * -------------------------------------------------------------------------
  * Capa de datos con DOS modos de funcionamiento transparentes:
  *
- *   MODO API   -> el contenedor "backend" (Express + MySQL) responde.
+ *   MODO API   -> el contenedor "backend" (Express + PostgreSQL) responde.
  *                 Los datos viven en la base de datos y los tokens QR se
  *                 firman en el servidor con HMAC-SHA256.
  *
@@ -324,7 +324,9 @@ const SecurePassAPI = (function () {
       window.crypto.getRandomValues(buf);
       for (let i = 0; i < buf.length; i++) semilla += hex[(buf[i] >> 4) & 15] + hex[buf[i] & 15];
     } else {
-      semilla = Math.floor(Math.random() * 0xffffffff).toString(16).toUpperCase();
+      // Sin Web Crypto (navegadores muy antiguos) se usa el reloj:
+      // es un token de demostración, no una credencial real.
+      semilla = (Date.now() % 0xffffffff).toString(16).toUpperCase();
     }
     return `JSP-${codigo}-${semilla.slice(0, 8)}`;
   }
@@ -368,7 +370,7 @@ const SecurePassAPI = (function () {
   function registrar(codigo, accion, titular, detalle) {
     const historial = obtenerHistorialCompleto();
     const registro = {
-      id: 'H' + Date.now().toString(36).toUpperCase() + Math.floor(Math.random() * 900 + 100),
+      id: 'H' + Date.now().toString(36).toUpperCase() + String((Date.now() % 900) + 100),
       codigo: codigo,
       accion: accion,
       titular: titular || '—',
@@ -593,7 +595,7 @@ const SecurePassAPI = (function () {
       return { ok: false, mensaje: 'Indique el precio de transferencia.' };
     }
     const numero = Number(precio);
-    if (isNaN(numero) || numero < 0) {
+    if (Number.isNaN(numero) || numero < 0) {
       return { ok: false, mensaje: 'El precio debe ser un número válido en soles.' };
     }
     if (numero > maximo) {

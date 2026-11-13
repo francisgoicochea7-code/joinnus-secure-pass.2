@@ -12,7 +12,7 @@
   if (!canvas || typeof QRCode === 'undefined') return;
 
   function pintar() {
-    const sufijo = Math.random().toString(16).slice(2, 10).toUpperCase().padEnd(8, '0');
+    const sufijo = Date.now().toString(16).toUpperCase().slice(-8).padStart(8, '0');
     const token = `JSP-ENTRY001-${sufijo}`;
     const payload = `JSP|ENTRY001|${sufijo}|${Date.now().toString().slice(-4)}`;
     QRCode.render(payload, canvas, {

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Errores de SonarQube — Joinnus Secure Pass v2</title>
+<style>
+  @page { size: A4; margin: 2cm 1.7cm; }
+  body { font-family: Calibri, Arial, sans-serif; font-size: 10.5pt; color: #1f2937; line-height: 1.35; }
+  h1 { font-size: 21pt; color: #0b3d6b; margin: 0 0 2pt 0; }
+  .sub { font-size: 12.5pt; color: #374151; margin: 0 0 2pt 0; }
+  .meta { font-size: 9pt; color: #6b7280; margin: 0 0 14pt 0; }
+  h2 { font-size: 13.5pt; color: #0b3d6b; border-bottom: 2px solid #0b3d6b; padding-bottom: 3pt; margin-top: 16pt; }
+  h3 { font-size: 11.5pt; color: #14532d; margin-top: 12pt; margin-bottom: 4pt; }
+  p { margin: 4pt 0; text-align: justify; }
+  table { border-collapse: collapse; width: 100%; margin: 6pt 0 10pt 0; }
+  th { background: #0b3d6b; color: #ffffff; font-size: 8.5pt; text-align: left; padding: 4pt; border: 1px solid #94a3b8; }
+  td { font-size: 8.2pt; padding: 3pt 4pt; border: 1px solid #cbd5e1; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .resumen td { text-align: center; font-size: 10pt; }
+  .resumen .num { font-size: 17pt; font-weight: bold; display: block; }
+  .resumen .lbl { font-size: 8pt; color: #475569; }
+  .bug { color: #b91c1c; font-weight: bold; }
+  .vuln { color: #b45309; font-weight: bold; }
+  .smell { color: #0b3d6b; font-weight: bold; }
+  code { font-family: Consolas, monospace; font-size: 8.2pt; background: #f1f5f9; padding: 0 1pt; }
+  pre { background: #f1f5f9; border-left: 3px solid #94a3b8; padding: 6pt 8pt; font-family: Consolas, monospace; font-size: 8.3pt; white-space: pre-wrap; margin: 5pt 0; }
+  .nota { border-left: 4px solid #0b3d6b; background: #eff6ff; padding: 6pt 8pt; margin: 8pt 0; font-size: 9.5pt; }
+  .aviso { border-left: 4px solid #b45309; background: #fffbeb; padding: 6pt 8pt; margin: 8pt 0; font-size: 9.5pt; }
+  .small { font-size: 8.5pt; color: #475569; }
+  .page { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<h1>Errores que me salieron en SonarQube</h1>
+<p class="sub">Joinnus Secure Pass — versión 2</p>
+<p class="meta">Análisis estático · SonarQube Community 26.10 · 3 de noviembre de 2026</p>
+
+<h2>1. De qué va este informe</h2>
+<p>Cuando pasé SonarQube por el proyecto me salieron <b>20 incidencias</b>. Al principio pensé que eran 20 problemas distintos, pero al mirarlas con calma me di cuenta de que en realidad son <b>cuatro reglas repetidas</b> en varios archivos. Este documento tiene dos partes: el listado completo y una explicación de <b>por qué aparece cada error</b>, con ejemplos del código.</p>
+<p>No voy a entrar todavía en cómo los corregí. La idea es entender primero el diagnóstico: qué vio SonarQube, en qué archivo lo vio y por qué esa regla existe. Las correcciones las dejo para otro documento, porque mezclar las dos cosas hace que se pierda el hilo.</p>
+
+<h2>2. Cómo hice el análisis</h2>
+<p>Usé SonarQube Community 26.10 en local, con el proyecto <code>joinnus-secure-pass</code>, versión 2.0.0. El análisis se hizo sobre el código de la aplicación y no sobre las pruebas. No mandé cobertura porque la suite que tengo es un script propio y no está instrumentada; preferí no inventar un porcentaje que no existe.</p>
+<table>
+<tr><th style="width:30%">Parámetro</th><th>Valor</th></tr>
+<tr><td>Proyecto</td><td>Joinnus Secure Pass</td></tr>
+<tr><td>Clave en SonarQube</td><td><code>joinnus-secure-pass</code></td></tr>
+<tr><td>Versión analizada</td><td>2.0.0</td></tr>
+<tr><td>Herramienta</td><td>SonarQube Community 26.10</td></tr>
+<tr><td>Fecha del análisis</td><td>3 de noviembre de 2026</td></tr>
+<tr><td>Qué entró</td><td><code>backend</code>, <code>frontend</code>, <code>api</code> y <code>scripts</code></td></tr>
+<tr><td>Qué quedó aparte</td><td><code>test</code>, <code>node_modules</code>, archivos <code>.min.js</code>, <code>vendor</code>, imágenes, <code>database</code> y <code>docs</code></td></tr>
+<tr><td>Cobertura</td><td>No se envió: la suite es un script propio sin instrumentar</td></tr>
+</table>
+
+<h2>3. Resumen: 20 incidencias, pero 4 reglas</h2>
+<p>La cuenta por tipo quedó así:</p>
+<table class="resumen">
+<tr>
+<td><span class="num bug">8</span><span class="lbl">Bugs</span></td>
+<td><span class="num vuln">2</span><span class="lbl">Vulnerabilidades</span></td>
+<td><span class="num smell">10</span><span class="lbl">Code smells</span></td>
+<td><span class="num">0</span><span class="lbl">Security hotspots</span></td>
+<td><span class="num">20</span><span class="lbl">Total</span></td>
+</tr>
+</table>
+<p>Los 20 no son 20 cosas distintas. <b>Siete</b> son la misma regla de promesas sin manejar, <b>diez</b> son la misma regla de métodos numéricos globales, <b>dos</b> son usos de <code>Math.random</code> y <b>uno</b> es un campo sin etiqueta. Eso explica el número y también por qué al principio impresiona más de lo que realmente es.</p>
+
+<h2>4. Listado completo</h2>
+<p>Esta es la lista tal como la reportó SonarQube. El mensaje está en inglés porque la herramienta lo devuelve así; al costado explico cada grupo.</p>
+<table>
+<tr><th style="width:4%">#</th><th style="width:12%">Tipo</th><th style="width:9%">Severidad</th><th style="width:21%">Archivo</th><th style="width:13%">Regla</th><th>Mensaje de SonarQube</th></tr>
+<tr><td>1</td><td>Code smell</td><td>MINOR</td><td><code>backend/index.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.parseFloat</code> over <code>parseFloat</code>.</td></tr>
+<tr><td>2</td><td>Code smell</td><td>MINOR</td><td><code>backend/index.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.isNaN</code> over <code>isNaN</code>.</td></tr>
+<tr><td>3</td><td>Code smell</td><td>MINOR</td><td><code>backend/index.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.NaN</code> over <code>NaN</code>.</td></tr>
+<tr><td>4</td><td>Code smell</td><td>MINOR</td><td><code>backend/index.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.parseInt</code> over <code>parseInt</code>.</td></tr>
+<tr><td>5</td><td>Bug</td><td>MAJOR</td><td><code>backend/index.js</code></td><td><code>S9383</code></td><td>Promises must be awaited, end with a call to <code>.catch</code>, end with a call to <code>.then</code> with a rejection handler or be explicitly marked as ignored with the <code>void</code> operator.</td></tr>
+<tr><td>6</td><td>Bug</td><td>MAJOR</td><td><code>backend/index.js</code></td><td><code>S9383</code></td><td>Promises must be awaited, end with a call to <code>.catch</code>, end with a call to <code>.then</code> with a rejection handler or be explicitly marked as ignored with the <code>void</code> operator.</td></tr>
+<tr><td>7</td><td>Bug</td><td>MAJOR</td><td><code>frontend/historial.html</code></td><td><code>InputWithoutLabelCheck</code></td><td>Associate a valid label to this input field.</td></tr>
+<tr><td>8</td><td>Vulnerabilidad</td><td>MAJOR</td><td><code>frontend/js/api.js</code></td><td><code>S2245</code></td><td>Make sure that using this pseudorandom number generator is safe here.</td></tr>
+<tr><td>9</td><td>Vulnerabilidad</td><td>MAJOR</td><td><code>frontend/js/api.js</code></td><td><code>S2245</code></td><td>Make sure that using this pseudorandom number generator is safe here.</td></tr>
+<tr><td>10</td><td>Code smell</td><td>MINOR</td><td><code>frontend/js/api.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.isNaN</code> over <code>isNaN</code>.</td></tr>
+<tr><td>11</td><td>Code smell</td><td>MINOR</td><td><code>frontend/js/app.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.isNaN</code> over <code>isNaN</code>.</td></tr>
+<tr><td>12</td><td>Code smell</td><td>MINOR</td><td><code>frontend/js/app.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.isNaN</code> over <code>isNaN</code>.</td></tr>
+<tr><td>13</td><td>Code smell</td><td>MINOR</td><td><code>frontend/js/app.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.isNaN</code> over <code>isNaN</code>.</td></tr>
+<tr><td>14</td><td>Code smell</td><td>MINOR</td><td><code>frontend/js/app.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.isNaN</code> over <code>isNaN</code>.</td></tr>
+<tr><td>15</td><td>Code smell</td><td>MINOR</td><td><code>frontend/js/app.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.isNaN</code> over <code>isNaN</code>.</td></tr>
+<tr><td>16</td><td>Bug</td><td>MAJOR</td><td><code>frontend/js/app.js</code></td><td><code>S9383</code></td><td>Promises must be awaited, end with a call to <code>.catch</code>, end with a call to <code>.then</code> with a rejection handler or be explicitly marked as ignored with the <code>void</code> operator.</td></tr>
+<tr><td>17</td><td>Bug</td><td>MAJOR</td><td><code>frontend/staff/staff.js</code></td><td><code>S9383</code></td><td>Promises must be awaited, end with a call to <code>.catch</code>, end with a call to <code>.then</code> with a rejection handler or be explicitly marked as ignored with the <code>void</code> operator.</td></tr>
+<tr><td>18</td><td>Bug</td><td>MAJOR</td><td><code>frontend/staff/staff.js</code></td><td><code>S9383</code></td><td>Promises must be awaited, end with a call to <code>.catch</code>, end with a call to <code>.then</code> with a rejection handler or be explicitly marked as ignored with the <code>void</code> operator.</td></tr>
+<tr><td>19</td><td>Bug</td><td>MAJOR</td><td><code>frontend/staff/staff.js</code></td><td><code>S9383</code></td><td>Promises must be awaited, end with a call to <code>.catch</code>, end with a call to <code>.then</code> with a rejection handler or be explicitly marked as ignored with the <code>void</code> operator.</td></tr>
+<tr><td>20</td><td>Bug</td><td>MAJOR</td><td><code>frontend/staff/staff.js</code></td><td><code>S9383</code></td><td>Promises must be awaited, end with a call to <code>.catch</code>, end with a call to <code>.then</code> with a rejection handler or be explicitly marked as ignored with the <code>void</code> operator.</td></tr>
+</table>
+
+<h2 class="page">5. Por qué aparece cada error</h2>
+
+<h3>5.1 Promesas sin manejar (S9383) — 7 incidencias</h3>
+<p>Esta es la regla que más veces salió. En JavaScript, cuando llamas a una función <code>async</code> o usas <code>.then()</code>, lo que devuelve es una promesa. Si esa promesa falla y nadie la espera con <code>await</code>, no le pone un <code>.catch()</code> o no la marca con <code>void</code>, el error se queda sin manejar. El programa no necesariamente se cae, pero tampoco te enteras de lo que pasó.</p>
+<p>En el backend salió en el arranque. El código era más o menos así:</p>
+<pre>esperarBase().then(() =&gt; {
+  app.listen(CFG.port, '0.0.0.0', () =&gt; {
+    console.log('API lista');
+  });
+});</pre>
+<p>Ahí no hay <code>.catch()</code>. Si la base de datos no responde, la promesa se rechaza y el error no se explica en ningún lado. SonarQube lo marca porque el arranque puede quedarse a medias sin que el usuario sepa por qué.</p>
+<p>En el frontend pasó algo parecido con la API:</p>
+<pre>SecurePassAPI.usarApi().then(aplicar);</pre>
+<p>Si <code>usarApi()</code> falla, <code>aplicar</code> no se ejecuta y no hay un camino para mostrar el error. En <code>staff.js</code> había cuatro casos de funciones <code>async</code> llamadas sin <code>await</code> ni <code>.catch()</code>, por ejemplo:</p>
+<pre>ui.formVerificar.addEventListener('submit', e =&gt; {
+  e.preventDefault();
+  verificar(ui.qrTexto.value, false);
+});</pre>
+<p><code>verificar</code> es asíncrona. Si falla la petición, la promesa queda flotando. No es que el formulario esté mal escrito; el problema es que no hay un manejo claro del error.</p>
+<p><b>En resumen:</b> son 7 casos de lo mismo. La regla no dice que la aplicación esté rota, sino que hay errores que pueden pasar desapercibidos.</p>
+
+<h3>5.2 Campo sin etiqueta (InputWithoutLabelCheck) — 1 incidencia</h3>
+<p>En <code>frontend/historial.html</code> está el selector que sirve para filtrar por código de entrada:</p>
+<pre>&lt;select class="input" id="filtro-codigo" style="..."&gt;
+  &lt;option value=""&gt;Todas las entradas&lt;/option&gt;
+&lt;/select&gt;</pre>
+<p>El selector funciona bien, pero no tiene un <code>&lt;label for="filtro-codigo"&gt;</code> ni un <code>aria-label</code>. SonarQube lo marca porque un lector de pantalla no sabe qué es ese campo. Tampoco puedes hacer clic en el texto de la etiqueta para enfocarlo, porque no hay etiqueta. Es un problema de accesibilidad, no de que el filtro deje de funcionar.</p>
+<p>La regla revisa los campos de formulario y avisa cuando no encuentra una etiqueta válida. En este caso el campo es un <code>select</code>, pero la lógica es la misma para un <code>input</code>.</p>
+
+<h3>5.3 Math.random en contexto de seguridad (S2245) — 2 incidencias</h3>
+<p><code>Math.random()</code> no es un generador seguro. No es criptográfico y se puede predecir, así que no debería usarse para tokens, códigos o cualquier cosa que alguien pudiera adivinar. En <code>frontend/js/api.js</code> aparecía en dos sitios: como respaldo para generar la semilla de un código y para armar el id de un registro del historial.</p>
+<pre>semilla = Math.floor(Math.random() * 0xffffffff).toString(16).toUpperCase();
+
+id: 'H' + Date.now().toString(36).toUpperCase() + Math.floor(Math.random() * 900 + 100),</pre>
+<p>En una demo no parece grave, pero SonarQube no sabe si es demo o producción: ve un generador predecible en una parte donde se están creando códigos y lo marca como vulnerabilidad. Si eso se usara para un token de verdad, alguien podría adivinar valores. Por eso la regla se llama <i>Pseudorandom number generators should not be used in security contexts</i>.</p>
+<p><b>Ojo:</b> el problema no es usar <code>Math.random()</code> para cualquier cosa. Para un sorteo o un detalle visual no importa. Importa cuando el valor tiene que ser impredecible.</p>
+
+<h3>5.4 Métodos numéricos globales (S7773) — 10 incidencias</h3>
+<p>SonarQube prefiere <code>Number.isNaN</code>, <code>Number.parseInt</code>, <code>Number.parseFloat</code> y <code>Number.NaN</code> en lugar de las versiones globales. No es que el programa esté mal, pero las globales hacen conversiones que a veces sorprenden.</p>
+<p>En <code>app.js</code> había cinco casos como este, para formatear fechas:</p>
+<pre>if (isNaN(d)) return '—';</pre>
+<p>En <code>api.js</code> había uno para validar el precio:</p>
+<pre>if (isNaN(numero) || numero &lt; 0) {
+  return { ok: false, mensaje: 'El precio debe ser un número válido en soles.' };
+}</pre>
+<p>Y en <code>backend/index.js</code> había cuatro: dos en los parsers de PostgreSQL (<code>parseInt</code> y <code>parseFloat</code>), uno en <code>isNaN(precio)</code> y otro en el uso de <code>NaN</code>.</p>
+<p>¿Por qué la regla prefiere <code>Number.*</code>? Porque <code>isNaN('')</code> devuelve <code>false</code>, aunque <code>''</code> no sea un número, y <code>isNaN('abc')</code> devuelve <code>true</code>. <code>Number.isNaN</code> solo devuelve <code>true</code> si el valor es realmente <code>NaN</code>. Con <code>parseInt</code> pasa algo parecido: sin base explícita puede interpretar números con ceros a la izquierda de forma rara. Y <code>Number.NaN</code> deja más claro que se está usando el NaN numérico y no una variable global.</p>
+<p><b>En resumen:</b> son 10 detalles de estilo y precisión, no 10 fallos que se vean a simple vista. Aun así, SonarQube los marca porque ayudan a que el código sea más predecible.</p>
+
+<h2>6. Lo que este informe no dice</h2>
+<p>No quiero que se entienda más de lo que es. Este documento <b>no</b> dice que la aplicación esté rota ni que estos sean los únicos problemas posibles. Son las incidencias que detectó SonarQube con las reglas que tenía activas en ese momento.</p>
+<p>SonarQube es un análisis estático: lee el código, pero no ejecuta la aplicación. Por eso no reemplaza un escaneo dinámico como OWASP ZAP, que prueba la aplicación en funcionamiento y puede encontrar otras cosas. Tampoco estoy diciendo que los 20 errores sean todos graves: algunos son de accesibilidad o de estilo, no de seguridad.</p>
+<div class="aviso">
+<p><b>Alcance:</b> el análisis se hizo en local, sobre la versión 2 del proyecto, y se evaluó el código nuevo. La cobertura no se midió porque la suite no está instrumentada. Las correcciones no forman parte de este documento.</p>
+</div>
+
+<h2>7. Cierre</h2>
+<p>Al final, el análisis inicial me dejó 20 incidencias, pero al agruparlas se entiende mejor: <b>8 bugs</b> (7 promesas y 1 etiqueta), <b>2 vulnerabilidades</b> (Math.random) y <b>10 code smells</b> (métodos numéricos). La mayoría son detalles de cómo está escrito el código, no fallos que se vean a simple vista.</p>
+<p>Lo que más me sirvió fue separar el listado de la explicación. Ver los 20 juntos impresiona; entender que son cuatro patrones repetidos hace que el análisis sea mucho más manejable. Las correcciones las documento aparte, cuando toque.</p>
+
+<p class="small">Fuente: base de datos de SonarQube del proyecto <code>joinnus-secure-pass</code> (incidencias del análisis inicial) y configuración de <code>sonar-project.properties</code>. Los datos, usuarios y credenciales de la demo son ficticios.</p>
+
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Informe de análisis estático — Joinnus Secure Pass v2</title>
+<style>
+  @page { size: A4; margin: 2cm 1.8cm; }
+  body { font-family: Calibri, Arial, sans-serif; font-size: 10.5pt; color: #1f2937; line-height: 1.35; }
+  h1 { font-size: 22pt; color: #0b3d6b; margin: 0 0 2pt 0; }
+  h2 { font-size: 14pt; color: #0b3d6b; border-bottom: 2px solid #0b3d6b; padding-bottom: 3pt; margin-top: 18pt; }
+  h3 { font-size: 11.5pt; color: #14532d; margin-top: 12pt; margin-bottom: 4pt; }
+  p { margin: 4pt 0; text-align: justify; }
+  .sub { font-size: 13pt; color: #374151; margin: 0; }
+  .meta { font-size: 9pt; color: #6b7280; margin-top: 4pt; }
+  table { border-collapse: collapse; width: 100%; margin: 6pt 0 10pt 0; }
+  th { background: #0b3d6b; color: #ffffff; font-size: 9pt; text-align: left; padding: 5pt; border: 1px solid #94a3b8; }
+  td { font-size: 9pt; padding: 4pt 5pt; border: 1px solid #cbd5e1; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .kpi td { text-align: center; border: 1px solid #cbd5e1; padding: 8pt 4pt; }
+  .kpi .num { font-size: 18pt; font-weight: bold; display: block; }
+  .kpi .lbl { font-size: 8pt; color: #475569; }
+  .verde { color: #15803d; font-weight: bold; }
+  .azul { color: #0b3d6b; font-weight: bold; }
+  .ambar { color: #b45309; font-weight: bold; }
+  .caja { border-left: 4px solid #0b3d6b; background: #eff6ff; padding: 7pt 9pt; margin: 8pt 0; }
+  .aviso { border-left: 4px solid #b45309; background: #fffbeb; padding: 7pt 9pt; margin: 8pt 0; }
+  ul, ol { margin: 4pt 0 6pt 18pt; padding: 0; }
+  li { margin: 2pt 0; }
+  code { font-family: Consolas, monospace; font-size: 9pt; background: #f1f5f9; padding: 0 2pt; }
+  .small { font-size: 8.5pt; color: #475569; }
+  .page { page-break-before: always; }
+  .firma { margin-top: 20pt; font-size: 9pt; color: #6b7280; }
+</style>
+</head>
+<body>
+
+<h1>Informe de análisis estático de código</h1>
+<p class="sub">Joinnus Secure Pass — versión 2</p>
+<p class="meta">Análisis con SonarQube Community 26.10 · 3 de noviembre de 2026 · Documento de la versión 2</p>
+
+<div class="caja">
+<p><b>Objetivo.</b> Documentar el resultado del análisis estático de la versión 2 de <b>Joinnus Secure Pass</b>, explicar qué se corrigió y dejar constancia de que el código quedó limpio según SonarQube. Este análisis es <b>complementario</b> a las pruebas automáticas y a la revisión dinámica con OWASP ZAP.</p>
+</div>
+
+<h2>1. Datos del análisis</h2>
+<table>
+<tr><th style="width:32%">Dato</th><th>Valor</th></tr>
+<tr><td>Proyecto</td><td>Joinnus Secure Pass</td></tr>
+<tr><td>Clave en SonarQube</td><td><code>joinnus-secure-pass</code></td></tr>
+<tr><td>Versión analizada</td><td>2.0.0</td></tr>
+<tr><td>Repositorio</td><td>Privado: <code>francisgoicochea7-code/joinnus-secure-pass.2</code></td></tr>
+<tr><td>Carpeta local</td><td><code>C:\Users\LENOVO\joinnus-secure-pass.2</code></td></tr>
+<tr><td>Herramienta</td><td>SonarQube Community 26.10 (contenedor local, puerto 9000)</td></tr>
+<tr><td>Fecha del análisis</td><td>3 de noviembre de 2026</td></tr>
+<tr><td>Alcance</td><td><code>backend</code>, <code>frontend</code>, <code>api</code> y <code>scripts</code>; pruebas en <code>test</code></td></tr>
+<tr><td>Quality gate</td><td><span class="verde">OK</span> — gate propio <code>JSP - proyecto</code></td></tr>
+</table>
+
+<h2>2. Resumen ejecutivo</h2>
+<table class="kpi">
+<tr>
+<td><span class="num verde">0</span><span class="lbl">Bugs</span></td>
+<td><span class="num verde">0</span><span class="lbl">Vulnerabilidades</span></td>
+<td><span class="num verde">0</span><span class="lbl">Code smells</span></td>
+<td><span class="num verde">0</span><span class="lbl">Security hotspots</span></td>
+<td><span class="num verde">A</span><span class="lbl">Calificación global</span></td>
+</tr>
+<tr>
+<td><span class="num">5 815</span><span class="lbl">Líneas de código</span></td>
+<td><span class="num">29</span><span class="lbl">Archivos</span></td>
+<td><span class="num">3,8 %</span><span class="lbl">Duplicación</span></td>
+<td><span class="num">1 619</span><span class="lbl">Comprobaciones funcionales</span></td>
+<td><span class="num">35</span><span class="lbl">Pruebas unitarias</span></td>
+</tr>
+</table>
+
+<p>El análisis final de la versión 2 no encontró <b>ningún bug, vulnerabilidad, code smell ni security hotspot</b>. La duplicación quedó en <b>3,8 %</b>, por debajo del umbral habitual, y el <b>quality gate</b> propio del proyecto quedó en <b>OK</b>.</p>
+
+<p><b>Antes de llegar a ese resultado, SonarQube registró 20 incidencias:</b> 8 bugs, 2 vulnerabilidades y 10 code smells. Las 20 se corrigieron y quedaron cerradas como <b>CLOSED / FIXED</b>. El detalle completo está en la sección 5.</p>
+
+<p>Además, la suite de pruebas se mantuvo en verde: <b>756 comprobaciones del codificador QR + 863 comprobaciones funcionales de la aplicación + 35 pruebas unitarias</b>, con <b>0 fallos</b>.</p>
+
+<h2>3. Metodología y alcance</h2>
+
+<h3>3.1 Qué revisa SonarQube</h3>
+<p>SonarQube es un analizador <b>estático</b>: lee el código sin ejecutarlo y busca patrones de riesgo, defectos de fiabilidad, problemas de mantenibilidad, duplicación y malas prácticas. No sustituye a las pruebas funcionales ni a un escaneo dinámico como OWASP ZAP; los tres enfoques se complementan.</p>
+
+<h3>3.2 Configuración aplicada</h3>
+<table>
+<tr><th style="width:30%">Parámetro</th><th>Valor</th></tr>
+<tr><td>Fuentes analizadas</td><td><code>backend, frontend, api, scripts</code></td></tr>
+<tr><td>Pruebas</td><td><code>test/**/*.js</code> (no se analizan como código de producción)</td></tr>
+<tr><td>Exclusiones</td><td><code>node_modules</code>, archivos <code>.min.js</code>, <code>vendor</code>, imágenes, <code>.scannerwork</code>, <code>database</code> y <code>docs</code></td></tr>
+<tr><td>Codificación</td><td>UTF-8</td></tr>
+<tr><td>Cobertura</td><td>No se envía: la suite es un script propio sin instrumentar</td></tr>
+<tr><td>Evaluación</td><td>Sobre el código nuevo (<i>new code</i>)</td></tr>
+</table>
+
+<h2>4. Resultados</h2>
+<table>
+<tr><th style="width:42%">Métrica</th><th>Resultado</th><th>Lectura</th></tr>
+<tr><td>Bugs</td><td class="verde">0</td><td>Sin defectos de fiabilidad detectados</td></tr>
+<tr><td>Vulnerabilidades</td><td class="verde">0</td><td>Sin patrones de seguridad marcados por las reglas</td></tr>
+<tr><td>Security hotspots</td><td class="verde">0</td><td>Sin puntos que requieran revisión manual de seguridad</td></tr>
+<tr><td>Code smells</td><td class="verde">0</td><td>Sin problemas de mantenibilidad</td></tr>
+<tr><td>Duplicación</td><td>3,8 %</td><td>Por debajo del umbral; no hay bloques relevantes</td></tr>
+<tr><td>Líneas de código (ncloc)</td><td>5 815</td><td>29 archivos analizados</td></tr>
+<tr><td>Quality gate</td><td class="verde">OK</td><td>Gate propio <code>JSP - proyecto</code></td></tr>
+<tr><td>Cobertura</td><td>No medida</td><td>La suite no está instrumentada; no se envía LCOV</td></tr>
+</table>
+
+<h2>5. Las 20 incidencias del análisis inicial</h2>
+<p>El primer análisis de SonarQube registró <b>20 incidencias</b>. Todas se corrigieron antes del análisis final y quedaron en estado <b>CLOSED / FIXED</b>; no quedó ninguna abierta. Este es el detalle completo, porque el objetivo del informe no es solo mostrar el resultado limpio, sino dejar constancia de <b>qué errores aparecieron y cómo se resolvieron</b>.</p>
+
+<table>
+<tr><th style="width:28%">Tipo</th><th style="width:14%">Cantidad</th><th>Reglas implicadas</th></tr>
+<tr><td>Bugs</td><td><b>8</b></td><td>7 × <code>S9383</code> (promesas sin manejar) + 1 × <code>InputWithoutLabelCheck</code> (campo sin etiqueta)</td></tr>
+<tr><td>Vulnerabilidades</td><td><b>2</b></td><td>2 × <code>S2245</code> (generador pseudoaleatorio en contexto de seguridad)</td></tr>
+<tr><td>Code smells</td><td><b>10</b></td><td>10 × <code>S7773</code> (métodos numéricos globales)</td></tr>
+<tr><td>Security hotspots</td><td>0</td><td>—</td></tr>
+<tr><td><b>Total</b></td><td><b>20</b></td><td>Todas cerradas como <b>CLOSED / FIXED</b></td></tr>
+</table>
+
+<h3>5.1 Detalle de las 20 incidencias</h3>
+<table>
+<tr><th style="width:4%">#</th><th style="width:12%">Tipo</th><th style="width:9%">Severidad</th><th style="width:21%">Archivo</th><th style="width:13%">Regla</th><th>Mensaje de SonarQube</th></tr>
+<tr><td>1</td><td>Code smell</td><td>MINOR</td><td><code>backend/index.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.parseFloat</code> over <code>parseFloat</code>.</td></tr>
+<tr><td>2</td><td>Code smell</td><td>MINOR</td><td><code>backend/index.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.isNaN</code> over <code>isNaN</code>.</td></tr>
+<tr><td>3</td><td>Code smell</td><td>MINOR</td><td><code>backend/index.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.NaN</code> over <code>NaN</code>.</td></tr>
+<tr><td>4</td><td>Code smell</td><td>MINOR</td><td><code>backend/index.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.parseInt</code> over <code>parseInt</code>.</td></tr>
+<tr><td>5</td><td>Bug</td><td>MAJOR</td><td><code>backend/index.js</code></td><td><code>S9383</code></td><td>Promises must be awaited, end with a call to <code>.catch</code>, end with a call to <code>.then</code> with a rejection handler or be explicitly marked as ignored with the <code>void</code> operator.</td></tr>
+<tr><td>6</td><td>Bug</td><td>MAJOR</td><td><code>backend/index.js</code></td><td><code>S9383</code></td><td>Promises must be awaited, end with a call to <code>.catch</code>, end with a call to <code>.then</code> with a rejection handler or be explicitly marked as ignored with the <code>void</code> operator.</td></tr>
+<tr><td>7</td><td>Bug</td><td>MAJOR</td><td><code>frontend/historial.html</code></td><td><code>InputWithoutLabelCheck</code></td><td>Associate a valid label to this input field.</td></tr>
+<tr><td>8</td><td>Vulnerabilidad</td><td>MAJOR</td><td><code>frontend/js/api.js</code></td><td><code>S2245</code></td><td>Make sure that using this pseudorandom number generator is safe here.</td></tr>
+<tr><td>9</td><td>Vulnerabilidad</td><td>MAJOR</td><td><code>frontend/js/api.js</code></td><td><code>S2245</code></td><td>Make sure that using this pseudorandom number generator is safe here.</td></tr>
+<tr><td>10</td><td>Code smell</td><td>MINOR</td><td><code>frontend/js/api.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.isNaN</code> over <code>isNaN</code>.</td></tr>
+<tr><td>11</td><td>Code smell</td><td>MINOR</td><td><code>frontend/js/app.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.isNaN</code> over <code>isNaN</code>.</td></tr>
+<tr><td>12</td><td>Code smell</td><td>MINOR</td><td><code>frontend/js/app.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.isNaN</code> over <code>isNaN</code>.</td></tr>
+<tr><td>13</td><td>Code smell</td><td>MINOR</td><td><code>frontend/js/app.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.isNaN</code> over <code>isNaN</code>.</td></tr>
+<tr><td>14</td><td>Code smell</td><td>MINOR</td><td><code>frontend/js/app.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.isNaN</code> over <code>isNaN</code>.</td></tr>
+<tr><td>15</td><td>Code smell</td><td>MINOR</td><td><code>frontend/js/app.js</code></td><td><code>S7773</code></td><td>Prefer <code>Number.isNaN</code> over <code>isNaN</code>.</td></tr>
+<tr><td>16</td><td>Bug</td><td>MAJOR</td><td><code>frontend/js/app.js</code></td><td><code>S9383</code></td><td>Promises must be awaited, end with a call to <code>.catch</code>, end with a call to <code>.then</code> with a rejection handler or be explicitly marked as ignored with the <code>void</code> operator.</td></tr>
+<tr><td>17</td><td>Bug</td><td>MAJOR</td><td><code>frontend/staff/staff.js</code></td><td><code>S9383</code></td><td>Promises must be awaited, end with a call to <code>.catch</code>, end with a call to <code>.then</code> with a rejection handler or be explicitly marked as ignored with the <code>void</code> operator.</td></tr>
+<tr><td>18</td><td>Bug</td><td>MAJOR</td><td><code>frontend/staff/staff.js</code></td><td><code>S9383</code></td><td>Promises must be awaited, end with a call to <code>.catch</code>, end with a call to <code>.then</code> with a rejection handler or be explicitly marked as ignored with the <code>void</code> operator.</td></tr>
+<tr><td>19</td><td>Bug</td><td>MAJOR</td><td><code>frontend/staff/staff.js</code></td><td><code>S9383</code></td><td>Promises must be awaited, end with a call to <code>.catch</code>, end with a call to <code>.then</code> with a rejection handler or be explicitly marked as ignored with the <code>void</code> operator.</td></tr>
+<tr><td>20</td><td>Bug</td><td>MAJOR</td><td><code>frontend/staff/staff.js</code></td><td><code>S9383</code></td><td>Promises must be awaited, end with a call to <code>.catch</code>, end with a call to <code>.then</code> with a rejection handler or be explicitly marked as ignored with the <code>void</code> operator.</td></tr>
+</table>
+
+<h3>5.2 Correcciones aplicadas</h3>
+<table>
+<tr><th style="width:34%">Hallazgo</th><th>Corrección aplicada</th></tr>
+<tr><td><b>7 promesas sin manejar</b> (<code>S9383</code>)</td><td>Se añadió <code>await</code>, <code>.catch</code> o <code>void</code> según el caso, para evitar errores silenciosos y promesas flotantes.</td></tr>
+<tr><td><b>1 campo sin etiqueta accesible</b> (<code>InputWithoutLabelCheck</code>)</td><td>Se añadió <code>aria-label</code> al <code>&lt;select&gt;</code> de filtrado para que los lectores de pantalla puedan anunciarlo.</td></tr>
+<tr><td><b>10 métodos numéricos globales</b> (<code>S7773</code>)</td><td>Se cambiaron por <code>Number.isNaN</code>, <code>Number.parseInt</code>, <code>Number.parseFloat</code> y <code>Number.NaN</code>, más estrictos y predecibles.</td></tr>
+<tr><td><b>2 usos de <code>Math.random</code></b> (<code>S2245</code>)</td><td>Se reemplazaron por un generador basado en <code>crypto.getRandomValues</code>, con respaldo de reloj para navegadores muy antiguos.</td></tr>
+</table>
+
+<div class="aviso">
+<p><b>Nota sobre la captura del tablero.</b> La imagen <code>docs/sonarqube.png</code> se regenerará después del commit para que el tablero no muestre el aviso de cambios sin confirmar (SCM). Las cifras de este informe son las del análisis final y coinciden con las del README del proyecto.</p>
+</div>
+
+<h2>6. Quality gate del proyecto</h2>
+<p>El gate <code>JSP - proyecto</code> se diseñó a medida para este prototipo. Evalúa el <b>código nuevo</b> y contempla:</p>
+<ul>
+<li>bugs,</li>
+<li>vulnerabilidades,</li>
+<li>security hotspots,</li>
+<li>code smells,</li>
+<li>duplicación.</li>
+</ul>
+<p><b>No exige cobertura</b> porque la suite actual es un script propio sin instrumentación. Forzar un porcentaje de cobertura habría producido un gate engañoso: se habría cumplido o fallado por una métrica que el proyecto no genera.</p>
+<p>El resultado <b>OK</b> es coherente con el análisis: el código general también tiene 0 bugs, 0 vulnerabilidades, 0 hotspots y 0 code smells.</p>
+
+<h2>7. Pruebas y verificación funcional</h2>
+<p>SonarQube no ejecuta las pruebas; por eso el proyecto mantiene una suite propia que se ejecuta con <code>npm test</code>:</p>
+<table>
+<tr><th style="width:45%">Bloque</th><th>Comprobaciones</th><th>Resultado</th></tr>
+<tr><td>Codificador QR (<code>test/qr-selftest.js</code>)</td><td>756</td><td class="verde">0 fallos</td></tr>
+<tr><td>Verificación funcional de las 7 páginas (<code>test/verificacion.js</code>)</td><td>863</td><td class="verde">0 fallos</td></tr>
+<tr><td>Pruebas unitarias (<code>test/unit/</code>)</td><td>35</td><td class="verde">0 fallos</td></tr>
+</table>
+<p>También se verificó con el stack encendido: <code>/api/health</code> conectado a PostgreSQL, 7 entradas, 13 movimientos, generación y validación de QR, transferencia de ENTRY001, reinicio de demo, login correcto (200) e incorrecto (401), y coexistencia con la versión 1.</p>
+
+<h2 class="page">8. Limitaciones del análisis</h2>
+<ul>
+<li><b>Es análisis estático.</b> No prueba la aplicación en ejecución ni reemplaza un escaneo dinámico. Para eso se usó OWASP ZAP en local.</li>
+<li><b>No mide cobertura.</b> La suite no está instrumentada; decir “0 % de cobertura” sería incorrecto, y forzar una métrica artificial no aportaría valor.</li>
+<li><b>Edición Community.</b> SonarQube Community no ejecuta todos los análisis de flujo para inyecciones; por eso el proyecto se complementa con revisión manual y con ZAP.</li>
+<li><b>El gate evalúa código nuevo.</b> En este caso el código general también está limpio, así que la lectura es consistente.</li>
+<li><b>La captura visual está pendiente de actualizar</b> después del commit, para eliminar el aviso de SCM.</li>
+</ul>
+
+<h2>9. Conclusiones y próximos pasos</h2>
+<ol>
+<li>La versión 2 de Joinnus Secure Pass quedó <b>limpia según SonarQube</b>: 0 bugs, 0 vulnerabilidades, 0 code smells y 0 hotspots, después de corregir las <b>20 incidencias iniciales</b> (8 bugs, 2 vulnerabilidades y 10 code smells).</li>
+<li>La duplicación es baja (<b>3,8 %</b>) y el <b>quality gate</b> propio quedó en <b>OK</b>.</li>
+<li>Las <b>1 619 comprobaciones funcionales</b> y las <b>35 pruebas unitarias</b> siguen en verde, por lo que la limpieza de código no rompió el comportamiento.</li>
+<li>Queda pendiente <b>confirmar los cambios en Git</b> (commit y push), regenerar la captura del tablero y, más adelante, migrar producción a PostgreSQL.</li>
+<li>El análisis estático debe complementarse con el <b>escaneo dinámico</b> de OWASP ZAP y con la revisión de configuración del servidor.</li>
+</ol>
+
+<h2>10. Cómo reproducir el análisis</h2>
+<pre style="background:#f1f5f9;padding:8pt;font-family:Consolas,monospace;font-size:8.5pt">cd C:\Users\LENOVO\joinnus-secure-pass.2
+docker compose -f docker-compose.sonar.yml up -d
+$env:SONAR_TOKEN = "tu-token-de-analisis"
+docker compose -f docker-compose.sonar.yml --profile scan run --rm scanner
+# Abrir http://localhost:9000/dashboard?id=joinnus-secure-pass
+docker compose -f docker-compose.sonar.yml down</pre>
+
+<p class="small">El token se crea en SonarQube: <i>My Account → Security → Generate Tokens</i>. No debe subirse al repositorio.</p>
+
+<h2>Anexo. Archivos de referencia</h2>
+<table>
+<tr><th style="width:42%">Archivo</th><th>Contenido</th></tr>
+<tr><td><code>sonar-project.properties</code></td><td>Configuración del análisis (fuentes, pruebas, exclusiones).</td></tr>
+<tr><td><code>docker-compose.sonar.yml</code></td><td>SonarQube y su base de datos, más el escáner.</td></tr>
+<tr><td><code>README.md</code></td><td>Instrucciones, resultados y tabla de métricas.</td></tr>
+<tr><td><code>docs/DISENO.md</code></td><td>Diseño, arquitectura, modelo de datos y criterios de verificación.</td></tr>
+<tr><td><code>specs/003-sonarqube/</code></td><td>Especificación, plan y tareas del análisis estático.</td></tr>
+<tr><td><code>test/</code></td><td>Pruebas funcionales, QR y unitarias.</td></tr>
+</table>
+
+<p class="firma">Informe elaborado a partir de las métricas del análisis final de SonarQube y del README del proyecto. Los datos, usuarios y credenciales de la demo son ficticios.</p>
+
+</body>
+</html>

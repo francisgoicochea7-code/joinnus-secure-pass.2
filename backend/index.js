@@ -28,7 +28,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const { rateLimit } = require('express-rate-limit');
-const mysql = require('mysql2/promise');
+const { Pool, types, Client } = require('pg');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -125,8 +125,8 @@ if (QR_SECRET.length < 16) {
 const CFG = {
   port: Number(process.env.PORT || 3000),
   db: {
-    host: process.env.DB_HOST || 'mysql',
-    port: Number(process.env.DB_PORT || 3306),
+    host: process.env.DB_HOST || 'postgres',
+    port: Number(process.env.DB_PORT || 5432),
     user: process.env.DB_USER || 'joinnus',
     password: process.env.DB_PASSWORD || 'joinnus_pass',
     database: process.env.DB_NAME || 'joinnus_secure_pass'
@@ -140,14 +140,12 @@ const CFG = {
 };
 
 /* ---------------------------------------------------------------------
- * 2. Pool de conexiones a MySQL
+ * 2. Pool de conexiones a PostgreSQL
  * ------------------------------------------------------------------- */
-/* TLS del MySQL remoto. Algunos proveedores (Aiven) firman con su propia
- * autoridad y exigen cargar su CA: se pasa en DB_SSL_CA, que admite la ruta
- * de un fichero .pem o el propio certificado pegado (con \n de salto).
- * Sin CA, DB_SSL_INSECURE=true cifra sin verificar el certificado del
- * servidor, que es exactamente lo que hace el ssl-mode=REQUIRED con el que
- * Aiven publica su Service URI. */
+/* TLS de PostgreSQL remoto (Aiven u otro proveedor): se activa con
+ * DB_SSL=true. DB_SSL_CA admite la ruta de un fichero .pem o el propio
+ * certificado pegado (con \n de salto). Sin CA, DB_SSL_INSECURE=true cifra
+ * sin verificar el certificado del servidor. */
 function sslDeLaBase() {
   const ca = String(process.env.DB_SSL_CA || '').trim();
   if (!ca) {
@@ -159,32 +157,46 @@ function sslDeLaBase() {
   return { ca: pem };
 }
 
-const pool = mysql.createPool({
+/* PostgreSQL entrega COUNT(*) y las columnas NUMERIC como texto. El frontend
+ * y los cálculos de precio esperan números: se convierten al leerlos. */
+types.setTypeParser(20, v => Number.parseInt(v, 10));    // bigint  -> COUNT(*)
+types.setTypeParser(1700, v => Number.parseFloat(v));    // numeric -> DECIMAL
+
+const pool = new Pool({
   host: CFG.db.host,
   port: CFG.db.port,
   user: CFG.db.user,
   password: CFG.db.password,
   database: CFG.db.database,
-  waitForConnections: true,
-  connectionLimit: Number(process.env.DB_POOL || 10),
-  queueLimit: 0,
-  charset: 'utf8mb4_unicode_ci',
-  /* 'local' = zona del proceso (TZ=America/Lima en docker-compose), la misma
-   * que usa MySQL. Con 'Z' los DATETIME/TIMESTAMP se leian como UTC y la
-   * interfaz mostraba las horas 5 atrasadas; las columnas DATE ademas hay
-   * que devolverlas con los componentes locales (ver fechaCorta). */
-  timezone: 'local',
-  namedPlaceholders: true,
-  /* MySQL remoto (Aiven, TiDB Serverless, Railway...) exige TLS: se activa con
-   * DB_SSL=true en el entorno. En el MySQL de Docker no hace falta y queda
-   * desactivado. Sin DB_SSL_CA, mysql2 usa el almacén de confianza del
-   * sistema (donde entran los certificados firmados por una autoridad
-   * pública, como los de TiDB); con DB_SSL_CA se carga la CA del proveedor
-   * (el caso de Aiven). */
+  max: Number(process.env.DB_POOL || 10),
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+  /* La aplicación trabaja en hora de Lima: se fija también en la sesión de la
+   * base para que NOW() y las columnas TIMESTAMP coincidan con el navegador. */
+  options: '-c timezone=America/Lima',
   ...(process.env.DB_SSL === 'true' ? { ssl: sslDeLaBase() } : {})
 });
 
-/** Espera a que MySQL acepte conexiones (arranque de Docker) */
+/* Las consultas se escribieron con marcadores '?' (estilo MySQL). En vez de
+ * reescribir las 24 a mano, se traducen a $1, $2... en un solo lugar. */
+function pgSql(sql) {
+  let n = 0;
+  return String(sql).replace(/\?/g, () => '$' + (++n));
+}
+
+/** Ejecuta un SELECT y devuelve las filas. */
+async function consultar(sql, params = []) {
+  const { rows } = await pool.query(pgSql(sql), params);
+  return rows;
+}
+
+/** Ejecuta un INSERT/UPDATE/DELETE y devuelve el resultado completo
+ *  (rowCount y rows; útil con RETURNING id). */
+function ejecutar(sql, params = []) {
+  return pool.query(pgSql(sql), params);
+}
+
+/** Espera a que PostgreSQL acepte conexiones (arranque de Docker) */
 async function esperarBase(maxIntentos = 30) {
   for (let i = 1; i <= maxIntentos; i++) {
     try {
@@ -192,7 +204,7 @@ async function esperarBase(maxIntentos = 30) {
       console.log(`[BD] Conectado a ${CFG.db.host}:${CFG.db.port}/${CFG.db.database}`);
       return true;
     } catch (e) {
-      console.log(`[BD] MySQL no disponible (intento ${i}/${maxIntentos}): ${e.code || e.message}`);
+      console.log(`[BD] PostgreSQL no disponible (intento ${i}/${maxIntentos}): ${e.code || e.message}`);
       await new Promise(r => setTimeout(r, 2000));
     }
   }
@@ -266,8 +278,8 @@ function dniDePeticion(req) {
   return /^\d{8}$/.test(dni) ? dni : CFG.demoDni;
 }
 
-/** Convierte una columna DATE de MySQL a 'YYYY-MM-DD'.
- *  mysql2 la entrega como objeto Date, así que `String(fecha).slice(0, 10)`
+/** Convierte una columna DATE de PostgreSQL a 'YYYY-MM-DD'.
+ *  pg la entrega como objeto Date, así que `String(fecha).slice(0, 10)`
  *  producía "Mon Sep 28" y el navegador lo leía como el año 2001. Se usan
  *  los componentes locales, que son exactamente los que trae la columna. */
 function fechaCorta(valor) {
@@ -277,7 +289,7 @@ function fechaCorta(valor) {
   return String(valor).slice(0, 10);
 }
 
-/** Convierte una fila de MySQL al mismo formato que usa el frontend */
+/** Convierte una fila de PostgreSQL al mismo formato que usa el frontend */
 function enriquecer(fila, dni) {
   if (!fila) return null;
   const meta = ESTADOS[fila.estado] || ESTADOS.valido;
@@ -356,13 +368,13 @@ const SELECT_ENTRADA = `
 `;
 
 async function obtenerFila(codigo) {
-  const [rows] = await pool.execute(`${SELECT_ENTRADA} WHERE e.codigo = ? LIMIT 1`, [codigo]);
+  const rows = await consultar(`${SELECT_ENTRADA} WHERE e.codigo = ? LIMIT 1`, [codigo]);
   return rows[0] || null;
 }
 
 /** Registra un evento en el historial (trazabilidad) */
 async function registrar(codigo, accion, titular, detalle = '', estado = null) {
-  await pool.execute(
+  await ejecutar(
     `INSERT INTO historial (entrada_id, accion, titular, detalle, estado_registrado)
      SELECT id, ?, ?, ?, ? FROM entradas WHERE codigo = ?`,
     [accion, titular, detalle, estado, codigo]
@@ -372,22 +384,32 @@ async function registrar(codigo, accion, titular, detalle = '', estado = null) {
 /* ---------------------------------------------------------------------
  * 5. Tokens dinamicos firmados (HMAC-SHA256)
  * ------------------------------------------------------------------- */
+
+/** Firma HMAC-SHA256 (32 caracteres hex) de un token.
+ *  Se usa al generarlo y al validarlo para que ambos lados calculen
+ *  exactamente lo mismo. */
+function firmarToken(codigo, nonce, expira) {
+  const ms = expira instanceof Date ? expira.getTime() : new Date(expira).getTime();
+  return crypto
+    .createHmac('sha256', CFG.qrSecret)
+    .update(`${codigo}|${nonce}|${ms}`)
+    .digest('hex')
+    .slice(0, 32);
+}
+
 function generarToken(codigo) {
   const nonce = crypto.randomBytes(4).toString('hex').toUpperCase();      // 8 hex
-  /* expira_en es DATETIME, columna SIN milisegundos: MySQL guarda el instante
+  /* expira_en es TIMESTAMP SIN milisegundos: PostgreSQL guarda el instante
    * redondeado al segundo, y al validar la firma se recalcula sobre ese valor
    * leido de la base. Si se firmase el instante con milisegundos, la firma
    * guardada NUNCA cuadraria al comprobarla y todo QR daria "firma no
    * valida". Por eso el instante se redondea ANTES de firmarlo. */
   const expira = new Date(Math.floor((Date.now() + CFG.qrTtl * 1000) / 1000) * 1000);
-  const firma = crypto
-    .createHmac('sha256', CFG.qrSecret)
-    .update(`${codigo}|${nonce}|${expira.getTime()}`)
-    .digest('hex');                                                       // firma completa
+  const firma = firmarToken(codigo, nonce, expira);
   return {
     token: `JSP-${codigo}-${nonce}`,
     nonce,
-    firma: firma.slice(0, 32),
+    firma,
     expiraEn: expira
   };
 }
@@ -440,8 +462,8 @@ function validarTransferencia(datos, entrada) {
   else if (!RE_CORREO.test(correo)) campos.correo = 'Ingrese un correo electrónico válido (ejemplo@correo.com).';
 
   const precioMaximo = Number(entrada.precio);
-  const precio = datos.precio === '' || datos.precio == null ? NaN : Number(datos.precio);
-  if (isNaN(precio)) campos.precio = 'Indique el precio de transferencia.';
+  const precio = datos.precio === '' || datos.precio == null ? Number.NaN : Number(datos.precio);
+  if (Number.isNaN(precio)) campos.precio = 'Indique el precio de transferencia.';
   else if (precio < 0) campos.precio = 'El precio debe ser un número válido en soles.';
   else if (precio > precioMaximo) campos.precio = 'El precio de transferencia supera el límite permitido.';
 
@@ -463,12 +485,11 @@ app.get('/api/health', ruta(async (req, res) => {
     bd = true;
   } catch (e) { /* sin base de datos */ }
 
-  const [tablas] = bd
-    ? await pool.query(
+  const tablas = bd
+    ? await consultar(
       `SELECT COUNT(*) AS total FROM information_schema.tables
-       WHERE table_schema = ? AND table_name IN ('usuarios','eventos','entradas','transferencias','historial','tokens_qr')`,
-      [CFG.db.database])
-    : [[{ total: 0 }]];
+       WHERE table_schema = 'public' AND table_name IN ('usuarios','eventos','entradas','transferencias','historial','tokens_qr')`)
+    : [{ total: 0 }];
 
   ok(res, {
     servicio: 'joinnus-secure-pass-api',
@@ -485,7 +506,7 @@ app.get('/api/health', ruta(async (req, res) => {
  *  informacion y no la de los demas. */
 app.get('/api/resumen', ruta(async (req, res) => {
   const dni = dniDePeticion(req);
-  const [rows] = await pool.query(`
+  const rows = await consultar(`
     SELECT
       SUM(CASE WHEN estado = 'valido'      THEN 1 ELSE 0 END) AS activas,
       SUM(CASE WHEN estado = 'usado'       THEN 1 ELSE 0 END) AS usadas,
@@ -511,7 +532,7 @@ app.get('/api/resumen', ruta(async (req, res) => {
 /** Listar todas las entradas ficticias */
 app.get('/api/entradas', ruta(async (req, res) => {
   const dni = dniDePeticion(req);
-  const [rows] = await pool.query(`${SELECT_ENTRADA} ORDER BY e.codigo ASC`);
+  const rows = await consultar(`${SELECT_ENTRADA} ORDER BY e.codigo ASC`);
   // Ojo: NO usar rows.map(enriquecer) — map pasa el indice como 2º argumento
   // y `dni` recibiria 0,1,2... en lugar del DNI de la sesion.
   ok(res, { entradas: rows.map(f => enriquecer(f, dni)) });
@@ -535,7 +556,7 @@ app.get('/api/verificar/:codigo', ruta(async (req, res) => {
     'Consulta de estado desde el verificador', fila.estado);
 
   const entrada = enriquecer(fila, dniDePeticion(req));
-  const [hist] = await pool.query(
+  const hist = await consultar(
     'SELECT COUNT(*) AS n FROM historial WHERE entrada_id = (SELECT id FROM entradas WHERE codigo = ?)',
     [codigo]);
 
@@ -573,21 +594,22 @@ app.post('/api/entradas/:codigo/qr', limiteQR, ruta(async (req, res) => {
   const { token, nonce, firma, expiraEn } = generarToken(codigo);
 
   // El QR anterior queda invalidado
-  await pool.execute(
+  await ejecutar(
     `UPDATE tokens_qr SET invalidado = 1 WHERE entrada_id =
        (SELECT id FROM entradas WHERE codigo = ?) AND invalidado = 0`,
     [codigo]);
 
-  await pool.execute(
+  await ejecutar(
     `UPDATE entradas
         SET qr_anterior_token = qr_ultimo_token,
             qr_ultimo_token = ?, qr_firma = ?, qr_expira_en = ?, qr_generado_en = NOW()
       WHERE codigo = ?`,
     [token, firma, expiraEn, codigo]);
 
-  const [ins] = await pool.execute(
+  const ins = await ejecutar(
     `INSERT INTO tokens_qr (entrada_id, token, nonce, firma, payload, expira_en)
-     SELECT id, ?, ?, ?, ?, ? FROM entradas WHERE codigo = ?`,
+     SELECT id, ?, ?, ?, ?, ? FROM entradas WHERE codigo = ?
+     RETURNING id`,
     [token, nonce, firma, construirPayload(codigo, nonce), expiraEn, codigo]);
 
   if (registrarEnHistorial) {
@@ -606,7 +628,7 @@ app.post('/api/entradas/:codigo/qr', limiteQR, ruta(async (req, res) => {
     payload: construirPayload(codigo, nonce),
     expiraEn,
     ttl: CFG.qrTtl,
-    id: ins.insertId,
+    id: ins.rows[0].id,
     entrada: enriquecer(actualizada, dniDePeticion(req))
   });
 }));
@@ -617,7 +639,7 @@ app.post('/api/qr/validar', limiteValidar, ruta(async (req, res) => {
   const token = extraerToken(recibido);
   if (!token) return fallo(res, 400, 'Token de QR con formato inválido.');
 
-  const [rows] = await pool.query(
+  const rows = await consultar(
     `SELECT t.id, t.token, t.nonce, t.firma, t.expira_en, t.invalidado, t.usado_en,
             e.codigo, e.estado, e.titular_nombre
        FROM tokens_qr t
@@ -632,10 +654,7 @@ app.post('/api/qr/validar', limiteValidar, ruta(async (req, res) => {
 
   // La firma se recalcula en el servidor: un token alterado no valida
   const { nonce, expiraEn } = { nonce: t.nonce, expiraEn: t.expira_en };
-  const esperado = crypto
-    .createHmac('sha256', CFG.qrSecret)
-    .update(`${t.codigo}|${nonce}|${new Date(expiraEn).getTime()}`)
-    .digest('hex').slice(0, 32);
+  const esperado = firmarToken(t.codigo, nonce, expiraEn);
 
   if (esperado !== t.firma) {
     return fallo(res, 200, 'La firma del token no es válida.', { valido: false, motivo: 'firma' });
@@ -680,7 +699,7 @@ app.post('/api/encargados/login', limiteEncargado, ruta(async (req, res) => {
     return fallo(res, 400, 'Escribe tu nombre y tu código de encargado.');
   }
 
-  const [rows] = await pool.execute(
+  const rows = await consultar(
     'SELECT id, nombre FROM encargados WHERE codigo_hash = ? AND activo = 1 LIMIT 1',
     [hashCodigoEncargado(nombre, codigo)]);
 
@@ -706,7 +725,7 @@ app.post('/api/encargados/validar', limiteValidar, ruta(async (req, res) => {
     return fallo(res, 401, 'Inicia sesión como encargado antes de validar entradas.');
   }
 
-  const [enc] = await pool.execute(
+  const enc = await consultar(
     'SELECT id, nombre FROM encargados WHERE codigo_hash = ? AND activo = 1 LIMIT 1',
     [hashCodigoEncargado(nombre, codigoEncargado)]);
 
@@ -726,7 +745,7 @@ app.post('/api/encargados/validar', limiteValidar, ruta(async (req, res) => {
   let fila = null;
 
   if (token) {
-    const [rows] = await pool.query(
+    const rows = await consultar(
       `SELECT t.id, t.token, t.nonce, t.firma, t.expira_en, t.invalidado, t.usado_en,
               e.codigo, e.estado, e.titular_nombre
          FROM tokens_qr t
@@ -741,10 +760,7 @@ app.post('/api/encargados/validar', limiteValidar, ruta(async (req, res) => {
     const t = rows[0];
 
     // La firma se recalcula aquí: un QR alterado no pasa la puerta
-    const esperado = crypto
-      .createHmac('sha256', CFG.qrSecret)
-      .update(`${t.codigo}|${t.nonce}|${new Date(t.expira_en).getTime()}`)
-      .digest('hex').slice(0, 32);
+    const esperado = firmarToken(t.codigo, t.nonce, t.expira_en);
 
     if (esperado !== t.firma) {
       return fallo(res, 200, 'La firma del token no es válida.',
@@ -787,16 +803,16 @@ app.post('/api/encargados/validar', limiteValidar, ruta(async (req, res) => {
   let registrado = false;
 
   if (registrarIngreso) {
-    await pool.execute(
+    await ejecutar(
       "UPDATE entradas SET estado = 'usado', usada_en = NOW() WHERE codigo = ? AND estado <> 'usado'",
       [fila.codigo]);
     if (token) {
-      await pool.execute('UPDATE tokens_qr SET usado_en = NOW() WHERE token = ?', [token]);
+      await ejecutar('UPDATE tokens_qr SET usado_en = NOW() WHERE token = ?', [token]);
     } else {
       // Registro por codigo (sin QR escaneado): se cierra el token vigente
       // para que la entrada no deje un QR "vivo" en el celular del asistente.
       // No se marca usado_en porque ese QR no se escaneo en la puerta.
-      await pool.execute(
+      await ejecutar(
         `UPDATE tokens_qr SET invalidado = 1
           WHERE invalidado = 0 AND entrada_id =
             (SELECT id FROM entradas WHERE codigo = ?)`, [fila.codigo]);
@@ -852,35 +868,36 @@ app.post('/api/entradas/:codigo/transferir', limiteEscritura, ruta(async (req, r
   // Ids de la entrada y del titular ACTUAL: se leen antes de cambiar la
   // titularidad, porque el registro de transferencia los necesita (si se
   // leyeran después, "titular_anterior_id" apuntaría al nuevo dueño).
-  const [ids] = await pool.execute(
+  const ids = await consultar(
     'SELECT id, titular_id FROM entradas WHERE codigo = ? LIMIT 1', [codigo]);
   const entradaId = ids.length ? ids[0].id : null;
   const titularAnteriorId = ids.length ? ids[0].titular_id : null;
   if (!entradaId) return fallo(res, 404, 'La entrada no existe en el sistema.');
 
   // Usuario destino (se crea si no existe, para no romper la FK)
-  const [usr] = await pool.execute(
+  const usr = await ejecutar(
     `INSERT INTO usuarios (nombre, dni, correo) VALUES (?, ?, ?)
-     ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), correo = VALUES(correo)`,
+     ON CONFLICT (dni) DO UPDATE SET nombre = EXCLUDED.nombre, correo = EXCLUDED.correo
+     RETURNING id`,
     [v.nombre, v.dni, v.correo]);
   // insertId viene en 0 cuando el DNI ya existía (se actualizó la fila), así
   // que en ese caso se busca el id. Esto era "const" y provocaba un
   // "Assignment to constant variable" (500) en toda transferencia hacia un
   // usuario ya registrado.
-  let usuarioNuevoId = usr.insertId || null;
+  let usuarioNuevoId = usr.rows.length ? usr.rows[0].id : null;
   if (!usuarioNuevoId) {
-    const [found] = await pool.execute('SELECT id FROM usuarios WHERE dni = ?', [v.dni]);
+    const found = await consultar('SELECT id FROM usuarios WHERE dni = ?', [v.dni]);
     usuarioNuevoId = found.length ? found[0].id : null;
   }
 
   // Se invalida el QR vigente
-  await pool.execute(
+  await ejecutar(
     `UPDATE tokens_qr SET invalidado = 1
       WHERE entrada_id = (SELECT id FROM entradas WHERE codigo = ?) AND invalidado = 0`,
     [codigo]);
 
   // Se actualiza la titularidad y el estado
-  await pool.execute(
+  await ejecutar(
     `UPDATE entradas
         SET titular_id = ?, titular_nombre = ?, titular_dni = ?, titular_correo = ?,
             estado = 'transferido', transferida_en = NOW(),
@@ -893,7 +910,7 @@ app.post('/api/entradas/:codigo/transferir', limiteEscritura, ruta(async (req, r
   // NOT NULL sin valor por defecto: sin enviarlos el INSERT fallaba con
   // "Field 'precio_original' doesn't have a default value" y la
   // transferencia devolvía 500.
-  await pool.execute(
+  await ejecutar(
     `INSERT INTO transferencias
        (entrada_id, titular_anterior_id, titular_anterior_nombre, titular_anterior_dni,
         titular_nuevo_id, titular_nuevo_nombre, titular_nuevo_dni, titular_nuevo_correo,
@@ -912,12 +929,12 @@ app.post('/api/entradas/:codigo/transferir', limiteEscritura, ruta(async (req, r
 
   // QR nuevo para el nuevo titular
   const nuevo = generarToken(codigo);
-  await pool.execute(
+  await ejecutar(
     `UPDATE entradas
         SET qr_ultimo_token = ?, qr_firma = ?, qr_expira_en = ?, qr_generado_en = NOW()
       WHERE codigo = ?`, [nuevo.token, nuevo.firma, nuevo.expiraEn, codigo]);
 
-  await pool.execute(
+  await ejecutar(
     `INSERT INTO tokens_qr (entrada_id, token, nonce, firma, payload, expira_en)
      SELECT id, ?, ?, ?, ?, ? FROM entradas WHERE codigo = ?`,
     [nuevo.token, nuevo.nonce, nuevo.firma, construirPayload(codigo, nuevo.nonce), nuevo.expiraEn, codigo]);
@@ -964,8 +981,8 @@ app.post('/api/usuarios', limiteEscritura, ruta(async (req, res) => {
   }
 
   // El DNI es la identidad del sistema: no puede repetirse. Si dos personas
-  // se registran a la vez, la clave única uq_usuarios_dni decide (ER_DUP_ENTRY).
-  const [existe] = await pool.execute('SELECT id FROM usuarios WHERE dni = ? LIMIT 1', [dni]);
+  // se registran a la vez, la clave única uq_usuarios_dni decide (23505).
+  const existe = await consultar('SELECT id FROM usuarios WHERE dni = ? LIMIT 1', [dni]);
   if (existe.length) {
     return fallo(res, 409, 'Ese DNI ya está registrado: identifícate con tu nombre.',
       { campo: 'dni' });
@@ -973,15 +990,15 @@ app.post('/api/usuarios', limiteEscritura, ruta(async (req, res) => {
 
   const telefono = String(b.telefono || '').trim().slice(0, 30) || null;
   try {
-    const [alta] = await pool.execute(
-      'INSERT INTO usuarios (nombre, dni, correo, telefono) VALUES (?, ?, ?, ?)',
+    const alta = await ejecutar(
+      'INSERT INTO usuarios (nombre, dni, correo, telefono) VALUES (?, ?, ?, ?) RETURNING id',
       [nombre, dni, correo, telefono]);
     return res.status(201).json({
       ok: true,
-      usuario: { id: alta.insertId, nombre: nombre, dni: dni, correo: correo }
+      usuario: { id: alta.rows[0].id, nombre: nombre, dni: dni, correo: correo }
     });
   } catch (e) {
-    if (e && e.code === 'ER_DUP_ENTRY') {
+    if (e && e.code === '23505') {
       return fallo(res, 409, 'Ese DNI ya está registrado: identifícate con tu nombre.',
         { campo: 'dni' });
     }
@@ -998,7 +1015,7 @@ app.get('/api/usuarios/:dni', ruta(async (req, res) => {
     return fallo(res, 400, 'El DNI debe tener exactamente 8 números.', { campo: 'dni' });
   }
 
-  const [rows] = await pool.query(
+  const rows = await consultar(
     'SELECT id, nombre, dni, correo FROM usuarios WHERE dni = ? LIMIT 1', [dni]);
 
   if (!rows.length) {
@@ -1015,8 +1032,8 @@ app.get('/api/usuarios/:dni', ruta(async (req, res) => {
 app.get('/api/historial', ruta(async (req, res) => {
   const dni = String(req.query.dni || '').trim();
 
-  const [rows] = /^\d{8}$/.test(dni)
-    ? await pool.query(
+  const rows = /^\d{8}$/.test(dni)
+    ? await consultar(
       `SELECT h.id, e.codigo, h.accion, h.titular, h.detalle, h.estado_registrado, h.creado_en
          FROM historial h JOIN entradas e ON e.id = h.entrada_id
         WHERE e.titular_dni = ?
@@ -1024,7 +1041,7 @@ app.get('/api/historial', ruta(async (req, res) => {
                        WHERE t.entrada_id = e.id
                          AND (t.titular_anterior_dni = ? OR t.titular_nuevo_dni = ?))
         ORDER BY h.creado_en ASC, h.id ASC`, [dni, dni, dni])
-    : await pool.query(
+    : await consultar(
       `SELECT h.id, e.codigo, h.accion, h.titular, h.detalle, h.estado_registrado, h.creado_en
          FROM historial h JOIN entradas e ON e.id = h.entrada_id
         ORDER BY h.creado_en ASC, h.id ASC`);
@@ -1035,7 +1052,7 @@ app.get('/api/historial', ruta(async (req, res) => {
 app.get('/api/entradas/:codigo/historial', ruta(async (req, res) => {
   const codigo = String(req.params.codigo).toUpperCase();
 
-  const [rows] = await pool.query(
+  const rows = await consultar(
     `SELECT h.id, e.codigo, h.accion, h.titular, h.detalle, h.estado_registrado, h.creado_en
        FROM historial h JOIN entradas e ON e.id = h.entrada_id
       WHERE e.codigo = ? ORDER BY h.creado_en ASC, h.id ASC`, [codigo]);
@@ -1068,7 +1085,7 @@ app.post('/api/entradas/:codigo/estado/:estado', limiteEscritura, ruta(async (re
     ? `UPDATE entradas SET estado = 'valido', ${columna} = NULL WHERE codigo = ?`
     : `UPDATE entradas SET estado = ?, ${columna} = NOW() WHERE codigo = ?`;
 
-  await pool.execute(sql, estado === 'valido' ? [codigo] : [estado, codigo]);
+  await ejecutar(sql, estado === 'valido' ? [codigo] : [estado, codigo]);
 
   const accion = estado === 'usado' ? 'usada' : estado === 'anulado' ? 'anulada' : 'verificada';
   const detalle = estado === 'usado' ? 'Ingreso registrado en el evento'
@@ -1081,7 +1098,7 @@ app.post('/api/entradas/:codigo/estado/:estado', limiteEscritura, ruta(async (re
 
 /** Reinicia los datos ficticios de la demo */
 app.post('/api/demo/reiniciar', limiteEscritura, ruta(async (req, res) => {
-  // El mismo archivo que usa MySQL al arrancar (fuente unica de verdad).
+  // El mismo archivo que usa PostgreSQL al arrancar (fuente única de verdad).
   // docker-compose.yml lo monta en /app/seed.sql
   const rutas = [
     process.env.SEED_SQL,
@@ -1090,28 +1107,33 @@ app.post('/api/demo/reiniciar', limiteEscritura, ruta(async (req, res) => {
   ].filter(Boolean);
   const semilla = rutas.find(r => fs.existsSync(r));
 
-  const conn = await mysql.createConnection({
-    host: CFG.db.host, port: CFG.db.port, user: CFG.db.user,
-    password: CFG.db.password, database: CFG.db.database,
-    multipleStatements: true
+  const cliente = new Client({
+    host: CFG.db.host,
+    port: CFG.db.port,
+    user: CFG.db.user,
+    password: CFG.db.password,
+    database: CFG.db.database,
+    options: '-c timezone=America/Lima'
   });
+  await cliente.connect();
 
   try {
-    await conn.query('SET FOREIGN_KEY_CHECKS = 0');
-    for (const tabla of ['historial', 'tokens_qr', 'transferencias', 'entradas', 'eventos', 'usuarios']) {
-      await conn.query('TRUNCATE TABLE ' + tabla);
-    }
-    await conn.query('SET FOREIGN_KEY_CHECKS = 1');
+    /* TRUNCATE ... CASCADE borra también las filas que dependen por clave
+     * foránea; RESTART IDENTITY reinicia los contadores SERIAL. */
+    await cliente.query(
+      'TRUNCATE TABLE historial, tokens_qr, transferencias, entradas, eventos, usuarios '
+      + 'RESTART IDENTITY CASCADE');
 
     if (semilla) {
-      await conn.query(fs.readFileSync(semilla, 'utf8'));
+      // El archivo de semilla es idempotente y no contiene CREATE DATABASE.
+      await cliente.query(fs.readFileSync(semilla, 'utf8'));
       console.log('[DEMO] Datos reiniciados desde ' + semilla);
     }
   } finally {
-    conn.end();
+    await cliente.end();
   }
 
-  const [total] = await pool.query('SELECT COUNT(*) AS n FROM entradas');
+  const total = await consultar('SELECT COUNT(*) AS n FROM entradas');
   ok(res, {
     mensaje: 'Datos de demostración reiniciados.',
     semilla: semilla || null,
@@ -1146,7 +1168,7 @@ app.use((req, res) => fallo(res, 404, 'Ruta no encontrada: ' + req.method + ' ' 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   console.error('[ERROR]', err);
-  if (err && err.code === 'ER_DUP_ENTRY') {
+  if (err && err.code === '23505') {
     return fallo(res, 409, 'Ya existe un registro con esos datos.');
   }
   fallo(res, 500, 'Error interno del servidor: ' + (err && err.message ? err.message : 'desconocido'));
@@ -1162,20 +1184,40 @@ function construirPayload(codigo, nonce) {
 }
 
 if (require.main === module) {
-  esperarBase().then(() => {
-    app.listen(CFG.port, '0.0.0.0', () => {
-      console.log('');
-      console.log('  ====================================================');
-      console.log('   JOINNUS SECURE PASS — API');
-      console.log('  ====================================================');
-      console.log(`   URL:      http://localhost:${CFG.port}/api`);
-      console.log(`   Salud:    http://localhost:${CFG.port}/api/health`);
-      console.log(`   Base:     ${CFG.db.host}:${CFG.db.port}/${CFG.db.database}`);
-      console.log(`   QR TTL:   ${CFG.qrTtl} segundos`);
-      console.log('  ====================================================');
-      console.log('');
+  esperarBase()
+    .then((conectado) => {
+      if (!conectado) return process.exit(1);
+      app.listen(CFG.port, '0.0.0.0', () => {
+        console.log('');
+        console.log('  ====================================================');
+        console.log('   JOINNUS SECURE PASS — API');
+        console.log('  ====================================================');
+        console.log(`   URL:      http://localhost:${CFG.port}/api`);
+        console.log(`   Salud:    http://localhost:${CFG.port}/api/health`);
+        console.log(`   Base:     ${CFG.db.host}:${CFG.db.port}/${CFG.db.database}`);
+        console.log(`   QR TTL:   ${CFG.qrTtl} segundos`);
+        console.log('  ====================================================');
+        console.log('');
+      });
+    })
+    .catch((e) => {
+      console.error('[BD] No se pudo iniciar el servidor:', e);
+      process.exit(1);
     });
-  });
 }
 
 module.exports = app;
+
+/* Funciones puras exportadas para las pruebas unitarias (test/unit).
+ * No alteran el comportamiento de la API: sólo quedan accesibles desde
+ * `require('../backend/index').util`. */
+module.exports.util = {
+  ocultarDNI,
+  fechaCorta,
+  hashCodigoEncargado,
+  firmarToken,
+  generarToken,
+  validarTransferencia,
+  extraerToken,
+  pgSql
+};

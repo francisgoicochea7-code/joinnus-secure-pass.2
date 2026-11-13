@@ -262,7 +262,7 @@
       const almacen = document.getElementById('sys-almacen');
       if (almacen) {
         almacen.textContent = SecurePassAPI.modoActual() === 'api'
-          ? 'MySQL (contenedor mysql)'
+          ? 'PostgreSQL (contenedor postgres)'
           : 'localStorage (navegador)';
       }
 
