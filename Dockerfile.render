@@ -1,0 +1,71 @@
+# =========================================================================
+#  JOINNUS SECURE PASS — imagen única para Render
+#
+#  Contiene los cuatro servicios de la arquitectura de microservicios:
+#    - auth-service     (interno, 3101)
+#    - tickets-service  (interno, 3102)
+#    - qr-service       (interno, 3103)
+#    - gateway Nginx    (público, el puerto que asigna Render)
+#
+#  Render termina el TLS en su balanceador, así que Nginx escucha HTTP en
+#  $PORT: no hay certificados propios ni avisos del navegador.
+#
+#  Se construye con el contexto de la raíz del proyecto:
+#      docker build -f Dockerfile.render -t joinnus-secure-pass .
+# =========================================================================
+FROM node:20-alpine
+
+LABEL maintainer="Proyecto universitario Joinnus Secure Pass"
+LABEL description="Auth + tickets + qr + gateway Nginx en un solo contenedor para Render"
+
+# nginx        -> gateway interno
+# gettext      -> envsubst, para inyectar $PORT en la configuración
+# wget         -> healthcheck local del contenedor
+RUN apk add --no-cache nginx gettext wget tzdata \
+ && addgroup -g 10001 app \
+ && adduser -D -u 10001 -G app app \
+ && mkdir -p /app/render/conf
+
+WORKDIR /app
+
+# Dependencias compartidas por los tres servicios (express, pg, dotenv).
+COPY services/package.json ./services/package.json
+RUN cd services && npm install --omit=dev --no-audit --no-fund
+
+# Código de los servicios y utilidades compartidas.
+COPY services/shared      ./services/shared
+COPY services/auth/src    ./services/auth/src
+COPY services/tickets/src ./services/tickets/src
+COPY services/qr/src      ./services/qr/src
+COPY services/scripts     ./services/scripts
+
+# Configuración del gateway y del arranque.
+COPY render/nginx-main.conf        /etc/nginx/nginx.conf
+COPY render/gateway.conf.template  /app/render/gateway.conf.template
+COPY render/start.sh               /app/render/start.sh
+COPY services/gateway/api-common.conf /etc/nginx/api-common.conf
+COPY frontend/security-headers.conf   /etc/nginx/security-headers.conf
+COPY frontend/hsts-map.conf           /etc/nginx/hsts-map.conf
+
+# Sitio estático. Se eliminan los .conf para no servirlos como archivos.
+COPY frontend/ /usr/share/nginx/html/
+RUN rm -f /usr/share/nginx/html/*.conf
+
+# Semillas: las usa el reinicio de demo (bloqueado en el gateway público).
+COPY database/micro/*.sql /app/seed/
+
+RUN chmod +x /app/render/start.sh \
+ && mkdir -p /var/lib/nginx/logs /var/log/nginx \
+ && chown -R app:app /app /usr/share/nginx/html /var/lib/nginx /var/log/nginx
+
+USER app
+
+ENV NODE_ENV=production
+ENV TZ=America/Lima
+
+EXPOSE 10000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD wget -q -O /dev/null "http://127.0.0.1:${PORT:-10000}/api/health" || exit 1
+
+CMD ["/app/render/start.sh"]

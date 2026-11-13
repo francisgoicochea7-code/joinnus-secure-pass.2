@@ -1,0 +1,183 @@
+# =========================================================================
+#  Gateway público de Render (HTTP en $PORT).
+#  Se genera en /app/render/conf/default.conf al arrancar con envsubst, que
+#  reemplaza ${PORT} por el puerto que asigna la plataforma (10000 por
+#  defecto). Render pone el HTTPS por delante.
+# =========================================================================
+
+# --- Límites de peticiones ----------------------------------------------
+limit_req_zone $binary_remote_addr zone=api_general:10m rate=120r/m;
+limit_req_zone $binary_remote_addr zone=api_login:10m   rate=20r/m;
+limit_req_zone $binary_remote_addr zone=api_qr:10m      rate=60r/m;
+limit_req_zone $binary_remote_addr zone=api_write:10m   rate=30r/m;
+limit_req_status 429;
+
+# --- CORS ---------------------------------------------------------------
+# El frontend se sirve desde este mismo host, así que CORS no hace falta en
+# el caso normal; se permite el propio dominio para pruebas externas.
+map $http_origin $cors_origin {
+    default "";
+    "~^https://[a-zA-Z0-9-]+\.onrender\.com$" $http_origin;
+    "~^https?://localhost(:[0-9]+)?$"          $http_origin;
+    "~^https?://127\.0\.0\.1(:[0-9]+)?$"      $http_origin;
+}
+
+server {
+    listen ${PORT};
+    server_name _;
+
+    root  /usr/share/nginx/html;
+    index index.html;
+    charset utf-8;
+
+    client_max_body_size 64k;
+
+    # Render reenvía la IP real del visitante en X-Forwarded-For. Se toma la
+    # última dirección (la que agrega su proxy) para que los límites de
+    # peticiones no los compartan todos los usuarios.
+    real_ip_header X-Forwarded-For;
+    set_real_ip_from 0.0.0.0/0;
+
+    access_log /dev/stdout json_combined;
+
+    # --- Salud del gateway ------------------------------------------------
+    location = /api/health {
+        default_type application/json;
+        add_header Cache-Control "no-store, max-age=0" always;
+        include /etc/nginx/security-headers.conf;
+        return 200 '{"ok":true,"servicio":"joinnus-secure-pass-gateway","version":"2.0.0-micro","baseDatos":"distribuida","hora":"$time_iso8601"}';
+    }
+
+    # --- auth-service -----------------------------------------------------
+    location = /api/encargados/login {
+        limit_req zone=api_login burst=5 nodelay;
+        proxy_pass http://127.0.0.1:3101;
+        include /etc/nginx/api-common.conf;
+    }
+
+    location = /api/usuarios {
+        limit_req zone=api_write burst=5 nodelay;
+        proxy_pass http://127.0.0.1:3101;
+        include /etc/nginx/api-common.conf;
+    }
+
+    location ~ "^/api/usuarios/[0-9]{8}$" {
+        limit_req zone=api_general burst=20 nodelay;
+        proxy_pass http://127.0.0.1:3101;
+        include /etc/nginx/api-common.conf;
+    }
+
+    # --- qr-service -------------------------------------------------------
+    location = /api/qr/validar {
+        limit_req zone=api_qr burst=10 nodelay;
+        proxy_pass http://127.0.0.1:3103;
+        include /etc/nginx/api-common.conf;
+    }
+
+    location ~ ^/api/entradas/[^/]+/qr$ {
+        limit_req zone=api_qr burst=10 nodelay;
+        proxy_pass http://127.0.0.1:3103;
+        include /etc/nginx/api-common.conf;
+    }
+
+    # --- tickets-service --------------------------------------------------
+    location = /api/resumen {
+        limit_req zone=api_general burst=20 nodelay;
+        proxy_pass http://127.0.0.1:3102;
+        include /etc/nginx/api-common.conf;
+    }
+
+    location = /api/entradas {
+        limit_req zone=api_general burst=20 nodelay;
+        proxy_pass http://127.0.0.1:3102;
+        include /etc/nginx/api-common.conf;
+    }
+
+    location = /api/historial {
+        limit_req zone=api_general burst=20 nodelay;
+        proxy_pass http://127.0.0.1:3102;
+        include /etc/nginx/api-common.conf;
+    }
+
+    location = /api/encargados/validar {
+        limit_req zone=api_qr burst=10 nodelay;
+        proxy_pass http://127.0.0.1:3102;
+        include /etc/nginx/api-common.conf;
+    }
+
+    # El reinicio de demo borra y vuelve a sembrar las tres bases. En la
+    # versión publicada queda deshabilitado para que un visitante no pueda
+    # dejar la aplicación sin datos.
+    location = /api/demo/reiniciar {
+        default_type application/json;
+        add_header Cache-Control "no-store, max-age=0" always;
+        include /etc/nginx/security-headers.conf;
+        return 403 '{"ok":false,"error":"El reinicio de demo está deshabilitado en la versión publicada.","codigo":"DEMO_DESHABILITADO"}';
+    }
+
+    location ~ ^/api/verificar/[^/]+$ {
+        limit_req zone=api_general burst=20 nodelay;
+        proxy_pass http://127.0.0.1:3102;
+        include /etc/nginx/api-common.conf;
+    }
+
+    location ~ ^/api/entradas/[^/]+/transferir$ {
+        limit_req zone=api_write burst=5 nodelay;
+        proxy_pass http://127.0.0.1:3102;
+        include /etc/nginx/api-common.conf;
+    }
+
+    location ~ ^/api/entradas/[^/]+/historial$ {
+        limit_req zone=api_general burst=20 nodelay;
+        proxy_pass http://127.0.0.1:3102;
+        include /etc/nginx/api-common.conf;
+    }
+
+    location ~ ^/api/entradas/[^/]+/estado/[^/]+$ {
+        limit_req zone=api_write burst=5 nodelay;
+        proxy_pass http://127.0.0.1:3102;
+        include /etc/nginx/api-common.conf;
+    }
+
+    location ~ ^/api/entradas/[^/]+$ {
+        limit_req zone=api_general burst=20 nodelay;
+        proxy_pass http://127.0.0.1:3102;
+        include /etc/nginx/api-common.conf;
+    }
+
+    # --- Estático ---------------------------------------------------------
+    location / {
+        try_files $uri $uri/ =404;
+        add_header Cache-Control "no-store, max-age=0" always;
+        add_header Pragma "no-cache" always;
+        add_header Expires "0" always;
+        include /etc/nginx/security-headers.conf;
+    }
+
+    location ~* \.(css|js)$ {
+        add_header Cache-Control "no-store, max-age=0" always;
+        add_header Pragma "no-cache" always;
+        add_header Expires "0" always;
+        include /etc/nginx/security-headers.conf;
+    }
+
+    location ~* \.(svg|png|jpg|jpeg|gif|ico|woff2?|ttf)$ {
+        default_type font/ttf;
+        add_header Cache-Control "public, max-age=2592000, immutable" always;
+        include /etc/nginx/security-headers.conf;
+    }
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 512;
+    gzip_proxied any;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml application/xml;
+
+    error_page 429 = @demasiadas;
+    error_page 404 /index.html;
+
+    location @demasiadas {
+        default_type application/json;
+        return 429 '{"ok":false,"error":"Demasiadas solicitudes. Espera un momento antes de reintentar.","codigo":"DEMASIADAS_SOLICITUDES"}';
+    }
+}

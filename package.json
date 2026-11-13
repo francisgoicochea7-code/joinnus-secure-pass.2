@@ -17,6 +17,7 @@
     "test:qr": "node test/qr-selftest.js",
     "test:app": "node test/verificacion.js",
     "test:unit": "node --test \"test/unit/*.test.js\"",
+    "test:micro": "node test/integration/micro-smoke.mjs",
     "db:remoto": "node scripts/sembrar-remoto.js",
     "db:encargados": "node scripts/migrar-encargados.js",
     "encargado": "node scripts/encargado.js"

@@ -5,7 +5,7 @@
  *    1. Entra con su nombre + código (el servidor comprueba el hash).
  *    2. Escanea el QR con la cámara del celular (BarcodeDetector) o escribe
  *       el código de la entrada.
- *    3. Ve el resultado y, si todo está bien, registra el ingreso. El
+ *    3. Ve el resultado y, si es correcto, guarda el ingreso. El
  *       historial guarda que lo validó él/ella.
  *
  *  La sesión vive en localStorage: igual que el DNI del sitio público, no

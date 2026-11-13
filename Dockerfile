@@ -14,6 +14,9 @@ LABEL description="Frontend estatico de Joinnus Secure Pass sobre nginx"
 # Se reemplaza la configuracion por defecto de nginx
 RUN rm -f /etc/nginx/conf.d/default.conf
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY frontend/security-headers.conf /etc/nginx/security-headers.conf
+COPY frontend/site.conf /etc/nginx/site.conf
+COPY frontend/hsts-map.conf /etc/nginx/conf.d/00-hsts-map.conf
 
 # Sitio estatico
 COPY frontend/ /usr/share/nginx/html/

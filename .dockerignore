@@ -8,7 +8,15 @@ test
 *.md
 !README.md
 .env
-database
+.env.*
+.certs
+.sonar-token
+docs
+specs
+database/*
+# Las tres semillas de microservicios sí viajan a la imagen de Render, que las
+# usa para inicializar la base administrada y el reinicio de demo.
+!database/micro/
 backend
 docker-compose.yml
 .dockerignore

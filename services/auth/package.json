@@ -1,0 +1,18 @@
+{
+  "name": "joinnus-auth-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Servicio de usuarios y encargados de Joinnus Secure Pass",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.13.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

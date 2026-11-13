@@ -1,0 +1,214 @@
+# =========================================================================
+#  JOINNUS SECURE PASS — microservicios
+#  PostgreSQL (3 bases) + auth-service + tickets-service + qr-service
+#  + gateway Nginx.
+#
+#  Uso:
+#    copy .env.micro.example .env.micro
+#    docker compose --env-file .env.micro -f docker-compose.micro.yml up -d --build
+#
+#  Web:      https://localhost:8444
+#  Salud:    https://localhost:8444/api/health
+#  HTTP:     http://localhost:8082  (redirige a 8444)
+#
+#  Convive con la versión monolítica: usa 8082/8444/5434, la red jsp2ms_net
+#  y el volumen jsp2ms_postgres_data.
+# =========================================================================
+
+name: jsp2ms
+
+services:
+
+  # ---------------------------------------------------------------------
+  # 1) PostgreSQL 16 con tres bases separadas
+  # ---------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: jsp2ms-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       postgres
+      POSTGRES_USER:     postgres_admin
+      POSTGRES_PASSWORD: "${POSTGRES_ADMIN_PASSWORD:?Falta POSTGRES_ADMIN_PASSWORD en .env.micro}"
+      AUTH_DB_PASSWORD:    "${AUTH_DB_PASSWORD:?Falta AUTH_DB_PASSWORD en .env.micro}"
+      TICKETS_DB_PASSWORD: "${TICKETS_DB_PASSWORD:?Falta TICKETS_DB_PASSWORD en .env.micro}"
+      QR_DB_PASSWORD:      "${QR_DB_PASSWORD:?Falta QR_DB_PASSWORD en .env.micro}"
+      TZ: ${TZ:-America/Lima}
+    ports:
+      # Sólo en localhost, para inspección manual con psql.
+      - "127.0.0.1:${MICRO_POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - micro_postgres_data:/var/lib/postgresql/data
+      # Sólo se ejecuta la primera vez (volumen vacío).
+      - ./database/micro/00-init.sh:/docker-entrypoint-initdb.d/00-init.sh:ro
+      - ./database/micro:/scripts:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres_admin -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - jsp2ms_net
+
+  # ---------------------------------------------------------------------
+  # 2) auth-service — usuarios y encargados
+  # ---------------------------------------------------------------------
+  auth:
+    build:
+      context: .
+      dockerfile: services/auth/Dockerfile
+    image: joinnus-micro-auth
+    container_name: jsp2ms-auth
+    restart: unless-stopped
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3101
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: auth_db
+      DB_USER: auth_user
+      DB_PASSWORD: "${AUTH_DB_PASSWORD:?Falta AUTH_DB_PASSWORD en .env.micro}"
+      INTERNAL_TOKEN: "${INTERNAL_TOKEN:?Falta INTERNAL_TOKEN en .env.micro}"
+      DEMO_DNI: ${DEMO_DNI:-45678945}
+      SEED_SQL: /seed/auth.sql
+      TZ: ${TZ:-America/Lima}
+    volumes:
+      - ./database/micro:/seed:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3101/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      - jsp2ms_net
+
+  # ---------------------------------------------------------------------
+  # 3) tickets-service — entradas, transferencias, historial y puerta
+  # ---------------------------------------------------------------------
+  tickets:
+    build:
+      context: .
+      dockerfile: services/tickets/Dockerfile
+    image: joinnus-micro-tickets
+    container_name: jsp2ms-tickets
+    restart: unless-stopped
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3102
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: tickets_db
+      DB_USER: tickets_user
+      DB_PASSWORD: "${TICKETS_DB_PASSWORD:?Falta TICKETS_DB_PASSWORD en .env.micro}"
+      AUTH_SERVICE_URL: http://auth:3101
+      QR_SERVICE_URL: http://qr:3103
+      INTERNAL_TOKEN: "${INTERNAL_TOKEN:?Falta INTERNAL_TOKEN en .env.micro}"
+      DEMO_DNI: ${DEMO_DNI:-45678945}
+      SEED_SQL: /seed/tickets.sql
+      TZ: ${TZ:-America/Lima}
+    volumes:
+      - ./database/micro:/seed:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3102/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      - jsp2ms_net
+
+  # ---------------------------------------------------------------------
+  # 4) qr-service — tokens dinámicos y validación criptográfica
+  # ---------------------------------------------------------------------
+  qr:
+    build:
+      context: .
+      dockerfile: services/qr/Dockerfile
+    image: joinnus-micro-qr
+    container_name: jsp2ms-qr
+    restart: unless-stopped
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      tickets:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3103
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: qr_db
+      DB_USER: qr_user
+      DB_PASSWORD: "${QR_DB_PASSWORD:?Falta QR_DB_PASSWORD en .env.micro}"
+      QR_SECRET: "${QR_SECRET:?Falta QR_SECRET en .env.micro}"
+      QR_TTL_SECONDS: ${QR_TTL_SECONDS:-15}
+      TICKETS_SERVICE_URL: http://tickets:3102
+      INTERNAL_TOKEN: "${INTERNAL_TOKEN:?Falta INTERNAL_TOKEN en .env.micro}"
+      DEMO_DNI: ${DEMO_DNI:-45678945}
+      TZ: ${TZ:-America/Lima}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3103/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      - jsp2ms_net
+
+  # ---------------------------------------------------------------------
+  # 5) gateway — único punto público
+  # ---------------------------------------------------------------------
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    image: joinnus-micro-gateway
+    container_name: jsp2ms-gateway
+    restart: unless-stopped
+    depends_on:
+      auth:
+        condition: service_healthy
+      tickets:
+        condition: service_healthy
+      qr:
+        condition: service_healthy
+    ports:
+      - "${MICRO_HTTP_PORT:-8082}:8080"
+      - "${MICRO_HTTPS_PORT:-8444}:8443"
+    volumes:
+      - ./.certs:/etc/nginx/certs:ro
+    environment:
+      TZ: ${TZ:-America/Lima}
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-check-certificate -q -O /dev/null https://127.0.0.1:8443/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    networks:
+      - jsp2ms_net
+
+# -----------------------------------------------------------------------
+#  Redes y volúmenes
+# -----------------------------------------------------------------------
+networks:
+  jsp2ms_net:
+    driver: bridge
+    name: jsp2ms_net
+
+volumes:
+  micro_postgres_data:
+    name: jsp2ms_postgres_data
