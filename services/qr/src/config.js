@@ -3,6 +3,7 @@
 require('dotenv').config();
 
 const { construirDb } = require('../../shared/db-config');
+const { secretoDeEntorno } = require('../../shared/session');
 
 const qrSecret = String(process.env.QR_SECRET || '').trim();
 if (qrSecret.length < 16) {
@@ -21,5 +22,6 @@ module.exports = {
   qrTtl: Number(process.env.QR_TTL_SECONDS || 15),
   ticketsServiceUrl: process.env.TICKETS_SERVICE_URL || 'http://localhost:3102',
   internalToken: process.env.INTERNAL_TOKEN || '',
+  sessionSecret: secretoDeEntorno(process.env, process.env.INTERNAL_TOKEN),
   demoDni: process.env.DEMO_DNI || '45678945'
 };

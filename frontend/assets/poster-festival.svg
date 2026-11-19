@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" width="800" height="1000" role="img" aria-label="Poster abstracto de festival cultural">
+  <defs>
+    <linearGradient id="pl3-bg" x1="80" y1="0" x2="760" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1B0710"/>
+      <stop offset=".5" stop-color="#7A2031"/>
+      <stop offset="1" stop-color="#E07552"/>
+    </linearGradient>
+    <linearGradient id="pl3-spot" x1="400" y1="1000" x2="520" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE9CE" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#FFE9CE" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="pl3-sun" cx="0" cy="0" r="1" gradientTransform="translate(400 372) rotate(90) scale(190)">
+      <stop stop-color="#FFD9A0"/>
+      <stop offset="1" stop-color="#FFD9A0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="1000" fill="url(#pl3-bg)"/>
+  <circle cx="400" cy="372" r="200" fill="url(#pl3-sun)"/>
+  <circle cx="400" cy="372" r="118" fill="#FFE7C4" fill-opacity=".92"/>
+  <circle cx="400" cy="372" r="118" fill="none" stroke="#2A0A14" stroke-opacity=".18" stroke-width="2"/>
+  <path d="m230 1000 70-560h200l70 560Z" fill="url(#pl3-spot)"/>
+  <g stroke="#2A0A14" stroke-opacity=".3" fill="none">
+    <path d="M0 120c90 40 150 120 170 220M800 120c-90 40-150 120-170 220"/>
+    <path d="M0 0c60 160 60 320 24 470M800 0c-60 160-60 320-24 470"/>
+  </g>
+  <g fill="#2A0A14" fill-opacity=".38">
+    <path d="M0 0h110c-40 180-22 330-8 470H0Z"/>
+    <path d="M800 0H690c40 180 22 330 8 470h102Z"/>
+    <path d="M80 0h70c-26 150-14 300-4 420H80Z"/>
+    <path d="M720 0h-70c26 150 14 300 4 420h66Z"/>
+  </g>
+  <path d="M0 786c112-34 196-14 286-22s146-38 230-22 136-6 284-16v274H0Z" fill="#1D0810" fill-opacity=".6"/>
+  <g fill="#FFE7C4">
+    <circle cx="160" cy="200" r="3"/>
+    <circle cx="660" cy="290" r="2.5"/>
+    <circle cx="560" cy="120" r="2"/>
+    <path d="m660 640 4 13 13 4-13 4-4 13-4-13-13-4 13-4Z"/>
+    <path d="m160 520 3 10 10 3-10 3-3 10-3-10-10-3 10-3Z"/>
+  </g>
+</svg>

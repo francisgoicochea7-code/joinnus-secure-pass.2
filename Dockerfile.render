@@ -38,6 +38,8 @@ COPY services/auth/src    ./services/auth/src
 COPY services/tickets/src ./services/tickets/src
 COPY services/qr/src      ./services/qr/src
 COPY services/scripts     ./services/scripts
+COPY backend/activacion.js ./backend/activacion.js
+COPY backend/emitir-activacion.js ./backend/emitir-activacion.js
 
 # Configuración del gateway y del arranque.
 COPY render/nginx-main.conf        /etc/nginx/nginx.conf

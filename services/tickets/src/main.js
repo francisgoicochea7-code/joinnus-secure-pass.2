@@ -41,29 +41,26 @@ crearServicio({
   montarRutas: (app) => {
     app.use(crearRutas({
       config,
-      consultas: crearConsultas({ entradaRepo, historialRepo, demoDni: config.demoDni }),
+      consultas: crearConsultas({ entradaRepo, historialRepo }),
       transferirEntrada: crearTransferirEntrada({
         entradaRepo,
         historialRepo,
         authClient,
         qrClient,
-        logger,
-        demoDni: config.demoDni
+        logger
       }),
       validarPuerta: crearValidarPuerta({
         entradaRepo,
         historialRepo,
         authClient,
         qrClient,
-        logger,
-        demoDni: config.demoDni
+        logger
       }),
       cambiarEstado: crearCambiarEstado({
         entradaRepo,
         historialRepo,
         qrClient,
-        logger,
-        demoDni: config.demoDni
+        logger
       }),
       reiniciarDemo: crearReiniciarDemo({ demoRepo, authClient, qrClient }),
       entradaRepo,

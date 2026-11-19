@@ -11,8 +11,7 @@ function crearTransferirEntrada({
   historialRepo,
   authClient,
   qrClient,
-  logger,
-  demoDni
+  logger
 }) {
   return async ({ codigo, datos, dniSolicitante, requestId }) => {
     const fila = await entradaRepo.obtenerPorCodigo(codigo);
@@ -44,7 +43,6 @@ function crearTransferirEntrada({
 
     const titularAnterior = fila.titular_nombre;
     const dniAnterior = fila.titular_dni;
-    const tokenAnterior = fila.qr_ultimo_token;
 
     // 1. El nuevo titular vive en auth_db.
     const usuarioNuevo = await authClient.upsertUsuario({
@@ -56,10 +54,11 @@ function crearTransferirEntrada({
     // 2. Transacción local en tickets_db.
     await entradaRepo.transferir({
       codigo,
+      dniSolicitante,
       usuarioNuevoId: usuarioNuevo.id,
-      nombre: validacion.nombre,
-      dni: validacion.dni,
-      correo: validacion.correo,
+      nombre: usuarioNuevo.nombre,
+      dni: usuarioNuevo.dni,
+      correo: usuarioNuevo.correo,
       precio: validacion.precio,
       precioOriginal: Number(fila.precio),
       codigoOperacion: generarCodigoOperacion()
@@ -72,7 +71,7 @@ function crearTransferirEntrada({
       qr = await qrClient.rotar({
         codigo,
         entradaId: fila.id,
-        titularDni: validacion.dni
+        titularDni: usuarioNuevo.dni
       }, requestId);
 
       await entradaRepo.actualizarProyeccionQr(codigo, {
@@ -85,9 +84,9 @@ function crearTransferirEntrada({
       await historialRepo.registrar(
         codigo,
         'qr',
-        validacion.nombre,
+        usuarioNuevo.nombre,
         qr.tokenAnterior
-          ? `Nuevo QR generado (se invalidó ${qr.tokenAnterior})`
+          ? 'QR anterior invalidado y reemplazado'
           : 'Nuevo QR generado para el nuevo titular',
         'transferido'
       );
@@ -100,18 +99,14 @@ function crearTransferirEntrada({
     return {
       codigo,
       titularAnterior,
-      titularNuevo: validacion.nombre,
+      titularNuevo: usuarioNuevo.nombre,
       dniAnterior: ocultarDNI(dniAnterior),
       dniNuevo: ocultarDNI(validacion.dni),
-      correoNuevo: validacion.correo,
       precio: validacion.precio,
       estado: 'transferido',
       estadoEtiqueta: ESTADOS.transferido.etiqueta,
-      tokenAnterior,
-      tokenNuevo: qr ? qr.token : null,
-      payload: qr ? qr.payload : null,
       qrPendiente: !qr,
-      entrada: enriquecer(actualizada, dniSolicitante, demoDni)
+      entrada: enriquecer(actualizada, null)
     };
   };
 }

@@ -89,14 +89,26 @@ const ClienteAPI = (function () {
         try {
           const ctrl = new AbortController();
           const t = setTimeout(() => ctrl.abort(), 2500);
-          const r = await fetch(base + '/health', { signal: ctrl.signal });
+          const r = await fetch(base + '/health', {
+            signal: ctrl.signal,
+            headers: { 'Accept': 'application/json' }
+          });
           clearTimeout(t);
           if (r.ok) {
-            baseActiva = base;
-            disponible = true;
-            ultimoChequeo = Date.now();
-            console.info('[JSP] API conectada en ' + base);
-            return true;
+            // Un servidor estatico (o un proxy incompleto) responde 200 con
+            // HTML para CUALQUIER ruta, incluida /health. En ese caso no hay
+            // API real: si se diera por conectada, cada devolucion vendria
+            // vacia (datos = null) y la interfaz mostraria listas en blanco
+            // con estadisticas de otra fuente. Solo vale una respuesta JSON.
+            let cuerpo = null;
+            try { cuerpo = await r.json(); } catch (e) { cuerpo = null; }
+            if (cuerpo && typeof cuerpo === 'object') {
+              baseActiva = base;
+              disponible = true;
+              ultimoChequeo = Date.now();
+              console.info('[JSP] API conectada en ' + base);
+              return true;
+            }
           }
         } catch (e) { /* siguiente candidato */ }
       }
@@ -190,6 +202,20 @@ const ClienteAPI = (function () {
     return r.datos.usuario;
   }
 
+  /** INICIAR SESIÓN con DNI + contraseña.
+   *  Devuelve la respuesta completa: el 401 trae el mensaje genérico del
+   *  servidor y el 200 el token firmado que se guarda en la sesión. */
+  async function iniciarSesion(dni, password) {
+    return pedir('/usuarios/login', {
+      method: 'POST',
+      body: { dni: String(dni || '').trim(), password: String(password || '') }
+    });
+  }
+
+  function activarUsuario(datos) {
+    return pedir('/usuarios/activar', { method: 'POST', body: datos });
+  }
+
   /** OBTENER historial de trazabilidad.
    *  Con dni devuelve solo los movimientos de esa persona. */
   async function obtenerHistorial(codigo, dni) {
@@ -235,6 +261,8 @@ const ClienteAPI = (function () {
 
     health: health,
     buscarUsuario: buscarUsuario,
+    iniciarSesion: iniciarSesion,
+    activarUsuario: activarUsuario,
     crearUsuario: crearUsuario,
     obtenerResumen: obtenerResumen,
     listarEntradas: listarEntradas,

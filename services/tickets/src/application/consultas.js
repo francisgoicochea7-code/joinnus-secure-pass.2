@@ -3,11 +3,11 @@
 const { AppError } = require('../../../shared/errors');
 const { enriquecer, mapearHistorial } = require('../domain/entrada');
 
-function crearConsultas({ entradaRepo, historialRepo, demoDni }) {
+function crearConsultas({ entradaRepo, historialRepo }) {
   return {
     async listar(dni) {
       const filas = await entradaRepo.listar();
-      return filas.map((fila) => enriquecer(fila, dni, demoDni));
+      return filas.map((fila) => enriquecer(fila, dni));
     },
 
     async obtener(codigo, dni) {
@@ -15,7 +15,7 @@ function crearConsultas({ entradaRepo, historialRepo, demoDni }) {
       if (!fila) {
         throw new AppError(`La entrada ${codigo} no existe en el sistema.`, 404, 'ENTRADA_NO_ENCONTRADA');
       }
-      return enriquecer(fila, dni, demoDni);
+      return enriquecer(fila, dni);
     },
 
     async resumen(dni) {
@@ -56,7 +56,7 @@ function crearConsultas({ entradaRepo, historialRepo, demoDni }) {
         fila.estado
       );
 
-      const entrada = enriquecer(fila, dni, demoDni);
+      const entrada = enriquecer(fila, dni);
       const consultas = await entradaRepo.contarHistorial(codigo);
 
       return {

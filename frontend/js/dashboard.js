@@ -164,8 +164,7 @@
   /* ------------------------------------------------------------------ */
   const CAMPOS_IDENTIDAD = {
     dni: { id: 'identidad-dni', error: 'error-dni-identidad' },
-    nombres: { id: 'identidad-nombres', error: 'error-nombres-identidad' },
-    apellidos: { id: 'identidad-apellidos', error: 'error-apellidos-identidad' }
+    password: { id: 'identidad-password', error: 'error-password-identidad' }
   };
 
   /** Módulo de sesión (js/sesion.js). Puede no estar cargado en pruebas. */
@@ -218,24 +217,23 @@
     if (dniActual) dniActual.textContent = actual.dni;
     if (origen) {
       origen.textContent = u
-        ? 'Formulario de identidad (este navegador)'
+        ? 'Inicio de sesión (este navegador)'
         : 'Invitado — usuario de demostración';
     }
     if (insignia) insignia.textContent = u ? 'Identificado' : 'Modo demo';
     if (saludo) {
-      // Sin identificar: "Bienvenido"; identificado: el nombre de la persona
-      const nombreSaludo = u
-        ? JSP.escapeHtml(String(actual.nombre).split(' ')[0])
-        : 'Bienvenido';
-      saludo.innerHTML = 'Hola, ' + nombreSaludo + ' <span aria-hidden="true">👋</span>';
+      saludo.textContent = u
+        ? 'Hola, ' + String(actual.nombre).split(' ')[0] + '.'
+        : 'Mis entradas';
     }
 
+    const campoDni = document.getElementById('identidad-dni');
+    const campoPassword = document.getElementById('identidad-password');
     if (u) {
-      document.getElementById('identidad-dni').value = u.dni;
-      document.getElementById('identidad-nombres').value = u.nombres || '';
-      document.getElementById('identidad-apellidos').value = u.apellidos || '';
+      if (campoDni) campoDni.value = u.dni;
+      if (campoPassword) campoPassword.value = '';
     }
-    if (botonCambiar) botonCambiar.textContent = u ? 'Cerrar identificación' : 'Limpiar formulario';
+    if (botonCambiar) botonCambiar.textContent = u ? 'Cerrar sesión' : 'Limpiar formulario';
   }
 
   /* ------------------------------------------------------------------ */
@@ -309,8 +307,7 @@
       limpiarErroresIdentidad();
 
       const dni = document.getElementById('identidad-dni').value.trim();
-      const nombres = document.getElementById('identidad-nombres').value.trim();
-      const apellidos = document.getElementById('identidad-apellidos').value.trim();
+      const password = document.getElementById('identidad-password').value;
 
       const boton = document.getElementById('btn-identificar');
       const htmlOriginal = boton.innerHTML;
@@ -318,7 +315,7 @@
       boton.textContent = 'Comprobando…';
 
       try {
-        const r = await s.identificar(dni, nombres, apellidos);
+        const r = await s.iniciarSesion(dni, password);
 
         if (!r.ok) {
           const campo = CAMPOS_IDENTIDAD[r.campo];
@@ -332,14 +329,14 @@
           return;
         }
 
-        JSP.toast('ok', 'Identidad confirmada',
+        JSP.toast('ok', 'Sesión iniciada',
           'El panel ahora muestra las entradas de ' + r.usuario.nombre + '.');
         s.notificar();
         pintarIdentidad();
         await cargar();
       } catch (e) {
         console.error('[Dashboard][identidad]', e);
-        mostrarErrorIdentidad('No se pudo confirmar la identidad. Inténtalo de nuevo.');
+        mostrarErrorIdentidad('No se pudo iniciar sesión. Inténtalo de nuevo.');
       } finally {
         boton.disabled = false;
         boton.innerHTML = htmlOriginal;
@@ -355,14 +352,14 @@
 
       if (s && s.estaIdentificado()) {
         s.olvidar();
-        JSP.toast('info', 'Identificación cerrada',
+        JSP.toast('info', 'Sesión cerrada',
           'Vuelves a ver el panel con el usuario de demostración.');
         pintarIdentidad();
         cargar();
         return;
       }
 
-      ['identidad-dni', 'identidad-nombres', 'identidad-apellidos'].forEach(function (id) {
+      ['identidad-dni', 'identidad-password'].forEach(function (id) {
         const campo = document.getElementById(id);
         if (campo) campo.value = '';
       });
@@ -375,11 +372,22 @@
   const btnReiniciar = document.getElementById('btn-reiniciar');
   if (btnReiniciar) {
     btnReiniciar.addEventListener('click', async function () {
+      const seguro = typeof window.confirm === 'function'
+        ? window.confirm('¿Reiniciar la demostración? Se borrarán las entradas, transferencias e historial de prueba.')
+        : true;
+      if (!seguro) return;
+
       btnReiniciar.disabled = true;
-      await SecurePassAPI.reiniciarDemo();
-      JSP.toast('ok', 'Datos reiniciados', 'La demostración volvió a su estado inicial.');
-      cargar();
-      btnReiniciar.disabled = false;
+      try {
+        await SecurePassAPI.reiniciarDemo();
+        JSP.toast('ok', 'Datos reiniciados', 'La demostración volvió a su estado inicial.');
+        await cargar();
+      } catch (e) {
+        JSP.toast('error', 'No se pudo reiniciar',
+          'La API rechazó el reinicio. En la versión publicada está deshabilitado.');
+      } finally {
+        btnReiniciar.disabled = false;
+      }
     });
   }
 

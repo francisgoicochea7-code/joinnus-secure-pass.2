@@ -10,6 +10,8 @@ RUN cd services && npm install --omit=dev --no-audit --no-fund
 
 COPY services/shared ./services/shared
 COPY services/auth/src ./services/auth/src
+COPY backend/activacion.js ./backend/activacion.js
+COPY backend/emitir-activacion.js ./backend/emitir-activacion.js
 
 WORKDIR /app/services/auth
 ENV NODE_ENV=production

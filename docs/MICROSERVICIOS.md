@@ -216,12 +216,14 @@ uno real. Así nunca se muestra un token que no exista en `qr_db`.
 2. Abre `ENTRY005` (Liga 1 - Final).
 3. Transfiere a Pedro Castillo, DNI `41234567`, correo
    `pedro.castillo@demo.pe`, precio `50`.
-4. La respuesta trae `tokenNuevo` y el token anterior queda invalidado.
+4. El QR anterior queda invalidado. El destinatario puede abrir su pase al
+   iniciar sesión.
 5. Si intentas validar el token anterior, `qr-service` responde `invalidado`.
 
 La transferencia es una saga orquestada por `tickets-service`:
 
-1. `auth-service` hace *upsert* del nuevo titular.
+1. `auth-service` conserva la cuenta del destinatario si existe o crea una
+   cuenta pendiente de activación.
 2. `tickets-service` actualiza la entrada, registra la transferencia y el
    historial en una transacción local.
 3. `qr-service` rota el token (best-effort).
@@ -261,6 +263,26 @@ curl.exe -k -X POST https://localhost:8444/api/demo/reiniciar -H "Content-Type: 
   Al superarlos, el gateway devuelve `429` con un JSON claro.
 
 ---
+
+### Activar una cuenta existente
+
+El destinatario de una primera transferencia puede elegir su contraseña en
+**Activar cuenta con un código**. Esa opción también sirve para perfiles
+anteriores a la incorporación del inicio de sesión.
+
+El administrador comprueba la identidad del titular y emite un código desde la
+carpeta del proyecto. Sustituye el DNI del ejemplo por el del titular.
+
+```powershell
+docker compose --env-file .env.micro -f docker-compose.micro.yml exec auth node src/emitir-activacion.js 12345678
+```
+
+Entrega el código por privado. Vence a los 20 minutos y se consume al guardar la
+nueva contraseña. Emitir otro código invalida el anterior. Después el titular
+inicia sesión con su DNI y la contraseña que eligió.
+
+Para el monolito, el comando equivalente es
+`docker compose exec backend node emitir-activacion.js 12345678`.
 
 ## 6. Pruebas y calidad
 

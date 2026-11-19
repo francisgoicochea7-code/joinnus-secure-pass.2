@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0d13">
+  <title>Activar cuenta — Joinnus Secure Pass</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/fonts/fonts.css">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/theme.css">
+</head>
+<body class="page-top">
+  <header class="nav">
+    <div class="nav-inner">
+      <a href="index.html" class="brand">
+        <span class="brand-logo"><img src="assets/logo.svg" alt="Joinnus" width="228" height="72"></span>
+        <span class="brand-name">Secure Pass</span>
+      </a>
+      <a href="dashboard.html" class="btn btn-ghost btn-sm">Mis entradas</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="section">
+      <div class="container activation-page">
+        <div class="section-head">
+          <h1>Activa tu cuenta</h1>
+          <p class="lead">Usa el código privado que te entregó el administrador y elige tu contraseña.</p>
+        </div>
+        <div class="card">
+          <form id="form-activar" method="post">
+            <div class="field">
+              <label for="activar-dni">DNI</label>
+              <input class="input mono" id="activar-dni" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" autocomplete="username" required>
+            </div>
+            <div class="field">
+              <label for="activar-codigo">Código de activación</label>
+              <input class="input mono" id="activar-codigo" type="password" minlength="32" maxlength="32" autocomplete="one-time-code" required>
+            </div>
+            <div class="field">
+              <label for="activar-password">Nueva contraseña</label>
+              <input class="input" id="activar-password" type="password" minlength="8" maxlength="200" autocomplete="new-password" required>
+              <div class="help">Al menos 8 caracteres.</div>
+            </div>
+            <div class="field">
+              <label for="activar-confirmar">Repite la contraseña</label>
+              <input class="input" id="activar-confirmar" type="password" minlength="8" maxlength="200" autocomplete="new-password" required>
+            </div>
+            <button class="btn btn-primary btn-block" id="activar-enviar" type="submit">Activar cuenta</button>
+          </form>
+          <p class="alert mt-3 hide" id="activar-mensaje" role="status"></p>
+          <a class="btn btn-primary btn-block mt-3 hide" id="activar-ir" href="dashboard.html">Ir a mis entradas</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/cliente-api.js"></script>
+  <script src="js/activacion.js"></script>
+</body>
+</html>

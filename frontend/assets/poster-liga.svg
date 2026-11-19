@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" width="800" height="1000" role="img" aria-label="Poster abstracto de fútbol">
+  <defs>
+    <linearGradient id="pl2-bg" x1="0" y1="0" x2="800" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#04120D"/>
+      <stop offset=".52" stop-color="#0B3D2A"/>
+      <stop offset="1" stop-color="#2F9368"/>
+    </linearGradient>
+    <radialGradient id="pl2-glow" cx="0" cy="0" r="1" gradientTransform="translate(620 240) rotate(90) scale(300)">
+      <stop stop-color="#CFFFE4" stop-opacity=".5"/>
+      <stop offset="1" stop-color="#CFFFE4" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="1000" fill="url(#pl2-bg)"/>
+  <circle cx="620" cy="240" r="300" fill="url(#pl2-glow)"/>
+  <g stroke="#D9FFEC" fill="none">
+    <path d="M-40 1000 300 520h200l340 480" stroke-opacity=".22" stroke-width="2"/>
+    <path d="M20 900h760M-30 800h860" stroke-opacity=".16" stroke-width="2"/>
+    <circle cx="400" cy="690" r="150" stroke-opacity=".3" stroke-width="2"/>
+    <path d="M400 540v300" stroke-opacity=".18" stroke-width="2"/>
+    <rect x="190" y="960" width="420" height="120" stroke-opacity=".2" stroke-width="2"/>
+  </g>
+  <circle cx="620" cy="240" r="128" fill="#F2FFF8"/>
+  <g fill="#07130E">
+    <path d="m620 112 42 24 10 46-31 35h-42l-31-35 10-46Z" opacity=".92"/>
+    <path d="m556 148-42 10-24 38 26 32 34-12 18-34Zm128 0 42 10 24 38-26 32-34-12-18-34Z" opacity=".88"/>
+    <path d="m604 217-30 43 30 62 40-2 24-60-26-43Z" opacity=".8"/>
+  </g>
+  <circle cx="620" cy="240" r="128" fill="none" stroke="#0B3D2A" stroke-opacity=".28" stroke-width="2"/>
+  <path d="M0 862c120-38 214-16 312-26s158-42 250-24 142-8 238-20v208H0Z" fill="#03100B" fill-opacity=".55"/>
+  <g fill="#DFFFEF">
+    <circle cx="120" cy="160" r="3"/>
+    <circle cx="252" cy="84" r="2"/>
+    <circle cx="700" cy="530" r="2.5"/>
+    <path d="m120 660 4 13 13 4-13 4-4 13-4-13-13-4 13-4Z"/>
+  </g>
+  <path d="M0 40h800" stroke="#DFFFEF" stroke-opacity=".1"/>
+  <path d="M0 960h800" stroke="#DFFFEF" stroke-opacity=".14"/>
+</svg>

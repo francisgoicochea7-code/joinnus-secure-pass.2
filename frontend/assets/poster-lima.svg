@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" width="800" height="1000" role="img" aria-label="Poster abstracto de festival de música">
+  <defs>
+    <linearGradient id="pl-sky" x1="120" y1="0" x2="700" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#160B2E"/>
+      <stop offset=".48" stop-color="#43218A"/>
+      <stop offset="1" stop-color="#A97BEA"/>
+    </linearGradient>
+    <radialGradient id="pl-sun" cx="0" cy="0" r="1" gradientTransform="translate(560 252) rotate(90) scale(225)">
+      <stop stop-color="#E6FF9B"/>
+      <stop offset=".62" stop-color="#C9F26E" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#C9F26E" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="pl-beam" x1="320" y1="1000" x2="610" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F3E8FF" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#F3E8FF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="pl-beam2" x1="120" y1="1000" x2="360" y2="110" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E9D5FF" stop-opacity=".32"/>
+      <stop offset="1" stop-color="#E9D5FF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="1000" fill="url(#pl-sky)"/>
+  <circle cx="560" cy="252" r="238" fill="url(#pl-sun)"/>
+  <circle cx="560" cy="252" r="164" fill="none" stroke="#F0FFC4" stroke-opacity=".32"/>
+  <circle cx="560" cy="252" r="122" fill="none" stroke="#F0FFC4" stroke-opacity=".2"/>
+  <path d="m250 1000 190-900h120l-80 900Z" fill="url(#pl-beam)"/>
+  <path d="m60 1000 220-860h86l-120 860Z" fill="url(#pl-beam2)"/>
+  <path d="M0 782c92-42 158-20 242-30s130-58 224-30 150-22 234-12 70 38 100 26v264H0Z" fill="#1C0E36" fill-opacity=".62"/>
+  <path d="m0 878 26-22 17 7 15-23 18 22 26-10 19 18 32-25 18 18 25-6 21 16 16-26 32 15 17-13 24 18 24-24 26 20 20-10 22 19 15-25 28 11 20-13 32 17 20-28 28 19 22-13 28 17 24-8 24 14 25-22 27 14 33-22 22 19 28-14 28 18 28-6v76H0Z" fill="#120A26"/>
+  <path d="m148 1000 14-64m-14 64 30-42m-30 42 6-46m306 46-10-70m10 70 22-46m-22 46 4-52m190 52-8-56m8 56 20-38m-20 38 2-44" stroke="#120A26" stroke-width="9" stroke-linecap="round"/>
+  <g fill="#F4ECFF">
+    <circle cx="180" cy="120" r="4"/>
+    <circle cx="92" cy="300" r="2.5"/>
+    <circle cx="700" cy="640" r="3.5"/>
+    <circle cx="640" cy="80" r="2"/>
+    <path d="m112 560 5 16 16 5-16 5-5 16-5-16-16-5 16-5Z"/>
+    <path d="m706 430 3 10 10 3-10 3-3 10-3-10-10-3 10-3Z"/>
+  </g>
+</svg>

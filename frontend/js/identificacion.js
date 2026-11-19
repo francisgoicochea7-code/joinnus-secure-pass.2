@@ -3,18 +3,19 @@
  * -------------------------------------------------------------------------
  * Píldora de identidad + modal, presentes en TODAS las páginas.
  *
- * La identificación la hace js/sesion.js (DNI + nombres + apellidos, que se
- * comprueban contra la base de datos). Este archivo sólo aporta la interfaz
- * para poder identificarse desde cualquier página y no sólo desde el panel.
+ * La identificación la hace js/sesion.js (DNI + contraseña, comprobados contra
+ * la base de datos). Este archivo sólo aporta la interfaz para poder iniciar
+ * sesión desde cualquier página y no sólo desde el panel.
  *
- * En cuanto alguien se identifica:
- *   - el DNI viaja en la cabecera X-Usuario-DNI (cliente-api.js)
+ * En cuanto alguien inicia sesión:
+ *   - el token firmado viaja en Authorization: Bearer (cliente-api.js)
  *   - el backend entrega SUS entradas, SU QR y SU historial
  *   - el servidor exige además que la entrada sea de esa persona para
  *     emitir un QR o transferirla (403 si no lo es)
  *
- * IMPORTANTE: esto NO es autenticación con contraseña, es identificación.
- * El límite está explicado en el README, sección 10.
+ * La contraseña se guarda como hash scrypt en la base de datos; nunca se
+ * envía de vuelta al navegador. El límite del prototipo está explicado en el
+ * README, sección 10.
  *
  * Las pruebas (test/verificacion.js) cargan este archivo en los grupos 4b,
  * 4d, 4e y 5, así que aquí sólo se usan ids creados por este mismo archivo.
@@ -35,7 +36,7 @@
 
   const ICONO_CERRAR = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4Z"/></svg>';
 
-  const CAMPOS = ['dni', 'nombres', 'apellidos'];
+  const CAMPOS = ['dni', 'password'];
 
   function $(id) { return document.getElementById(id); }
 
@@ -105,7 +106,7 @@
   /* ---------------------------------------------------------------------
    * Registro de usuarios nuevos (segunda vista del mismo modal)
    * ----------------------------------------------------------------- */
-  const CAMPOS_REG = ['dni', 'nombres', 'apellidos', 'correo'];
+  const CAMPOS_REG = ['dni', 'nombres', 'apellidos', 'correo', 'password', 'password2'];
 
   function limpiarErroresReg() {
     CAMPOS_REG.forEach(function (campo) {
@@ -148,19 +149,19 @@
     if (pieReg) pieReg.classList[si ? 'remove' : 'add']('hide');
 
     const titulo = $('identif-titulo');
-    if (titulo) titulo.textContent = si ? 'Crea tu cuenta' : '¿Quién eres?';
+    if (titulo) titulo.textContent = si ? 'Crea tu cuenta' : 'Inicia sesión';
     const subtitulo = $('identif-subtitulo');
     if (subtitulo) {
       subtitulo.innerHTML = si
-        ? 'Da de alta tu DNI, tu nombre y tu correo para poder identificarte y ver <strong>tus</strong> entradas.'
-        : 'Escribe tus datos registrados para ver <strong>tus</strong> entradas, <strong>tu</strong> QR y <strong>tu</strong> historial.';
+        ? 'Da de alta tu DNI, tu nombre, tu correo y una contraseña para ver <strong>tus</strong> entradas.'
+        : 'Entra con tu DNI y tu contraseña para ver <strong>tus</strong> entradas, <strong>tu</strong> QR y <strong>tu</strong> historial.';
     }
 
     if (si) limpiarErroresReg();
     else limpiarErrores();
   }
 
-  /** Da de alta la cuenta y, si el servidor la creó, se identifica sola. */
+  /** Da de alta la cuenta con contraseña y, si todo va bien, inicia sesión. */
   async function registrarse() {
     limpiarErroresReg();
 
@@ -168,8 +169,19 @@
       dni: ($('reg-dni') || {}).value || '',
       nombres: ($('reg-nombres') || {}).value || '',
       apellidos: ($('reg-apellidos') || {}).value || '',
-      correo: ($('reg-correo') || {}).value || ''
+      correo: ($('reg-correo') || {}).value || '',
+      password: String(($('reg-password') || {}).value || ''),
+      password2: String(($('reg-password2') || {}).value || '')
     };
+
+    if (datos.password.length < 8) {
+      marcarErrorReg('password', 'La contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+    if (datos.password !== datos.password2) {
+      marcarErrorReg('password2', 'Las contraseñas no coinciden.');
+      return;
+    }
 
     const boton = $('reg-enviar');
     if (boton) boton.disabled = true;
@@ -192,21 +204,24 @@
       return;
     }
 
-    // Alta hecha: con los mismos datos se identifica (el backend ya la tiene)
-    let id = null;
-    try { id = await Sesion.identificar(datos.dni, datos.nombres, datos.apellidos); }
-    catch (e) { id = null; }
+    // Alta hecha: se entra con las mismas credenciales.
+    let entrada = null;
+    try { entrada = await Sesion.iniciarSesion(datos.dni, datos.password); }
+    catch (e) { entrada = null; }
 
     notificar('ok', 'Cuenta creada',
       ((r.usuario && r.usuario.nombre) || 'Tu cuenta') + ' ya está registrada.');
 
-    if (id && id.ok) {
+    if (entrada && entrada.ok) {
       mostrarRegistro(false);
+      if (window.JSP && typeof window.JSP.cerrarModal === 'function') {
+        window.JSP.cerrarModal('modal-identificacion');
+      }
       await recargarCompraPropia();
       return;
     }
     mostrarRegistro(false);
-    mostrarAlerta('Cuenta creada. Ahora identifícate con tu nombre y apellidos.');
+    mostrarAlerta('Cuenta creada. Ahora inicia sesión con tu DNI y tu contraseña.');
   }
 
   /* ---------------------------------------------------------------------
@@ -233,28 +248,27 @@
   function rellenarModal() {
     const u = Sesion.usuario();
     const dni = $('identif-dni');
-    const nombres = $('identif-nombres');
-    const apellidos = $('identif-apellidos');
+    const password = $('identif-password');
     if (dni) dni.value = u ? u.dni : '';
-    if (nombres) nombres.value = u ? (u.nombres || '') : '';
-    if (apellidos) apellidos.value = u ? (u.apellidos || '') : '';
+    if (password) password.value = '';
+    const salir = $('identif-salir');
+    if (salir) salir.textContent = u ? 'Cerrar sesión' : 'Ahora no';
     limpiarErrores();
-    mostrarRegistro(false);   // siempre se abre en la vista de identificación
+    mostrarRegistro(false);   // siempre se abre en la vista de inicio de sesión
   }
 
   async function identificar() {
     limpiarErrores();
 
     const dni = ($('identif-dni') || {}).value || '';
-    const nombres = ($('identif-nombres') || {}).value || '';
-    const apellidos = ($('identif-apellidos') || {}).value || '';
+    const password = String(($('identif-password') || {}).value || '');
 
     const boton = $('identif-enviar');
     if (boton) boton.disabled = true;
 
     let r;
     try {
-      r = await Sesion.identificar(dni, nombres, apellidos);
+      r = await Sesion.iniciarSesion(dni, password);
     } catch (e) {
       mostrarAlerta('No se pudo comprobar la identidad. Revisa que la API esté arriba.');
       if (boton) boton.disabled = false;
@@ -271,14 +285,20 @@
       return;
     }
 
-    notificar('ok', 'Identificación correcta',
+    notificar('ok', 'Sesión iniciada',
       (r.usuario && r.usuario.nombre ? r.usuario.nombre : 'Bienvenido') + ' ya ve sus entradas.');
+    if (window.JSP && typeof window.JSP.cerrarModal === 'function') {
+      window.JSP.cerrarModal('modal-identificacion');
+    }
     await recargarCompraPropia();
   }
 
   function salir() {
     Sesion.olvidar();
     notificar('ok', 'Sesión cerrada', 'Vuelves a ver el usuario de demostración.');
+    if (window.JSP && typeof window.JSP.cerrarModal === 'function') {
+      window.JSP.cerrarModal('modal-identificacion');
+    }
     recargarCompraPropia();
   }
 
@@ -311,8 +331,8 @@
       '<div class="modal">' +
         '<div class="modal-head">' +
           '<div>' +
-            '<h3 id="identif-titulo">¿Quién eres?</h3>' +
-            '<p id="identif-subtitulo">Escribe tus datos registrados para ver <strong>tus</strong> entradas, <strong>tu</strong> QR y <strong>tu</strong> historial.</p>' +
+            '<h3 id="identif-titulo">Inicia sesión</h3>' +
+            '<p id="identif-subtitulo">Entra con tu DNI y tu contraseña para ver <strong>tus</strong> entradas, <strong>tu</strong> QR y <strong>tu</strong> historial.</p>' +
           '</div>' +
           '<button class="modal-close" data-modal-close="modal-identificacion" aria-label="Cerrar">' + ICONO_CERRAR + '</button>' +
         '</div>' +
@@ -320,27 +340,23 @@
           '<div id="identif-formulario">' +
             '<div class="field">' +
               '<label for="identif-dni">DNI</label>' +
-              '<input class="input mono" id="identif-dni" inputmode="numeric" maxlength="8" placeholder="12345678" autocomplete="off">' +
+              '<input class="input mono" id="identif-dni" inputmode="numeric" maxlength="8" placeholder="12345678" autocomplete="username">' +
               '<div class="error-msg" id="identif-error-dni">' + ICONO_ALERTA + '<span></span></div>' +
             '</div>' +
             '<div class="field">' +
-              '<label for="identif-nombres">Nombres</label>' +
-              '<input class="input" id="identif-nombres" placeholder="Carlos" autocomplete="off">' +
-              '<div class="error-msg" id="identif-error-nombres">' + ICONO_ALERTA + '<span></span></div>' +
+              '<label for="identif-password">Contraseña</label>' +
+              '<input class="input" id="identif-password" type="password" maxlength="200" placeholder="Tu contraseña" autocomplete="current-password">' +
+              '<div class="error-msg" id="identif-error-password">' + ICONO_ALERTA + '<span></span></div>' +
             '</div>' +
-            '<div class="field">' +
-              '<label for="identif-apellidos">Apellidos</label>' +
-              '<input class="input" id="identif-apellidos" placeholder="Pérez" autocomplete="off">' +
-              '<div class="error-msg" id="identif-error-apellidos">' + ICONO_ALERTA + '<span></span></div>' +
-            '</div>' +
-            '<div class="alert alert-info hide" id="identif-alerta">' + ICONO_ALERTA +
+            '<div class="alert alert-info hide" id="identif-alerta" role="alert">' + ICONO_ALERTA +
               '<span id="identif-alerta-texto"></span>' +
             '</div>' +
-            '<p class="tiny muted">No es una contraseña: el sistema comprueba que esos datos estén ' +
-              'registrados en la base. Usuarios de la demostración: <span class="mono">45678945</span> ' +
-              '(Carlos Pérez) y <span class="mono">52311878</span> (Andrea Torres).</p>' +
+            '<p class="tiny muted">Tu contraseña se comprueba en el servidor y se guarda cifrada. ' +
+              'Para probar la demo: <span class="mono">45678945</span> / <span class="mono">Carlos2026!</span> ' +
+              '(Carlos Pérez) o <span class="mono">52311878</span> / <span class="mono">Andrea2026!</span> (Andrea Torres).</p>' +
             '<p class="tiny muted">¿Todavía no estás registrado? ' +
               '<button type="button" class="btn-link" id="identif-a-registro">Crea tu cuenta</button></p>' +
+            '<p class="tiny muted"><a class="btn-link" href="activar.html">Activar cuenta con un código</a></p>' +
           '</div>' +
           '<div id="reg-formulario" class="hide">' +
             '<div class="field">' +
@@ -360,21 +376,31 @@
             '</div>' +
             '<div class="field">' +
               '<label for="reg-correo">Correo electrónico</label>' +
-              '<input class="input" id="reg-correo" type="email" placeholder="ana@correo.com" autocomplete="off">' +
+              '<input class="input" id="reg-correo" type="email" placeholder="ana@correo.com" autocomplete="email">' +
               '<div class="error-msg" id="reg-error-correo">' + ICONO_ALERTA + '<span></span></div>' +
             '</div>' +
-            '<div class="alert alert-info hide" id="reg-alerta">' + ICONO_ALERTA +
+            '<div class="field">' +
+              '<label for="reg-password">Contraseña</label>' +
+              '<input class="input" id="reg-password" type="password" maxlength="200" placeholder="Mínimo 8 caracteres" autocomplete="new-password">' +
+              '<div class="error-msg" id="reg-error-password">' + ICONO_ALERTA + '<span></span></div>' +
+            '</div>' +
+            '<div class="field">' +
+              '<label for="reg-password2">Repite la contraseña</label>' +
+              '<input class="input" id="reg-password2" type="password" maxlength="200" placeholder="Otra vez, para evitar errores" autocomplete="new-password">' +
+              '<div class="error-msg" id="reg-error-password2">' + ICONO_ALERTA + '<span></span></div>' +
+            '</div>' +
+            '<div class="alert alert-info hide" id="reg-alerta" role="alert">' + ICONO_ALERTA +
               '<span id="reg-alerta-texto"></span>' +
             '</div>' +
-            '<p class="tiny muted">Al crear la cuenta sólo se guardan tu DNI, tu nombre y tu correo. ' +
-              'No hay contraseña: es la misma identificación de siempre.</p>' +
+            '<p class="tiny muted">Se guardan tu DNI, tu nombre, tu correo y el hash de tu contraseña. ' +
+              'La contraseña nunca se guarda en claro.</p>' +
             '<p class="tiny muted">¿Ya tienes cuenta? ' +
-              '<button type="button" class="btn-link" id="reg-a-identif">Identifícate</button></p>' +
+              '<button type="button" class="btn-link" id="reg-a-identif">Inicia sesión</button></p>' +
           '</div>' +
         '</div>' +
         '<div class="modal-foot" id="identif-pie">' +
-          '<button class="btn btn-ghost" id="identif-salir" type="button">Salir de la identificación</button>' +
-          '<button class="btn btn-primary" id="identif-enviar" type="button">Identificarme</button>' +
+          '<button class="btn btn-ghost" id="identif-salir" type="button">Ahora no</button>' +
+          '<button class="btn btn-primary" id="identif-enviar" type="button">Entrar</button>' +
         '</div>' +
         '<div class="modal-foot hide" id="reg-pie">' +
           '<button class="btn btn-ghost" id="reg-volver" type="button">Ya tengo cuenta</button>' +

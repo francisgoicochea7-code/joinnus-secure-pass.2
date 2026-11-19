@@ -3,13 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b0d13">
 <title>Historial de entrada — Joinnus Secure Pass</title>
 <meta name="description" content="Línea de tiempo y tabla con la trazabilidad completa de cada entrada digital.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/fonts/fonts.css">
 <link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/theme.css">
 </head>
-<body class="page-top">
+<body class="page-top page-history">
 
 <header class="nav">
   <div class="nav-inner">
@@ -17,12 +19,12 @@
       <span class="brand-logo">
         <img src="assets/logo.svg" alt="Logo de Joinnus" width="228" height="72">
       </span>
-      <span class="brand-name">Secure Pass<span>Verifica · Transfiere · Protege</span></span>
+      <span class="brand-name">Secure Pass</span>
     </a>
     <nav class="nav-links" aria-label="Navegación principal">
       <ul>
         <li><a href="index.html">Inicio</a></li>
-        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="dashboard.html">Mis entradas</a></li>
         <li><a href="verificar.html">Verificar entrada</a></li>
         <li><a href="entrada.html">Mi entrada</a></li>
         <li><a href="transferencia.html">Transferir entrada</a></li>
@@ -40,13 +42,12 @@
 </header>
 <div class="nav-mobile" id="nav-mobile">
   <a data-page href="index.html">Inicio</a>
-  <a data-page href="dashboard.html">Dashboard</a>
+  <a data-page href="dashboard.html">Mis entradas</a>
   <a data-page href="verificar.html">Verificar entrada</a>
   <a data-page href="entrada.html">Mi entrada</a>
   <a data-page href="transferencia.html">Transferir entrada</a>
   <a data-page href="historial.html">Historial</a>
   <a data-page href="sobre.html">Sobre el proyecto</a>
-  <a href="verificar.html" class="btn btn-primary btn-block">Verificar</a>
 </div>
 
 <main>
@@ -55,11 +56,10 @@
 
       <div class="row-between fade-in">
         <div>
-          <span class="eyebrow">Trazabilidad</span>
           <h1 style="margin-bottom:.2rem">Historial de entrada</h1>
-          <p class="muted" style="margin:0">Cada operación queda registrada: creación, verificación, transferencias y emisión de QR.</p>
         </div>
         <div class="row">
+          <a class="btn btn-outline btn-sm history-jump" href="#registro-historial">Ver registro completo <span aria-hidden="true">↓</span></a>
           <button class="btn btn-ghost btn-sm" id="btn-exportar">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Zm0 2.8L17.5 8H14V4.8ZM8 12h8v2H8v-2Zm0 4h5v2H8v-2Z"/></svg>
             Exportar CSV
@@ -74,7 +74,6 @@
             <span class="stat-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 0 0-8.5 6H1l3.5 3.5L8 9H5.6A7 7 0 1 1 6 15H4a9 9 0 1 0 9-12v0Zm-1 5v5l4.2 2.5.7-1.2-3.4-2V8H12Z"/></svg></span>
           </div>
           <div class="stat-value" id="stat-eventos">0</div>
-          <div class="stat-foot">Registrados en la base de datos</div>
         </div>
         <div class="stat ok fade-in d1">
           <div class="stat-top">
@@ -82,7 +81,6 @@
             <span class="stat-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 3a7 7 0 1 0 4.2 12.6l4.6 4.6 1.4-1.4-4.6-4.6A7 7 0 0 0 10 3Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"/></svg></span>
           </div>
           <div class="stat-value" id="stat-verificaciones">0</div>
-          <div class="stat-foot">Consultas de estado</div>
         </div>
         <div class="stat info fade-in d2">
           <div class="stat-top">
@@ -90,7 +88,6 @@
             <span class="stat-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7Zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4Z"/></svg></span>
           </div>
           <div class="stat-value" id="stat-transferencias">0</div>
-          <div class="stat-foot">Cambios de titularidad</div>
         </div>
         <div class="stat warn fade-in d3">
           <div class="stat-top">
@@ -98,22 +95,20 @@
             <span class="stat-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h8v8H3V3Zm2 2v4h4V5H5Zm8-2h8v8h-8V3Zm2 2v4h4V5h-4ZM3 13h8v8H3v-8Zm2 2v4h4v-4H5Zm8-2h3v3h-3v-3Zm5 0h3v3h-3v-3Zm-5 5h3v3h-3v-3Zm5 0h3v3h-3v-3Z"/></svg></span>
           </div>
           <div class="stat-value" id="stat-qr">0</div>
-          <div class="stat-foot">Tokens emitidos</div>
         </div>
       </div>
 
-      <!-- ---------- Búsqueda: la trazabilidad sólo se despliega al buscar ---------- -->
+      <!-- ---------- Filtro de la trazabilidad ---------- -->
       <div class="card mt-4">
         <div class="row-between" style="gap:1rem;flex-wrap:wrap;align-items:center">
           <div style="min-width:0">
-            <h3 style="margin:0 0 .2rem">Buscar en el historial</h3>
-            <p class="small muted" style="margin:0">Elige una entrada: sólo entonces se despliega su trazabilidad completa.</p>
+            <h3 style="margin:0">Filtrar por entrada</h3>
           </div>
           <select class="input" id="filtro-codigo" aria-label="Filtrar por código de entrada" style="width:auto;min-width:250px;padding:.6rem .9rem;font-size:.9rem">
             <option value="">Todas las entradas</option>
           </select>
         </div>
-        <p class="tiny muted mt-2 mb-0" id="busqueda-aviso">Todavía no se muestra ninguna lista: selecciona una entrada en el desplegable.</p>
+        <p class="tiny muted mt-2 mb-0 hide" id="busqueda-aviso">Selecciona una entrada en el desplegable para acotar la trazabilidad.</p>
       </div>
 
       <div class="split mt-4 hide" id="resultados-flujo" style="align-items:start">
@@ -151,16 +146,6 @@
             </div>
           </div>
 
-          <div class="card">
-            <div class="card-title">
-              <span class="icon-box info">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1 5h2v2h-2V7Zm0 4h2v6h-2v-6Z"/></svg>
-              </span>
-              <h3>Sobre la trazabilidad</h3>
-            </div>
-            <p class="small">Con Docker, los eventos se guardan en la tabla <code>historial</code> de PostgreSQL, con marca de tiempo del servidor. Sin Docker se guardan en <code>localStorage</code> (<code>jsp.historial.v1</code>).</p>
-            <p class="small mb-0">En ambos casos los datos se mantienen aunque se recargue la página.</p>
-          </div>
         </div>
       </div>
 
@@ -170,7 +155,7 @@
           <h2 style="margin:0">Registro completo</h2>
           <span class="badge badge-brand" id="total-registros">0 registros</span>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Tabla de historial con desplazamiento horizontal">
           <table class="data" id="tabla-historial">
             <caption class="sr-only">Historial de movimientos de las entradas</caption>
             <thead>

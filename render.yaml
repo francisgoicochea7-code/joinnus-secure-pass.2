@@ -46,6 +46,10 @@ services:
       # Token de comunicación interna entre servicios (se genera una vez).
       - key: INTERNAL_TOKEN
         generateValue: true
+      # Firma de las sesiones de usuario. Si cambia, todos deben volver a
+      # iniciar sesión; el Blueprint lo genera una vez y lo conserva.
+      - key: SESSION_SECRET
+        generateValue: true
       - key: QR_TTL_SECONDS
         value: "15"
       - key: DEMO_DNI

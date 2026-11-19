@@ -571,7 +571,7 @@ const SecurePassAPI = (function () {
     const valor = String(correo || '').trim();
     if (!valor) return { ok: false, mensaje: 'El correo electrónico es obligatorio.' };
     if (!/^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(valor)) {
-      return { ok: false, mensaje: 'Ingrese un correo electrónico válido (ejemplo@correo.com).' };
+      return { ok: false, mensaje: 'Ingresa un correo electrónico válido (ejemplo@correo.com).' };
     }
     return { ok: true, valor: valor };
   }
@@ -581,7 +581,7 @@ const SecurePassAPI = (function () {
     if (!valor) return { ok: false, mensaje: 'El nombre del nuevo titular es obligatorio.' };
     if (valor.length < 5) return { ok: false, mensaje: 'El nombre debe tener al menos 5 caracteres.' };
     if (valor.split(/\s+/).length < 2) {
-      return { ok: false, mensaje: 'Ingrese el nombre y el apellido del nuevo titular.' };
+      return { ok: false, mensaje: 'Ingresa el nombre y el apellido del nuevo titular.' };
     }
     if (!/^[A-Za-zÁÉÍÓÚÑáéíóúñ' ]+$/.test(valor)) {
       return { ok: false, mensaje: 'El nombre solo puede contener letras y espacios.' };
@@ -760,13 +760,26 @@ const SecurePassAPI = (function () {
     const vCorreo = validarCorreo(d.correo);
     if (!vCorreo.ok) return { ok: false, campo: 'correo', mensaje: vCorreo.mensaje };
 
+    // La contraseña es obligatoria en la interfaz. En la capa de datos se
+    // valida cuando viene; el servidor la exige igualmente para crear la
+    // cuenta, así que no se puede saltar desde la consola.
+    const clave = String(d.password == null ? '' : d.password);
+    if (clave && clave.length < 8) {
+      return { ok: false, campo: 'password', mensaje: 'La contraseña debe tener al menos 8 caracteres.' };
+    }
+    if (clave.length > 200) {
+      return { ok: false, campo: 'password', mensaje: 'La contraseña es demasiado larga (máximo 200 caracteres).' };
+    }
+
     if (await usarApi()) {
       try {
-        const r = await Cliente.crearUsuario({
+        const cuerpo = {
           dni: vDni.valor,
           nombre: nombres + ' ' + apellidos,
           correo: String(vCorreo.valor).toLowerCase()
-        });
+        };
+        if (clave) cuerpo.password = clave;
+        const r = await Cliente.crearUsuario(cuerpo);
         if (r && r.ok) return { ok: true, usuario: r.usuario };
         // 400 (datos inválidos) o 409 (DNI ya registrado): el servidor ya
         // dijo el motivo y el campo, se devuelve tal cual.

@@ -17,6 +17,29 @@
   let pendiente = null;
   let dniTitularOk = false;
 
+  function dniDeSesion() {
+    if (typeof Sesion === 'undefined' || !Sesion || typeof Sesion.dni !== 'function') return '';
+    return String(Sesion.dni() || '');
+  }
+
+  /** Atajo opcional: no rellena nada solo, el usuario decide usarlo. */
+  function pintarAtajoDni() {
+    const boton = $('btn-usar-mi-dni');
+    if (!boton) return;
+
+    const dni = dniDeSesion();
+    const esSuya = entrada && entrada.esMia !== false;
+    const coincide = !entrada || !entrada.dni || String(entrada.dni) === dni;
+
+    if (!dni || !esSuya || !coincide) {
+      boton.classList.add('hide');
+      return;
+    }
+
+    boton.textContent = 'Usar el DNI de mi sesión (' + JSP.ocultarDNI(dni) + ')';
+    boton.classList.remove('hide');
+  }
+
   /* ------------------------------------------------------------------ */
   /* Mostrar la entrada actual                                           */
   /* ------------------------------------------------------------------ */
@@ -42,14 +65,9 @@
     const esMia = entrada.esMia !== false;
     const puede = entrada.puedeTransferir && esMia;
 
-    const avisoPropiedad = !esMia
-      ? `<div class="alert alert-error">
-             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg>
-             <p>Esta entrada pertenece a <strong>${JSP.escapeHtml(entrada.titular || 'otra persona')}</strong>:
-             sólo su titular puede transferirla. Si eres tú, identifícate con la píldora
-             <strong>Identifícate</strong> de abajo a la izquierda.</p>
-           </div>`
-      : '';
+    // Por privacidad el detalle no muestra ni el titular ni su DNI, y tampoco
+    // se avisa de quién es la entrada: si no es tuya simplemente no se ofrece
+    // transferirla.
 
     detalle.innerHTML = `
       <div class="row-between" style="margin-bottom:1rem">
@@ -64,24 +82,20 @@
       <div class="kv"><span class="k">Fecha</span><span class="v">${JSP.formatFechaLarga(entrada.fecha)} · ${JSP.escapeHtml(entrada.hora)}</span></div>
       <div class="kv"><span class="k">Lugar</span><span class="v">${JSP.escapeHtml(entrada.lugar)}</span></div>
       <div class="kv"><span class="k">Zona / Fila / Asiento</span><span class="v">${JSP.escapeHtml(entrada.zona)} · ${JSP.escapeHtml(entrada.fila)} · ${JSP.escapeHtml(entrada.asiento)}</span></div>
-      <div class="kv"><span class="k">Titular</span><span class="v">${JSP.escapeHtml(entrada.titular)}</span></div>
-      <div class="kv"><span class="k">DNI</span><span class="v mono">${JSP.escapeHtml(entrada.dniOculto)}</span></div>
       <div class="kv"><span class="k">Estado</span><span class="v">${JSP.escapeHtml(entrada.estadoDetalle.etiqueta)}</span></div>
       <div class="kv"><span class="k">Precio original</span><span class="v">${JSP.precio(entrada.precioOriginal != null ? entrada.precioOriginal : entrada.precio)}</span></div>
       <div class="kv"><span class="k">Precio máximo permitido</span><span class="v">${JSP.precio(entrada.precioOriginal != null ? entrada.precioOriginal : entrada.precio)}</span></div>
 
       <div class="mt-3">
-        ${!esMia
-          ? avisoPropiedad
-          : puede
-            ? `<button class="btn btn-primary btn-block btn-lg" id="btn-abrir-transferencia">
-                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7Zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4Z"/></svg>
-                 Transferir entrada
-               </button>`
-            : `<div class="alert alert-warn">
-                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg>
-                 <p>${JSP.escapeHtml(entrada.estadoDetalle.descripcion)} Esta entrada no puede transferirse.</p>
-               </div>`}
+        ${puede
+          ? `<button class="btn btn-primary btn-block btn-lg" id="btn-abrir-transferencia">
+               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7Zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4Z"/></svg>
+               Transferir entrada
+             </button>`
+          : (esMia ? `<div class="alert alert-warn">
+               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg>
+               <p>${JSP.escapeHtml(entrada.estadoDetalle.descripcion)} Esta entrada no puede transferirse.</p>
+             </div>` : '')}
       </div>`;
 
     // El paso "¿quién transfiere?" sólo se muestra si la entrada admite
@@ -95,6 +109,7 @@
     const boton = $('btn-abrir-transferencia');
     if (boton) boton.addEventListener('click', abrirFormulario);
 
+    pintarAtajoDni();
     revisarTitular();
     cargarSelectorEntradas();
 
@@ -301,6 +316,8 @@
     $('c-actual').textContent = entrada.titular;
     $('c-nuevo').textContent = nombre;
     $('c-dni').textContent = JSP.ocultarDNI(dni);
+    const dniCompleto = $('c-dni-completo');
+    if (dniCompleto) dniCompleto.textContent = dni;
     $('c-correo').textContent = correo;
     $('c-precio').textContent = JSP.precio(precio);
     $('c-codigo').textContent = entrada.codigo;
@@ -323,15 +340,13 @@
     $('r-dni').textContent = res.dniNuevo;
     $('r-codigo').textContent = res.codigo;
     $('r-estado').innerHTML = JSP.estadoBadge('transferido');
-    $('r-token-anterior').textContent = res.tokenAnterior || '—';
-    $('r-token-nuevo').textContent = res.tokenNuevo;
     marcarPaso('resultado');
 
     $('paso-confirmacion').classList.add('hide');
     $('paso-resultado').classList.remove('hide');
     $('acciones-confirmacion').classList.add('hide');
     $('acciones-resultado').classList.remove('hide');
-    $('btn-ver-nueva').href = 'entrada.html?codigo=' + encodeURIComponent(res.codigo);
+    $('btn-ver-nueva').href = 'verificar.html?codigo=' + encodeURIComponent(res.codigo);
     $('modal-sub').textContent = 'La operación quedó registrada en el historial.';
   }
 
@@ -366,7 +381,7 @@
 
     mostrarResultado(resultado);
     JSP.toast('ok', 'Transferencia realizada',
-      `${resultado.titularAnterior} → ${resultado.titularNuevo}. Nuevo QR generado.`);
+      `${resultado.titularAnterior} → ${resultado.titularNuevo}.`);
 
     // Se recarga la MISMA entrada para que el panel refleje el estado nuevo
     await cargarEntrada(resultado.codigo);
@@ -422,6 +437,18 @@
       revisarTitular();
     });
     campoTitular.addEventListener('blur', revisarTitular);
+
+    const atajo = $('btn-usar-mi-dni');
+    if (atajo) {
+      atajo.addEventListener('click', function () {
+        const dni = dniDeSesion();
+        if (!dni) return;
+        campoTitular.value = dni;
+        campoTitular.dispatchEvent(new Event('input', { bubbles: true }));
+        revisarTitular();
+        campoTitular.focus();
+      });
+    }
   }
 
   const selEntrada = $('entrada-transferir');
@@ -456,47 +483,6 @@
         this.classList.add('activo');
       });
     }
-  }
-
-  /* Copiar el código del QR nuevo (paso 3)                             */
-  function copiarAntiguo(texto, alTerminar) {
-    try {
-      const aux = document.createElement('textarea');
-      aux.value = texto;
-      aux.setAttribute('readonly', '');
-      aux.style.position = 'fixed';
-      aux.style.opacity = '0';
-      document.body.appendChild(aux);
-      aux.select();
-      document.execCommand('copy');
-      document.body.removeChild(aux);
-      alTerminar();
-    } catch (e) {
-      JSP.toast('error', 'No se pudo copiar', 'Copia el código manualmente.');
-    }
-  }
-
-  const btnCopiar = $('btn-copiar-qr');
-  if (btnCopiar) {
-    const ICONO_OK = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6 12-12-1.4-1.4-10.6 10.6Z"/></svg>';
-    const ICONO_COPIAR = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg>';
-
-    const alCopiar = function () {
-      btnCopiar.innerHTML = ICONO_OK + ' Código copiado';
-      JSP.toast('ok', 'Código copiado', 'Pégalo donde lo necesites.');
-      setTimeout(function () { btnCopiar.innerHTML = ICONO_COPIAR + ' Copiar código'; }, 2500);
-    };
-
-    btnCopiar.addEventListener('click', function () {
-      const destino = $('r-token-nuevo');
-      const texto = destino ? String(destino.textContent || '').trim() : '';
-      if (!texto || texto === '—') return;
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(texto).then(alCopiar).catch(function () { copiarAntiguo(texto, alCopiar); });
-      } else {
-        copiarAntiguo(texto, alCopiar);
-      }
-    });
   }
 
   $('form-transferencia')?.addEventListener('submit', function (ev) {

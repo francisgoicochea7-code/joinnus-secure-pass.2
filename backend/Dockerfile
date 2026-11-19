@@ -15,6 +15,9 @@ RUN npm install --omit=dev --no-audit --no-fund
 
 # 2) Codigo fuente de la API
 COPY index.js ./
+COPY auth.js ./
+COPY activacion.js ./
+COPY emitir-activacion.js ./
 
 # 3) Variables de entorno por defecto (docker-compose.yml las sobreescribe)
 ENV NODE_ENV=production \

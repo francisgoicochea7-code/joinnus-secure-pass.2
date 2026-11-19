@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS usuarios (
   dni         CHAR(8)      NOT NULL,
   correo      VARCHAR(160) NOT NULL,
   telefono    VARCHAR(30)  NULL,
+  password_hash TEXT       NULL,
+  activacion_hash TEXT     NULL,
+  activacion_expira_en TIMESTAMPTZ NULL,
   creado_en   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT uq_usuarios_dni UNIQUE (dni)
 );
@@ -146,16 +149,17 @@ CREATE TABLE IF NOT EXISTS encargados (
 -- (idempotentes: se pueden reejecutar sin duplicar información)
 -- ---------------------------------------------------------------------------
 
-INSERT INTO usuarios (nombre, dni, correo, telefono) VALUES
-  ('Carlos Pérez',  '45678945', 'carlos.perez@demo.pe',  '900111222'),
-  ('Andrea Torres', '52311878', 'andrea.torres@demo.pe', '900222333'),
-  ('Luis Ramírez',  '40125678', 'luis.ramirez@demo.pe',  '900333444'),
-  ('Diego Vargas',  '47258963', 'diego.vargas@demo.pe',  '900444555'),
-  ('María Torres',  '43871264', 'maria.torres@demo.pe',  '900555666'),
-  ('Renato Silva',  '39521478', 'renato.silva@demo.pe',  '900666777')
+INSERT INTO usuarios (nombre, dni, correo, telefono, password_hash) VALUES
+  ('Carlos Pérez',  '45678945', 'carlos.perez@demo.pe',  '900111222', 'scrypt$16384$8$1$MLkhByupLKVhaC8a08NyHw$tZt0xqQKM8Q9xtknOz85UDxp2RTQNZWwAwuVbYyTSSNBk8UZkGajtAL3UvDd_2ighImAPxzs7LzwrIdSzX494A'),
+  ('Andrea Torres', '52311878', 'andrea.torres@demo.pe', '900222333', 'scrypt$16384$8$1$RP9eyhelXIKs-irSmD9zkA$8M-44wT6SPz6rnoukju93TMdEeXWUiH01k3tQ4HyBn4xncHOK4kcwVA1eFWFWwUpIeHkv-lXk9lYxsFYuEzyDg'),
+  ('Luis Ramírez',  '40125678', 'luis.ramirez@demo.pe',  '900333444', 'scrypt$16384$8$1$iNpiKEjohgs739e6bkzwWQ$kxrww3jeQfyKHKAGYLVun3Am0ykngleDo8SULkL671ANv-FI9OTGNpijHJd9SOjg3_G3so6KEiI4SSzcdfVDNA'),
+  ('Diego Vargas',  '47258963', 'diego.vargas@demo.pe',  '900444555', 'scrypt$16384$8$1$ngaorYEIYo-CT4HA-kWWkA$7p-gIjQDn8m_j3lHHllJPzsUD-MeVsr40pMXwJDFRB7FXfuDQ4WcNGFxFc0HAkVw8gbhNj4YCq_iXvLhuCAjqQ'),
+  ('María Torres',  '43871264', 'maria.torres@demo.pe',  '900555666', 'scrypt$16384$8$1$-e8Rn5eU-B5YFOpaQLGiAg$uPu1PYufQJIXYGG8HCOmxwN4XYmkEmowXo6hYLYqHEIeKi9m2fJomLZIxKyeX1U0qveL8JoFtJSwt4kr293YLA'),
+  ('Renato Silva',  '39521478', 'renato.silva@demo.pe',  '900666777', 'scrypt$16384$8$1$dcSIByvRfRAD8sDPvmsYuA$_iLVByn-z7fME3F5FOUF2ZUG3uwmLVBR-SqDz2aMcltX_imbqWhFUdTa7LaUbqT70HY5W1NlmfdO9vBbDr35zQ')
 ON CONFLICT (dni) DO UPDATE SET
   nombre = EXCLUDED.nombre,
-  correo = EXCLUDED.correo;
+  correo = EXCLUDED.correo,
+  password_hash = EXCLUDED.password_hash;
 
 INSERT INTO eventos (nombre, fecha, hora, lugar, zona, precio_original, precio_maximo) VALUES
   ('Lima Music Fest',                 '2026-09-29', '20:00:00', 'Estadio Nacional',             'Preferencial', 120.00, 120.00),

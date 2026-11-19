@@ -19,7 +19,9 @@ function crearObtenerUsuario({ usuarioRepo }) {
       });
     }
 
-    return usuario;
+    // El hash de la contraseña no sale nunca del servicio de autenticación.
+    const { password_hash, ...publico } = usuario;
+    return publico;
   };
 }
 

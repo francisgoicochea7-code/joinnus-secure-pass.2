@@ -3,11 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b0d13">
 <title>Transferir entrada — Joinnus Secure Pass</title>
 <meta name="description" content="Transfiere tu entrada digital a otra persona de forma segura, con validación de precio y trazabilidad.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/fonts/fonts.css">
 <link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/theme.css">
 </head>
 <body class="page-top">
 
@@ -17,12 +19,12 @@
       <span class="brand-logo">
         <img src="assets/logo.svg" alt="Logo de Joinnus" width="228" height="72">
       </span>
-      <span class="brand-name">Secure Pass<span>Verifica · Transfiere · Protege</span></span>
+      <span class="brand-name">Secure Pass</span>
     </a>
     <nav class="nav-links" aria-label="Navegación principal">
       <ul>
         <li><a href="index.html">Inicio</a></li>
-        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="dashboard.html">Mis entradas</a></li>
         <li><a href="verificar.html">Verificar entrada</a></li>
         <li><a href="entrada.html">Mi entrada</a></li>
                 <li><a href="transferencia.html">Transferir entrada</a></li>
@@ -40,13 +42,12 @@
 </header>
 <div class="nav-mobile" id="nav-mobile">
   <a data-page href="index.html">Inicio</a>
-  <a data-page href="dashboard.html">Dashboard</a>
+  <a data-page href="dashboard.html">Mis entradas</a>
   <a data-page href="verificar.html">Verificar entrada</a>
   <a data-page href="entrada.html">Mi entrada</a>
     <a data-page href="transferencia.html">Transferir entrada</a>
   <a data-page href="historial.html">Historial</a>
   <a data-page href="sobre.html">Sobre el proyecto</a>
-  <a href="entrada.html" class="btn btn-primary btn-block">Mi entrada</a>
 </div>
 
 <main>
@@ -56,7 +57,7 @@
       <div class="section-head">
         <span class="eyebrow">Transferencia segura</span>
         <h1>Transferir entrada</h1>
-        <p class="lead">Si no puedes asistir al evento, puedes transferir tu entrada de manera segura a otra persona.</p>
+        <p class="lead">Selecciona la entrada que quieres transferir.</p>
         <p class="tiny muted"><span data-modo>Comprobando conexión…</span></p>
       </div>
 
@@ -86,6 +87,9 @@
             <div class="error-msg" id="error-titular">
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg><span></span>
             </div>
+            <button type="button" class="btn-link mt-2 hide" id="btn-usar-mi-dni">
+              Usar el DNI de mi sesión
+            </button>
           </div>
 
           <div id="detalle-entrada">
@@ -95,7 +99,7 @@
 
         <!-- ---------------- Reglas (plegables: la página no queda tan larga) ---------------- -->
         <div class="stack">
-          <details class="card">
+          <details class="card" open>
             <summary class="card-title">
               <span class="icon-box ok">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1 3 5v6c0 5.6 3.8 10.7 9 12 5.2-1.3 9-6.4 9-12V5l-9-4Zm0 2.2 7 3.1V11c0 4.7-3 9-7 10.2C8 20 5 15.7 5 11V6.3l7-3.1Z"/></svg>
@@ -103,22 +107,9 @@
               <h3>Reglas de transferencia</h3>
             </summary>
             <ul class="small" style="color:var(--text-soft);display:flex;flex-direction:column;gap:.6rem;padding-left:1.1rem">
-              <li>El DNI del nuevo titular debe tener <strong>exactamente 8 números</strong>.</li>
-              <li>El correo debe tener un <strong>formato válido</strong> para recibir la confirmación.</li>
-              <li>El precio <strong>no puede superar el precio original</strong> de la entrada.</li>
-              <li>Al transferir, el <strong>QR anterior se invalida</strong> y se genera uno nuevo.</li>
-              <li>Todo queda registrado en el <strong>historial de trazabilidad</strong>.</li>
+              <li>El <strong>precio máximo</strong> es el precio original de la entrada.</li>
+              <li>El <strong>QR anterior caduca</strong> y el nuevo titular recibe un código nuevo.</li>
             </ul>
-          </details>
-
-          <details class="card">
-            <summary class="card-title">
-              <span class="icon-box warn">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg>
-              </span>
-              <h3>¿Qué pasa con el QR?</h3>
-            </summary>
-            <p class="small mb-0">En el momento de confirmar la transferencia, el sistema <strong>invalida el token vigente</strong> y emite uno nuevo asociado al nuevo titular. Cualquier captura anterior deja de ser válida.</p>
           </details>
 
           <details class="card">
@@ -216,7 +207,7 @@
 
           <div class="alert alert-warn">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg>
-            <p>Precio máximo permitido: <strong id="precio-maximo">—</strong>. No se podrá completar la transferencia con un valor mayor.</p>
+            <p>Precio máximo: <strong id="precio-maximo">—</strong></p>
           </div>
         </form>
       </div>
@@ -232,8 +223,9 @@
         </div>
         <div class="kv"><span class="k">Titular actual</span><span class="v" id="c-actual">—</span></div>
         <div class="kv"><span class="k">Nuevo titular</span><span class="v" id="c-nuevo">—</span></div>
-        <div class="kv"><span class="k">DNI</span><span class="v mono" id="c-dni">—</span></div>
-        <div class="kv"><span class="k">Correo</span><span class="v" id="c-correo">—</span></div>
+        <div class="kv"><span class="k">DNI</span><span class="v mono" id="c-dni">-</span></div>
+        <div class="kv"><span class="k">DNI completo (para revisar)</span><span class="v mono" id="c-dni-completo">-</span></div>
+        <div class="kv"><span class="k">Correo</span><span class="v" id="c-correo">-</span></div>
         <div class="kv"><span class="k">Precio</span><span class="v" id="c-precio">—</span></div>
         <div class="kv"><span class="k">Entrada</span><span class="v mono" id="c-codigo">—</span></div>
       </div>
@@ -245,7 +237,7 @@
             <div class="rh-icon">🟢</div>
             <div>
               <h2 class="rh-title">Transferencia realizada correctamente</h2>
-              <p class="rh-msg">La titularidad se actualizó y se generó un nuevo código QR.</p>
+              <p class="rh-msg">El nuevo titular puede consultar su pase al iniciar sesión.</p>
             </div>
           </div>
         </div>
@@ -254,12 +246,7 @@
         <div class="kv"><span class="k">DNI</span><span class="v mono" id="r-dni">—</span></div>
         <div class="kv"><span class="k">Entrada</span><span class="v mono" id="r-codigo">—</span></div>
         <div class="kv"><span class="k">Estado</span><span class="v" id="r-estado">—</span></div>
-        <div class="kv"><span class="k">QR anterior (invalidado)</span><span class="v mono tiny" id="r-token-anterior">—</span></div>
-        <div class="kv"><span class="k">QR nuevo generado</span><span class="v mono tiny" id="r-token-nuevo">—</span></div>
-        <button class="btn btn-ghost" type="button" id="btn-copiar-qr" style="margin-top:1rem">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg>
-          Copiar código
-        </button>
+        <p class="small muted mt-3">Si es su primer pase, el administrador puede darle un código para activar su cuenta.</p>
       </div>
     </div>
 
@@ -284,7 +271,7 @@
         <button class="btn btn-ghost" data-modal-close="modal-transferencia">Cerrar</button>
         <a href="#" class="btn btn-primary" id="btn-ver-nueva">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Zm2 0v2h14V8H5Zm0 6v2h14v-2H5Z"/></svg>
-          Ver nueva entrada
+          Ver estado de la entrada
         </a>
       </div>
     </div>

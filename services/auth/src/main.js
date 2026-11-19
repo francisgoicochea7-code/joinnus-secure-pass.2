@@ -13,7 +13,10 @@ const { crearVerificarEncargado } = require('./application/verificar-encargado')
 const { crearCrearUsuario } = require('./application/crear-usuario');
 const { crearUpsertUsuario } = require('./application/upsert-usuario');
 const { crearObtenerUsuario } = require('./application/obtener-usuario');
+const { crearLoginUsuario } = require('./application/login-usuario');
+const { crearActivarUsuario } = require('./application/activar-usuario');
 const { crearRutas } = require('./adapters/http/routes');
+const { asegurarEsquema, avisarSiFaltaSecreto } = require('./adapters/postgres/migracion');
 
 const logger = crearLogger('auth');
 
@@ -21,23 +24,46 @@ const encargadoRepo = new PostgresEncargadoRepository(pool);
 const usuarioRepo = new PostgresUsuarioRepository(pool);
 const demoRepo = new PostgresDemoRepository(pool, config.seedSql);
 
-crearServicio({
-  servicio: 'auth',
-  puerto: config.puerto,
-  pool,
-  logger,
-  montarRutas: (app) => {
-    app.use(crearRutas({
-      loginEncargado: crearLoginEncargado({ encargadoRepo }),
-      verificarEncargado: crearVerificarEncargado({ encargadoRepo }),
-      crearUsuario: crearCrearUsuario({ usuarioRepo }),
-      upsertUsuario: crearUpsertUsuario({ usuarioRepo }),
-      obtenerUsuario: crearObtenerUsuario({ usuarioRepo }),
-      demoRepo,
-      internalAuth: internalAuth(config.internalToken)
-    }));
-  },
-  datosInicio: {
-    baseDatos: `${config.db.host}:${config.db.port}/${config.db.database}`
+avisarSiFaltaSecreto(config.sessionSecret, logger);
+
+(async () => {
+  // Bases creadas antes de existir las contraseñas: añade la columna y da
+  // contraseña a las cuentas de demostración que aún no tengan.
+  try {
+    await asegurarEsquema(pool, logger);
+  } catch (error) {
+    logger.warn('migracion_password_fallida', { mensaje: error.message });
   }
+
+  crearServicio({
+    servicio: 'auth',
+    puerto: config.puerto,
+    pool,
+    logger,
+    montarRutas: (app) => {
+      app.use(crearRutas({
+        loginEncargado: crearLoginEncargado({ encargadoRepo }),
+        verificarEncargado: crearVerificarEncargado({ encargadoRepo }),
+        crearUsuario: crearCrearUsuario({ usuarioRepo }),
+        upsertUsuario: crearUpsertUsuario({ usuarioRepo }),
+        obtenerUsuario: crearObtenerUsuario({ usuarioRepo }),
+        activarUsuario: crearActivarUsuario({ usuarioRepo }),
+        sessionSecret: config.sessionSecret,
+        loginUsuario: crearLoginUsuario({
+          usuarioRepo,
+          sessionSecret: config.sessionSecret,
+          sessionTtl: config.sessionTtl
+        }),
+        demoRepo,
+        internalAuth: internalAuth(config.internalToken)
+      }));
+    },
+    datosInicio: {
+      baseDatos: `${config.db.host}:${config.db.port}/${config.db.database}`,
+      sesiones: config.sessionSecret ? 'firmadas' : 'sin_secreto'
+    }
+  });
+})().catch((error) => {
+  logger.error('arranque_fallido', { mensaje: error.message });
+  process.exit(1);
 });

@@ -9,8 +9,7 @@ function crearValidarPuerta({
   historialRepo,
   authClient,
   qrClient,
-  logger,
-  demoDni
+  logger
 }) {
   return async ({ datos, requestId }) => {
     const b = datos || {};
@@ -59,7 +58,7 @@ function crearValidarPuerta({
       );
     }
 
-    const entrada = enriquecer(fila, '00000000', demoDni);
+    const entrada = enriquecer(fila, null);
 
     if (fila.estado === 'usado') {
       return {
@@ -119,7 +118,7 @@ function crearValidarPuerta({
       motivo: registrado ? 'registrado' : 'ok',
       registrado,
       conFirma: !!token,
-      entrada: enriquecer(actualizada, '00000000', demoDni),
+      entrada: enriquecer(actualizada, null),
       encargado: encargado.nombre,
       mensaje: registrado
         ? `Ingreso registrado por ${encargado.nombre}.`

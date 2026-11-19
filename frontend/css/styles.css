@@ -52,6 +52,10 @@
 /* ------------------------------------------------------------------ */
 *, *::before, *::after { box-sizing: border-box; }
 
+/* El atributo hidden debe ganar siempre: varios componentes usan
+   display:inline-flex y, sin esta regla, seguian visibles al ocultarlos. */
+[hidden] { display: none !important; }
+
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
 body {
@@ -64,6 +68,8 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
+
+body.modal-open { overflow: hidden; }
 
 body::before {
   content: "";
@@ -458,7 +464,7 @@ details.card > summary.card-title:hover h3 { color: var(--brand); }
   color: var(--text);
   transition: border-color .2s, box-shadow .2s, background .2s;
 }
-.input::placeholder { color: #5f6b8a; }
+.input::placeholder { color: #8b93ad; }
 .input:focus, .select:focus, textarea.input:focus {
   outline: none;
   border-color: var(--brand);
@@ -514,35 +520,55 @@ details.card > summary.card-title:hover h3 { color: var(--brand); }
   background: rgba(4, 7, 15, .78);
   backdrop-filter: blur(7px);
   display: none; align-items: center; justify-content: center;
-  padding: 1.2rem;
-  overflow-y: auto;
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+           max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  overflow: hidden;
+  overscroll-behavior: contain;
 }
 .modal-backdrop.open { display: flex; animation: fadeIn .2s ease; }
 .modal {
   width: min(100%, 560px);
+  display: flex;
+  flex-direction: column;
   background: linear-gradient(180deg, #131b2e, #0d1424);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
   box-shadow: 0 40px 90px -30px rgba(0, 0, 0, .9);
   animation: popIn .28s cubic-bezier(.2, .9, .3, 1.2);
-  max-height: 92vh; overflow-y: auto;
+  max-height: 92vh;
+  max-height: min(92vh, 780px);
+  overflow: hidden;
   margin: auto;
+  outline: none;
+}
+@supports (height: 100dvh) {
+  .modal { max-height: min(92dvh, 780px); }
 }
 .modal-lg { width: min(100%, 720px); }
 .modal-head {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
   padding: 1.5rem 1.6rem 1rem;
   border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
 }
 .modal-head h3 { margin: 0; font-size: 1.25rem; }
 .modal-head p { margin: .25rem 0 0; font-size: .87rem; }
-.modal-body { padding: 1.5rem 1.6rem; }
+.modal-body {
+  padding: 1.5rem 1.6rem;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
 .modal-foot {
   display: flex; gap: .7rem; justify-content: flex-end; flex-wrap: wrap;
   padding: 1.1rem 1.6rem 1.5rem;
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
   border-top: 1px solid var(--border);
-  background: rgba(0, 0, 0, .16);
+  background: #101827;
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  flex: 0 0 auto;
+  box-shadow: 0 -14px 30px -22px rgba(0, 0, 0, .9);
 }
 .modal-close {
   width: 36px; height: 36px; border-radius: 10px; flex: none;
@@ -570,9 +596,19 @@ details.card > summary.card-title:hover h3 { color: var(--brand); }
   border-radius: 14px;
   box-shadow: 0 20px 50px -20px rgba(0, 0, 0, .9);
   animation: toastIn .3s cubic-bezier(.2, .9, .3, 1.2);
+  cursor: pointer;
 }
+.toast:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 3px; }
 .toast.out { animation: toastOut .25s ease forwards; }
 .toast-icon { width: 20px; height: 20px; flex: none; margin-top: 1px; }
+.toast-close {
+  flex: none; width: 24px; height: 24px; margin: -2px -4px 0 0;
+  display: grid; place-items: center; padding: 0;
+  color: var(--muted); background: transparent; border: 0; border-radius: 7px;
+  cursor: pointer;
+}
+.toast-close:hover { color: var(--text); background: rgba(255, 255, 255, .07); }
+.toast-close svg { width: 13px; height: 13px; }
 .toast-ok { border-left-color: var(--ok); }
 .toast-ok .toast-icon { color: var(--ok); }
 .toast-error { border-left-color: var(--danger); }
@@ -840,6 +876,8 @@ table.data td strong { color: var(--text); }
 /* ------------------------------------------------------------------ */
 .result { display: none; }
 .result.show { display: block; animation: popIn .35s cubic-bezier(.2,.9,.3,1.15); }
+#resultado { scroll-margin-top: calc(var(--nav-h) + 1.1rem); outline: none; }
+#resultado:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 4px; }
 .result-hero {
   display: flex; align-items: center; gap: 1.1rem;
   padding: 1.3rem 1.4rem; border-radius: var(--radius);
@@ -969,7 +1007,13 @@ table.data td strong { color: var(--text); }
   .split { grid-template-columns: 1fr; }
   .ticket-body { grid-template-columns: 1fr; }
   .ticket-sep { border-bottom: 1px dashed rgba(255,255,255,.18); }
-  .ticket-qr { border-left: none; border-top: 1px dashed rgba(255,255,255,.18); }
+  /* En una sola columna el QR va primero: es lo que se muestra en la puerta. */
+  .ticket-qr {
+    order: -1;
+    border-left: none;
+    border-top: 0;
+    border-bottom: 1px dashed rgba(255,255,255,.18);
+  }
   .ticket-qr::before, .ticket-qr::after { display: none; }
   .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -988,7 +1032,12 @@ table.data td strong { color: var(--text); }
   .g-2, .g-4 { grid-template-columns: 1fr; }
   .entry-meta { grid-template-columns: 1fr 1fr; }
   .card { padding: 1.2rem; }
+  .modal-backdrop { padding: .55rem; }
+  .modal { max-height: calc(100vh - 1.1rem); max-height: calc(100dvh - 1.1rem); border-radius: 20px; }
+  .modal-head { padding-top: 1.15rem; padding-bottom: .9rem; }
   .modal-head, .modal-body, .modal-foot { padding-left: 1.15rem; padding-right: 1.15rem; }
+  .modal-foot { gap: .55rem; padding-top: .9rem; }
+  .modal-foot .btn { min-height: 46px; }
   .hero { padding-top: calc(var(--nav-h) + 2rem); }
   .hero-ticket { transform: none; }
   .hero-ticket:hover { transform: none; }
@@ -1008,3 +1057,20 @@ table.data td strong { color: var(--text); }
 
 /* Indicador "API conectada (Docker)" / "Modo local (localStorage)" */
 [data-modo] { display: none !important; }
+
+/* ------------------------------------------------------------------
+ * Objetivos tactiles en movil (minimo recomendado: 44 x 44 px)
+ * Solo agranda el area pulsable; no cambia el diseno de escritorio.
+ * ------------------------------------------------------------------ */
+@media (max-width: 720px) {
+  .btn-sm,
+  .chip,
+  .code-chip,
+  .pildora-btn,
+  .pildora-salir,
+  #btn-copiar {
+    min-height: 44px;
+  }
+  .pildora-salir { min-width: 44px; }
+  .chip, .code-chip { display: inline-flex; align-items: center; }
+}

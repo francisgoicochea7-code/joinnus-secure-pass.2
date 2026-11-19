@@ -32,6 +32,17 @@ const { Pool, types, Client } = require('pg');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const {
+  passwordValida,
+  hashPassword,
+  verifyPassword,
+  HASH_RELLENO,
+  secretoDeEntorno,
+  firmarSesion,
+  verificarSesion,
+  TTL_DEFECTO
+} = require('./auth');
+const { FORMATO_CODIGO, asegurarColumnasActivacion, consumirCodigoActivacion } = require('./activacion');
 
 const app = express();
 
@@ -122,6 +133,11 @@ if (QR_SECRET.length < 16) {
   process.exit(1);
 }
 
+/* Firma de las sesiones (login con contraseña). Si no se define
+ * SESSION_SECRET se deriva de QR_SECRET, que ya es obligatorio. */
+const SESSION_SECRET = secretoDeEntorno(process.env, QR_SECRET);
+const SESSION_TTL = Number(process.env.SESSION_TTL_SECONDS || 8 * 60 * 60);
+
 const CFG = {
   port: Number(process.env.PORT || 3000),
   db: {
@@ -202,6 +218,7 @@ async function esperarBase(maxIntentos = 30) {
     try {
       await pool.query('SELECT 1');
       console.log(`[BD] Conectado a ${CFG.db.host}:${CFG.db.port}/${CFG.db.database}`);
+      await migrarPasswords();
       return true;
     } catch (e) {
       console.log(`[BD] PostgreSQL no disponible (intento ${i}/${maxIntentos}): ${e.code || e.message}`);
@@ -210,6 +227,39 @@ async function esperarBase(maxIntentos = 30) {
   }
   console.error('[BD] No se pudo conectar con la base de datos.');
   return false;
+}
+
+/* Contraseñas de las cuentas ficticias (deben coincidir con database/init.sql). */
+const DEMO_PASSWORDS = {
+  '45678945': 'Carlos2026!',
+  '52311878': 'Andrea2026!',
+  '40125678': 'Luis2026!',
+  '47258963': 'Diego2026!',
+  '43871264': 'Maria2026!',
+  '39521478': 'Renato2026!'
+};
+
+/** Bases creadas antes de existir las contraseñas: añade la columna y da
+ *  contraseña a las cuentas de demostración que aún no tengan. No toca a
+ *  quien ya la cambió. */
+async function migrarPasswords() {
+  try {
+    await pool.query('ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS password_hash TEXT');
+    await asegurarColumnasActivacion(pool);
+    const dnis = Object.keys(DEMO_PASSWORDS);
+    const { rows } = await pool.query(
+      'SELECT dni FROM usuarios WHERE dni = ANY($1) AND password_hash IS NULL', [dnis]);
+    for (const fila of rows) {
+      const clave = DEMO_PASSWORDS[String(fila.dni).trim()];
+      if (!clave) continue;
+      await pool.query(
+        'UPDATE usuarios SET password_hash = $1 WHERE dni = $2 AND password_hash IS NULL',
+        [hashPassword(clave), fila.dni]);
+    }
+    if (rows.length) console.log(`[BD] Contraseñas de demostración asignadas: ${rows.length}`);
+  } catch (e) {
+    console.warn('[BD] No se pudo migrar password_hash:', e.message);
+  }
 }
 
 /* ---------------------------------------------------------------------
@@ -268,14 +318,14 @@ const fallo = (res, codigo, mensaje, extra = {}) =>
 const ruta = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 /** DNI de la persona identificada en ESTA peticion.
- *  Viaja en la cabecera X-Usuario-DNI. Si no viene, se usa DEMO_DNI, que
- *  conserva el comportamiento anterior (sesion unica de Carlos).
- *
- *  OJO: esto NO es autenticacion. El DNI lo elige el navegador; el servidor
- *  solo lo usa para filtrar los datos que devuelve. */
+ *  Viaja en un token firmado (Authorization: Bearer ...) que emite el login
+ *  con contraseña. La antigua cabecera X-Usuario-DNI ya NO se acepta: cualquier
+ *  navegador podía escribir el DNI de otra persona. */
 function dniDePeticion(req) {
-  const dni = String(req.get('X-Usuario-DNI') || '').trim();
-  return /^\d{8}$/.test(dni) ? dni : CFG.demoDni;
+  const cabecera = String(req.get('Authorization') || '');
+  const encontrado = /^Bearer\s+([^\s]+)$/i.exec(cabecera);
+  const sesion = encontrado ? verificarSesion(encontrado[1], SESSION_SECRET) : null;
+  return sesion ? sesion.dni : null;
 }
 
 /** Convierte una columna DATE de PostgreSQL a 'YYYY-MM-DD'.
@@ -293,7 +343,7 @@ function fechaCorta(valor) {
 function enriquecer(fila, dni) {
   if (!fila) return null;
   const meta = ESTADOS[fila.estado] || ESTADOS.valido;
-  const esMia = fila.titular_dni === (dni || CFG.demoDni);
+  const esMia = Boolean(dni) && fila.titular_dni === dni;
   return {
     codigo: fila.codigo,
     evento: fila.evento,
@@ -304,8 +354,8 @@ function enriquecer(fila, dni) {
     fila: fila.fila,
     asiento: fila.asiento,
     titular: fila.titular_nombre,
-    dni: fila.titular_dni,
-    correo: fila.titular_correo,
+    dni: esMia ? fila.titular_dni : null,
+    correo: esMia ? fila.titular_correo : null,
     estado: fila.estado,
     estadoEtiqueta: meta.etiqueta,
     estadoDetalle: meta,
@@ -318,17 +368,17 @@ function enriquecer(fila, dni) {
     // puerta), pero el QR en curso no se da de una entrada que no es tuya.
     qrToken: esMia ? fila.qr_ultimo_token : null,
     qrAnterior: esMia ? fila.qr_anterior_token : null,
-    qrExpiraEn: fila.qr_expira_en,
-    qrGeneradoEn: fila.qr_generado_en,
+    qrExpiraEn: esMia ? fila.qr_expira_en : null,
+    qrGeneradoEn: esMia ? fila.qr_generado_en : null,
     creadoEn: fila.creado_en,
     transferidaEn: fila.transferida_en,
     usadoEn: fila.usada_en,
     anuladoEn: fila.anulada_en,
     motivoAnulacion: fila.motivo_anulacion,
     titularAnterior: fila.titular_anterior,
-    dniAnterior: fila.dni_anterior,
-    puedeTransferir: fila.estado === 'valido',
-    esMia: fila.titular_dni === (dni || CFG.demoDni)
+    dniAnterior: esMia ? fila.dni_anterior : null,
+    puedeTransferir: esMia && fila.estado === 'valido',
+    esMia
   };
 }
 
@@ -505,7 +555,7 @@ app.get('/api/health', ruta(async (req, res) => {
  *  Todo se acota a la persona identificada: asi el panel muestra "su"
  *  informacion y no la de los demas. */
 app.get('/api/resumen', ruta(async (req, res) => {
-  const dni = dniDePeticion(req);
+  const dni = dniDePeticion(req) || CFG.demoDni;
   const rows = await consultar(`
     SELECT
       SUM(CASE WHEN estado = 'valido'      THEN 1 ELSE 0 END) AS activas,
@@ -575,6 +625,7 @@ app.post('/api/entradas/:codigo/qr', limiteQR, ruta(async (req, res) => {
   const codigo = String(req.params.codigo).toUpperCase();
   const registrarEnHistorial = String(req.query.log ?? '1') !== '0';
   const dni = dniDePeticion(req);
+  if (!dni) return fallo(res, 401, 'Inicia sesión para generar el QR.', { codigo: 'SESION_REQUERIDA' });
 
   const fila = await obtenerFila(codigo);
   if (!fila) return fallo(res, 404, `La entrada ${codigo} no existe.`);
@@ -629,7 +680,7 @@ app.post('/api/entradas/:codigo/qr', limiteQR, ruta(async (req, res) => {
     expiraEn,
     ttl: CFG.qrTtl,
     id: ins.rows[0].id,
-    entrada: enriquecer(actualizada, dniDePeticion(req))
+    entrada: enriquecer(actualizada, dni)
   });
 }));
 
@@ -840,6 +891,8 @@ app.post('/api/encargados/validar', limiteValidar, ruta(async (req, res) => {
 app.post('/api/entradas/:codigo/transferir', limiteEscritura, ruta(async (req, res) => {
   const codigo = String(req.params.codigo).toUpperCase();
   const datos = req.body || {};
+  const dni = dniDePeticion(req);
+  if (!dni) return fallo(res, 401, 'Inicia sesión para transferir la entrada.', { codigo: 'SESION_REQUERIDA' });
 
   const fila = await obtenerFila(codigo);
   if (!fila) return fallo(res, 404, 'La entrada no existe en el sistema.');
@@ -847,7 +900,7 @@ app.post('/api/entradas/:codigo/transferir', limiteEscritura, ruta(async (req, r
   // Sólo el titular actual puede transferir su entrada. El candado del DNI que
   // hay en el formulario vive en el navegador; esta es la comprobación del
   // servidor, la que en realidad vale.
-  if (fila.titular_dni !== dniDePeticion(req)) {
+  if (fila.titular_dni !== dni) {
     return fallo(res, 403,
       `La entrada ${codigo} pertenece a otra persona: sólo su titular puede transferirla.`,
       { motivo: 'no-es-tuya' });
@@ -877,34 +930,27 @@ app.post('/api/entradas/:codigo/transferir', limiteEscritura, ruta(async (req, r
   // Usuario destino (se crea si no existe, para no romper la FK)
   const usr = await ejecutar(
     `INSERT INTO usuarios (nombre, dni, correo) VALUES (?, ?, ?)
-     ON CONFLICT (dni) DO UPDATE SET nombre = EXCLUDED.nombre, correo = EXCLUDED.correo
-     RETURNING id`,
+     ON CONFLICT (dni) DO NOTHING
+     RETURNING id, nombre, dni, correo`,
     [v.nombre, v.dni, v.correo]);
-  // insertId viene en 0 cuando el DNI ya existía (se actualizó la fila), así
-  // que en ese caso se busca el id. Esto era "const" y provocaba un
-  // "Assignment to constant variable" (500) en toda transferencia hacia un
-  // usuario ya registrado.
-  let usuarioNuevoId = usr.rows.length ? usr.rows[0].id : null;
-  if (!usuarioNuevoId) {
-    const found = await consultar('SELECT id FROM usuarios WHERE dni = ?', [v.dni]);
-    usuarioNuevoId = found.length ? found[0].id : null;
-  }
-
-  // Se invalida el QR vigente
-  await ejecutar(
-    `UPDATE tokens_qr SET invalidado = 1
-      WHERE entrada_id = (SELECT id FROM entradas WHERE codigo = ?) AND invalidado = 0`,
-    [codigo]);
+  const [usuarioNuevo] = usr.rows.length
+    ? usr.rows
+    : await consultar('SELECT id, nombre, dni, correo FROM usuarios WHERE dni = ?', [v.dni]);
 
   // Se actualiza la titularidad y el estado
-  await ejecutar(
+  const cambio = await ejecutar(
     `UPDATE entradas
         SET titular_id = ?, titular_nombre = ?, titular_dni = ?, titular_correo = ?,
             estado = 'transferido', transferida_en = NOW(),
             qr_anterior_token = qr_ultimo_token, qr_ultimo_token = NULL,
             qr_firma = NULL, qr_expira_en = NULL
-      WHERE codigo = ?`,
-    [usuarioNuevoId, v.nombre, v.dni, v.correo, codigo]);
+      WHERE codigo = ? AND titular_dni = ? AND estado = 'valido'`,
+    [usuarioNuevo.id, usuarioNuevo.nombre, usuarioNuevo.dni, usuarioNuevo.correo, codigo, dni]);
+  if (!cambio.rowCount) return fallo(res, 409, 'La entrada cambió. Vuelve a consultarla.');
+
+  await ejecutar(
+    'UPDATE tokens_qr SET invalidado = 1 WHERE entrada_id = ? AND invalidado = 0',
+    [entradaId]);
 
   // Registro de la transferencia. "precio_original" y "codigo_operacion" son
   // NOT NULL sin valor por defecto: sin enviarlos el INSERT fallaba con
@@ -917,14 +963,14 @@ app.post('/api/entradas/:codigo/transferir', limiteEscritura, ruta(async (req, r
         precio, precio_original, codigo_operacion)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [entradaId, titularAnteriorId, titularAnterior, dniAnterior,
-     usuarioNuevoId, v.nombre, v.dni, v.correo,
+     usuarioNuevo.id, usuarioNuevo.nombre, usuarioNuevo.dni, usuarioNuevo.correo,
      v.precio, Number(fila.precio), generarCodigoOperacion()]);
 
-  await registrar(codigo, 'transferida', v.nombre,
-    `${titularAnterior} → ${v.nombre} · S/ ${v.precio.toFixed(2)}`, 'transferido');
-  await registrar(codigo, 'qr', v.nombre,
+  await registrar(codigo, 'transferida', usuarioNuevo.nombre,
+    `${titularAnterior} → ${usuarioNuevo.nombre} · S/ ${v.precio.toFixed(2)}`, 'transferido');
+  await registrar(codigo, 'qr', usuarioNuevo.nombre,
     tokenAnterior
-      ? `Nuevo QR generado (se invalidó ${tokenAnterior})`
+      ? 'QR anterior invalidado y reemplazado'
       : 'Nuevo QR generado para el nuevo titular', 'transferido');
 
   // QR nuevo para el nuevo titular
@@ -944,23 +990,48 @@ app.post('/api/entradas/:codigo/transferir', limiteEscritura, ruta(async (req, r
   ok(res, {
     codigo,
     titularAnterior,
-    titularNuevo: v.nombre,
+    titularNuevo: usuarioNuevo.nombre,
     dniAnterior: ocultarDNI(dniAnterior),
     dniNuevo: ocultarDNI(v.dni),
-    correoNuevo: v.correo,
     precio: v.precio,
     estado: 'transferido',
     estadoEtiqueta: ESTADOS.transferido.etiqueta,
-    tokenAnterior,
-    tokenNuevo: nuevo.token,
-    payload: construirPayload(codigo, nuevo.nonce),
-    entrada: enriquecer(actualizada, dniDePeticion(req))
+    qrPendiente: false,
+    entrada: enriquecer(actualizada, null)
   });
 }));
 
+/** INICIAR SESIÓN con DNI + contraseña. Devuelve un token firmado que el
+ *  resto de rutas acepta en Authorization: Bearer ... */
+app.post('/api/usuarios/login', limiteEncargado, ruta(async (req, res) => {
+  const b = req.body || {};
+
+  const dni = String(b.dni || '').trim();
+  if (!/^\d{8}$/.test(dni)) {
+    return fallo(res, 400, 'El DNI debe tener exactamente 8 números.', { campo: 'dni' });
+  }
+
+  const clave = String(b.password || '');
+  if (!clave) return fallo(res, 400, 'Escribe tu contraseña.', { campo: 'password' });
+
+  const rows = await consultar(
+    'SELECT id, nombre, dni, correo, password_hash FROM usuarios WHERE dni = ? LIMIT 1', [dni]);
+  const usuario = rows[0];
+
+  // Se compara siempre (también con DNI inexistente) para no revelar por
+  // tiempo de respuesta qué DNIs están registrados.
+  const coincide = verifyPassword(clave, (usuario && usuario.password_hash) || HASH_RELLENO);
+  if (!usuario || !usuario.password_hash || !coincide) {
+    return fallo(res, 401, 'DNI o contraseña incorrectos.');
+  }
+
+  const { password_hash, ...publico } = usuario;
+  const sesion = firmarSesion({ dni, secreto: SESSION_SECRET, ttlSegundos: SESSION_TTL });
+  ok(res, { usuario: publico, token: sesion.token, expiraEn: sesion.expiraEn });
+}));
+
 /** REGISTRAR una persona nueva: la da de alta en la base para que a partir
- *  de ahí pueda identificarse (DNI + nombre). No es una cuenta con clave,
- *  es un alta de usuario: el límite de peticiones por minuto es el freno. */
+ *  de ahí pueda iniciar sesión con su DNI y su contraseña. */
 app.post('/api/usuarios', limiteEscritura, ruta(async (req, res) => {
   const b = req.body || {};
 
@@ -980,6 +1051,9 @@ app.post('/api/usuarios', limiteEscritura, ruta(async (req, res) => {
       { campo: 'correo' });
   }
 
+  const clave = passwordValida(b.password);
+  if (!clave.ok) return fallo(res, 400, clave.mensaje, { campo: 'password' });
+
   // El DNI es la identidad del sistema: no puede repetirse. Si dos personas
   // se registran a la vez, la clave única uq_usuarios_dni decide (23505).
   const existe = await consultar('SELECT id FROM usuarios WHERE dni = ? LIMIT 1', [dni]);
@@ -991,8 +1065,8 @@ app.post('/api/usuarios', limiteEscritura, ruta(async (req, res) => {
   const telefono = String(b.telefono || '').trim().slice(0, 30) || null;
   try {
     const alta = await ejecutar(
-      'INSERT INTO usuarios (nombre, dni, correo, telefono) VALUES (?, ?, ?, ?) RETURNING id',
-      [nombre, dni, correo, telefono]);
+      'INSERT INTO usuarios (nombre, dni, correo, telefono, password_hash) VALUES (?, ?, ?, ?, ?) RETURNING id',
+      [nombre, dni, correo, telefono, hashPassword(clave.valor)]);
     return res.status(201).json({
       ok: true,
       usuario: { id: alta.rows[0].id, nombre: nombre, dni: dni, correo: correo }
@@ -1006,14 +1080,28 @@ app.post('/api/usuarios', limiteEscritura, ruta(async (req, res) => {
   }
 }));
 
-/** IDENTIFICAR a una persona: comprueba que el DNI existe y que el nombre
- *  escrito coincide con el registrado. NO es autenticacion (no hay
- *  contrasena): solo evita erratas y da un dato coherente que mostrar. */
+app.post('/api/usuarios/activar', limiteEncargado, ruta(async (req, res) => {
+  const datos = req.body || {};
+  const dni = String(datos.dni || '').trim();
+  const codigo = String(datos.codigo || '').trim();
+  if (!/^\d{8}$/.test(dni) || !FORMATO_CODIGO.test(codigo)) {
+    return fallo(res, 400, 'Revisa el DNI y el código de activación.');
+  }
+  const clave = passwordValida(datos.password);
+  if (!clave.ok) return fallo(res, 400, clave.mensaje);
+
+  const usuario = await consumirCodigoActivacion(pool, { dni, codigo, passwordHash: hashPassword(clave.valor) });
+  if (!usuario) return fallo(res, 400, 'El código de activación es incorrecto o ya no está vigente.');
+  res.set('Cache-Control', 'no-store');
+  return ok(res, {});
+}));
+
+/** Consulta privada del perfil propio. */
 app.get('/api/usuarios/:dni', ruta(async (req, res) => {
   const dni = String(req.params.dni).trim();
-  if (!/^\d{8}$/.test(dni)) {
-    return fallo(res, 400, 'El DNI debe tener exactamente 8 números.', { campo: 'dni' });
-  }
+  const dniSesion = dniDePeticion(req);
+  if (!dniSesion) return fallo(res, 401, 'Inicia sesión para consultar tu perfil.', { codigo: 'SESION_REQUERIDA' });
+  if (dniSesion !== dni) return fallo(res, 403, 'Solo puedes consultar tu propio perfil.', { codigo: 'PERFIL_AJENO' });
 
   const rows = await consultar(
     'SELECT id, nombre, dni, correo FROM usuarios WHERE dni = ? LIMIT 1', [dni]);
@@ -1022,6 +1110,7 @@ app.get('/api/usuarios/:dni', ruta(async (req, res) => {
     return fallo(res, 404, 'No encontramos a ninguna persona con ese DNI.', { campo: 'dni' });
   }
 
+  res.set('Cache-Control', 'no-store');
   ok(res, { usuario: rows[0] });
 }));
 
@@ -1064,6 +1153,8 @@ app.get('/api/entradas/:codigo/historial', ruta(async (req, res) => {
 app.post('/api/entradas/:codigo/estado/:estado', limiteEscritura, ruta(async (req, res) => {
   const codigo = String(req.params.codigo).toUpperCase();
   const estado = String(req.params.estado).toLowerCase();
+  const dni = dniDePeticion(req);
+  if (!dni) return fallo(res, 401, 'Inicia sesión para cambiar el estado.', { codigo: 'SESION_REQUERIDA' });
   if (!['usado', 'anulado', 'valido'].includes(estado)) {
     return fallo(res, 400, 'Estado no permitido: ' + estado);
   }
@@ -1079,21 +1170,32 @@ app.post('/api/entradas/:codigo/estado/:estado', limiteEscritura, ruta(async (re
 
   const fila = await obtenerFila(codigo);
   if (!fila) return fallo(res, 404, 'La entrada no existe.');
+  if (fila.titular_dni !== dni) return fallo(res, 403, 'Esta entrada pertenece a otro titular.');
+  if (fila.estado === 'usado' || (estado === 'valido' && fila.estado !== 'anulado')) {
+    return fallo(res, 409, 'La entrada no admite ese cambio de estado.');
+  }
 
-  const columna = estado === 'usado' ? 'usada_en' : estado === 'anulado' ? 'anulada_en' : 'transferida_en';
-  const sql = estado === 'valido'
-    ? `UPDATE entradas SET estado = 'valido', ${columna} = NULL WHERE codigo = ?`
-    : `UPDATE entradas SET estado = ?, ${columna} = NOW() WHERE codigo = ?`;
+  const actualizado = await pool.query(
+    `UPDATE entradas
+        SET estado = $2::varchar,
+            anulada_en = CASE WHEN $2::varchar = 'anulado' THEN NOW() ELSE NULL END,
+            transferida_en = CASE WHEN $2::varchar = 'valido' THEN NULL ELSE transferida_en END,
+            qr_ultimo_token = NULL, qr_anterior_token = NULL,
+            qr_firma = NULL, qr_expira_en = NULL
+      WHERE codigo = $1 AND titular_dni = $3 AND estado = $4`,
+    [codigo, estado, dni, fila.estado]);
+  if (!actualizado.rowCount) return fallo(res, 409, 'La entrada cambió. Vuelve a consultarla.');
 
-  await ejecutar(sql, estado === 'valido' ? [codigo] : [estado, codigo]);
+  if (estado === 'anulado') {
+    await ejecutar('UPDATE tokens_qr SET invalidado = 1 WHERE entrada_id = ?', [fila.id]);
+  }
 
-  const accion = estado === 'usado' ? 'usada' : estado === 'anulado' ? 'anulada' : 'verificada';
-  const detalle = estado === 'usado' ? 'Ingreso registrado en el evento'
-    : estado === 'anulado' ? 'Entrada anulada por el organizador' : 'Entrada reactivada';
+  const accion = estado === 'anulado' ? 'anulada' : 'verificada';
+  const detalle = estado === 'anulado' ? 'Entrada anulada por el titular' : 'Entrada reactivada';
   await registrar(codigo, accion, fila.titular_nombre, detalle, estado);
 
   const actualizada = await obtenerFila(codigo);
-  ok(res, { entrada: enriquecer(actualizada, dniDePeticion(req)) });
+  ok(res, { entrada: enriquecer(actualizada, dni) });
 }));
 
 /** Reinicia los datos ficticios de la demo */

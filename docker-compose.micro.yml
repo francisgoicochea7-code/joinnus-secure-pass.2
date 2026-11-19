@@ -74,6 +74,10 @@ services:
       DB_USER: auth_user
       DB_PASSWORD: "${AUTH_DB_PASSWORD:?Falta AUTH_DB_PASSWORD en .env.micro}"
       INTERNAL_TOKEN: "${INTERNAL_TOKEN:?Falta INTERNAL_TOKEN en .env.micro}"
+      # Firma de las sesiones (login con contraseña). Si se deja vacío se
+      # deriva de INTERNAL_TOKEN; en producción conviene definirlo aparte.
+      SESSION_SECRET: "${SESSION_SECRET:-}"
+      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-28800}
       DEMO_DNI: ${DEMO_DNI:-45678945}
       SEED_SQL: /seed/auth.sql
       TZ: ${TZ:-America/Lima}
@@ -115,6 +119,7 @@ services:
       AUTH_SERVICE_URL: http://auth:3101
       QR_SERVICE_URL: http://qr:3103
       INTERNAL_TOKEN: "${INTERNAL_TOKEN:?Falta INTERNAL_TOKEN en .env.micro}"
+      SESSION_SECRET: "${SESSION_SECRET:-}"
       DEMO_DNI: ${DEMO_DNI:-45678945}
       SEED_SQL: /seed/tickets.sql
       TZ: ${TZ:-America/Lima}
@@ -155,6 +160,10 @@ services:
       DB_PASSWORD: "${QR_DB_PASSWORD:?Falta QR_DB_PASSWORD en .env.micro}"
       QR_SECRET: "${QR_SECRET:?Falta QR_SECRET en .env.micro}"
       QR_TTL_SECONDS: ${QR_TTL_SECONDS:-15}
+      # La misma firma de sesión que auth/tickets: sin esto no puede saber
+      # si quien pide el QR es la persona titular.
+      SESSION_SECRET: "${SESSION_SECRET:-}"
+      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-28800}
       TICKETS_SERVICE_URL: http://tickets:3102
       INTERNAL_TOKEN: "${INTERNAL_TOKEN:?Falta INTERNAL_TOKEN en .env.micro}"
       DEMO_DNI: ${DEMO_DNI:-45678945}

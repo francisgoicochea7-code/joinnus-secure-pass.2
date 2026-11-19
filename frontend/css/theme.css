@@ -1,0 +1,1183 @@
+/* =========================================================================
+   JOINNUS SECURE PASS — frontend/css/theme.css
+   -------------------------------------------------------------------------
+   Refinamiento visual de las páginas internas (dashboard, verificar, entrada,
+   transferencia, historial y proyecto). Se carga DESPUÉS de styles.css para
+   conservar toda la lógica y los estados que ya maneja el JavaScript.
+
+   La portada y las páginas internas comparten superficies oscuras y acentos menta.
+   ========================================================================= */
+
+/* ------------------------------------------------------------------ */
+/* 1. Base y fondo                                                    */
+/* ------------------------------------------------------------------ */
+body.page-top {
+  --bg:            #0a1010;
+  --bg-2:          #0d1514;
+  --surface:       #ffffff05;
+  --surface-2:     #ffffff09;
+  --surface-solid: #141d1c;
+  --border:        #ffffff12;
+  --border-strong: #ffffff26;
+
+  --text:      #f4f8f5;
+  --text-soft: #b3c3bd;
+  --muted:     #95aaa3;
+
+  --brand:     #baf8a2;
+  --brand-2:   #70e9c7;
+  --brand-3:   #f2d4b8;
+  --grad:      linear-gradient(120deg, #baf8a2, #70e9c7);
+  --grad-soft: linear-gradient(120deg, #baf8a229, #70e9c71a);
+
+  --ok:     #4ecf94;
+  --danger: #f4697e;
+  --warn:   #e8b34b;
+  --info:   #7fb1ff;
+
+  --radius:    18px;
+  --radius-sm: 12px;
+  --radius-lg: 24px;
+  --shadow:    0 28px 70px -34px rgba(0, 0, 0, .9);
+  --shadow-sm: 0 16px 40px -28px rgba(0, 0, 0, .85);
+
+  --maxw:  1200px;
+  --nav-h: 72px;
+
+  padding-top: calc(var(--nav-h) + 2rem);
+  background: var(--bg);
+  color-scheme: dark;
+}
+
+body.page-top::before {
+  background:
+    radial-gradient(760px 460px at 14% -6%, #7af3bb21, transparent 70%),
+    radial-gradient(640px 420px at 88% 0%, #baf8a210, transparent 64%),
+    var(--bg);
+}
+
+body.page-top::after {
+  opacity: .16;
+  background-size: 72px 72px;
+}
+
+body.page-top .container { width: min(100% - 3rem, var(--maxw)); }
+body.page-top .container.activation-page { max-width: 36rem; }
+body.page-top .section { padding-top: 2rem; }
+
+/* ------------------------------------------------------------------ */
+/* 2. Tipografía                                                      */
+/* ------------------------------------------------------------------ */
+body.page-top h1 {
+  font-size: clamp(2.3rem, 4.4vw, 3.15rem);
+  line-height: 1.06;
+  letter-spacing: -.055em;
+  font-weight: 800;
+}
+
+body.page-top h2 {
+  font-size: clamp(1.55rem, 2.8vw, 2.1rem);
+  letter-spacing: -.04em;
+}
+
+body.page-top h3 { letter-spacing: -.02em; }
+body.page-top p { line-height: 1.8; }
+
+body.page-top .section-head {
+  max-width: 740px;
+  margin-bottom: 2.6rem;
+}
+
+body.page-top .section-head h1 { margin-bottom: .75rem; }
+
+body.page-top .section-head p {
+  font-size: 1rem;
+  line-height: 1.85;
+  max-width: 62ch;
+}
+
+body.page-top .section-head > .tiny { color: var(--muted); margin: .9rem 0 0; }
+
+/* El "eyebrow" pasa de píldora a kicker editorial con una línea guía. */
+body.page-top .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: .65rem;
+  padding: 0;
+  margin-bottom: 1.3rem;
+  border: 0;
+  background: none;
+  border-radius: 0;
+  color: var(--brand-2);
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+body.page-top .eyebrow::before {
+  content: "";
+  width: 24px;
+  height: 1px;
+  background: currentColor;
+  opacity: .65;
+}
+
+body.page-top .lead {
+  font-size: 1rem;
+  line-height: 1.85;
+  color: var(--text-soft);
+}
+
+/* ------------------------------------------------------------------ */
+/* 3. Navbar                                                          */
+/* ------------------------------------------------------------------ */
+body.page-top .nav {
+  height: var(--nav-h);
+  background: #0a1010f0;
+  border-bottom: 1px solid #263632;
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+body.page-top .nav.scrolled {
+  background: #0a1010fa;
+  border-bottom-color: #ffffff1a;
+}
+
+body.page-top .nav-inner {
+  width: min(100% - 3rem, 1320px);
+  gap: 1.4rem;
+}
+
+body.page-top .brand { gap: .8rem; }
+body.page-top .brand-logo img { height: 31px; }
+
+body.page-top .brand-name {
+  font-size: .95rem;
+  padding-left: .85rem;
+  border-left: 1px solid #ffffff24;
+  white-space: nowrap;
+}
+
+body.page-top .nav-links a {
+  position: relative;
+  padding: .55rem .7rem;
+  border-radius: 8px;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
+body.page-top .nav-links a:hover { color: #fff; background: #ffffff07; }
+
+body.page-top .nav-links a.active {
+  color: #fff;
+  background: none;
+  box-shadow: none;
+}
+
+body.page-top .nav-links a.active::after {
+  content: "";
+  position: absolute;
+  left: .7rem;
+  right: .7rem;
+  bottom: .15rem;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--grad);
+}
+
+body.page-top .nav-cta .btn {
+  padding: .62rem .95rem;
+  border-radius: 9px;
+  font-size: .8rem;
+  box-shadow: none;
+}
+
+body.page-top .nav-toggle {
+  background: #ffffff05;
+  border-color: #ffffff14;
+  border-radius: 10px;
+}
+
+body.page-top .nav-mobile {
+  background: #0a1010fa;
+  border-bottom-color: #ffffff14;
+  padding: 1rem 1.2rem 1.6rem;
+}
+
+body.page-top .nav-mobile a {
+  padding: .85rem .9rem;
+  border-radius: 10px;
+  font-size: .92rem;
+  color: var(--text-soft);
+}
+
+body.page-top .nav-mobile a:hover,
+body.page-top .nav-mobile a.active {
+  background: #ffffff07;
+  color: #fff;
+}
+
+body.page-top .nav-mobile .btn {
+  margin-top: 1rem;
+  border-radius: 9px;
+  font-size: .86rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. Botones                                                         */
+/* ------------------------------------------------------------------ */
+body.page-top .btn {
+  padding: .74rem 1.2rem;
+  border-radius: 10px;
+  font-size: .86rem;
+  font-weight: 700;
+  letter-spacing: -.01em;
+}
+
+body.page-top .btn-sm { padding: .5rem .85rem; font-size: .78rem; border-radius: 8px; }
+body.page-top .btn-lg { padding: .95rem 1.55rem; font-size: .95rem; border-radius: 12px; }
+
+body.page-top .btn-primary {
+  background: var(--brand);
+  border-color: transparent;
+  color: #142411;
+  box-shadow: 0 7px 22px #baf8a222;
+}
+
+body.page-top .btn-primary:hover {
+  background: #d2ffc2;
+}
+
+body.page-top .btn-ghost {
+  background: #ffffff04;
+  border-color: #ffffff14;
+  color: #d8d3e2;
+}
+
+body.page-top .btn-ghost:hover {
+  background: #ffffff0a;
+  border-color: #ffffff2b;
+}
+
+body.page-top .btn-outline {
+  background: transparent;
+  border-color: #ffffff2b;
+  color: #f4f2f8;
+}
+
+body.page-top .btn-outline:hover {
+  background: #baf8a21f;
+  border-color: var(--brand);
+}
+
+body.page-top .btn-ok {
+  background: #a9f0cf;
+  border-color: transparent;
+  color: #10251a;
+  box-shadow: 0 10px 28px -18px rgba(169, 240, 207, .8);
+}
+
+body.page-top .btn-ok:hover { background: #c6f7de; }
+body.page-top .btn-danger { background: #e8526a; box-shadow: none; }
+
+body.page-top .btn-link {
+  color: var(--brand-2);
+  font-size: .8rem;
+  font-weight: 700;
+  text-decoration: none;
+  border-bottom: 1px solid #70e9c740;
+}
+
+body.page-top .btn-link:hover { color: #fff; border-bottom-color: #a9f0cf; }
+
+/* ------------------------------------------------------------------ */
+/* 5. Tarjetas                                                        */
+/* ------------------------------------------------------------------ */
+body.page-top .card {
+  background: #0c0e13;
+  border: 1px solid #ffffff10;
+  border-radius: var(--radius);
+  padding: 1.6rem;
+  box-shadow: 0 24px 60px -46px #000;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+body.page-top details.card { padding: 1.35rem 1.5rem; }
+
+body.page-top .card-title { gap: .8rem; margin-bottom: 1rem; }
+body.page-top .card-title h3 { font-size: 1.02rem; font-weight: 700; }
+body.page-top .card-title .badge { margin-left: auto; }
+
+body.page-top details.card > summary.card-title { margin-bottom: 0; }
+body.page-top details.card[open] > summary.card-title { margin-bottom: .9rem; }
+body.page-top details.card > summary.card-title::after { border-color: #9a95a5; }
+
+body.page-top .icon-box {
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  background: #ffffff06;
+  border: 1px solid #ffffff12;
+  color: #d8c9ff;
+}
+
+body.page-top .icon-box svg { width: 20px; height: 20px; }
+body.page-top .icon-box.brand { color: #d8c9ff; background: rgba(198, 178, 255, .12); border-color: rgba(198, 178, 255, .26); }
+body.page-top .icon-box.ok { color: #a9f0cf; background: rgba(78, 207, 148, .1); border-color: rgba(78, 207, 148, .24); }
+body.page-top .icon-box.warn { color: #f0c56a; background: rgba(232, 179, 75, .1); border-color: rgba(232, 179, 75, .24); }
+body.page-top .icon-box.danger { color: #ff8b9c; background: rgba(244, 105, 126, .1); border-color: rgba(244, 105, 126, .24); }
+body.page-top .icon-box.info { color: #9fc3ff; background: rgba(127, 177, 255, .1); border-color: rgba(127, 177, 255, .24); }
+
+/* ------------------------------------------------------------------ */
+/* 6. Estadísticas                                                    */
+/* ------------------------------------------------------------------ */
+body.page-top .stat {
+  background: #0c0e13;
+  border: 1px solid #ffffff10;
+  border-radius: var(--radius);
+  padding: 1.3rem 1.35rem;
+  box-shadow: none;
+}
+
+body.page-top .stat:hover {
+  transform: translateY(-3px);
+  border-color: #ffffff24;
+}
+
+body.page-top .stat::after {
+  width: 130px;
+  height: 130px;
+  right: -46px;
+  top: -46px;
+  opacity: .45;
+  filter: blur(16px);
+}
+
+body.page-top .stat-label {
+  font-size: .68rem;
+  letter-spacing: .12em;
+  color: #8b8798;
+}
+
+body.page-top .stat-value {
+  font-size: 2.15rem;
+  letter-spacing: -.045em;
+  margin-top: .15rem;
+}
+
+body.page-top .stat-foot { font-size: .74rem; color: #8f8a9c; margin-top: .35rem; }
+body.page-top .stat-icon { width: 36px; height: 36px; border-radius: 10px; }
+
+body.page-top .stat.brand { display: block; gap: 0; }
+body.page-top .stat.brand .stat-top { display: flex; }
+
+/* ------------------------------------------------------------------ */
+/* 7. Formularios                                                     */
+/* ------------------------------------------------------------------ */
+body.page-top .field { margin-bottom: 1.15rem; }
+
+body.page-top .field label {
+  margin-bottom: .45rem;
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .01em;
+  color: #cfc9da;
+}
+
+body.page-top .field .help { color: #8f8a9c; font-size: .74rem; }
+
+body.page-top .input,
+body.page-top .select,
+body.page-top textarea.input {
+  padding: .8rem .95rem;
+  background: #08090d;
+  border: 1px solid #ffffff14;
+  border-radius: 10px;
+  font-size: .9rem;
+}
+
+body.page-top .input::placeholder { color: #5f5a6b; }
+
+body.page-top .input:focus,
+body.page-top .select:focus,
+body.page-top textarea.input:focus {
+  border-color: #c6b2ff;
+  background: #0c0e13;
+  box-shadow: 0 0 0 3px rgba(198, 178, 255, .18);
+}
+
+body.page-top select.input {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #8b8798 50%), linear-gradient(135deg, #8b8798 50%, transparent 50%);
+  background-position: calc(100% - 18px) 52%, calc(100% - 13px) 52%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 2.2rem;
+}
+
+body.page-top .prefix .prefix-text {
+  background: #ffffff06;
+  border-color: #ffffff14;
+  border-radius: 10px 0 0 10px;
+  color: #d8c9ff;
+  font-size: .85rem;
+}
+
+body.page-top .prefix .input { border-radius: 0 10px 10px 0; }
+
+body.page-top .chip,
+body.page-top .code-chip {
+  border-radius: 999px;
+  border-color: #ffffff14;
+  background: #ffffff04;
+  color: #b7b3c3;
+  font-size: .78rem;
+}
+
+body.page-top .chip:hover,
+body.page-top .code-chip:hover {
+  border-color: #d8c9ff;
+  background: rgba(198, 178, 255, .1);
+  color: #fff;
+}
+
+body.page-top .chip.activo,
+body.page-top .code-chip.active {
+  background: rgba(198, 178, 255, .16);
+  border-color: rgba(198, 178, 255, .55);
+  color: #fff;
+}
+
+body.page-top .pasos .paso {
+  border-radius: 8px;
+  background: #ffffff04;
+  border-color: #ffffff12;
+  font-size: .7rem;
+  letter-spacing: .02em;
+}
+
+body.page-top .pasos .paso.activo { background: #c6b2ff; color: #150f26; }
+body.page-top .pasos .paso.hecho { background: rgba(78, 207, 148, .12); color: #a9f0cf; }
+
+/* ------------------------------------------------------------------ */
+/* 8. Badges y avisos                                                 */
+/* ------------------------------------------------------------------ */
+body.page-top .badge {
+  padding: .28rem .65rem;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .01em;
+}
+
+body.page-top .badge-valido { color: #a9f0cf; background: rgba(78, 207, 148, .1); border-color: rgba(78, 207, 148, .28); }
+body.page-top .badge-usado { color: #ff8b9c; background: rgba(244, 105, 126, .1); border-color: rgba(244, 105, 126, .28); }
+body.page-top .badge-anulado { color: #f0c56a; background: rgba(232, 179, 75, .1); border-color: rgba(232, 179, 75, .28); }
+body.page-top .badge-transferido { color: #9fc3ff; background: rgba(127, 177, 255, .1); border-color: rgba(127, 177, 255, .28); }
+body.page-top .badge-brand { color: #d8c9ff; background: rgba(198, 178, 255, .12); border-color: rgba(198, 178, 255, .3); }
+body.page-top .badge-neutral { background: #ffffff07; border-color: #ffffff14; }
+
+body.page-top .alert {
+  align-items: flex-start;
+  gap: .8rem;
+  padding: .95rem 1.1rem;
+  border-radius: 12px;
+  border: 1px solid #ffffff12;
+  border-left-width: 2px;
+  background: #ffffff04;
+}
+
+body.page-top .alert svg { width: 20px; height: 20px; flex: none; margin-top: .1rem; }
+body.page-top .alert p { margin: 0; font-size: .84rem; line-height: 1.7; color: #c5c0d0; }
+body.page-top .alert-ok { border-left-color: #4ecf94; background: rgba(78, 207, 148, .06); }
+body.page-top .alert-error { border-left-color: #f4697e; background: rgba(244, 105, 126, .06); }
+body.page-top .alert-warn { border-left-color: #e8b34b; background: rgba(232, 179, 75, .06); }
+body.page-top .alert-info { border-left-color: #7fb1ff; background: rgba(127, 177, 255, .06); }
+body.page-top .alert-brand { border-left-color: #c6b2ff; background: rgba(198, 178, 255, .07); }
+
+body.page-top .alert svg { color: currentColor; }
+body.page-top .alert-ok svg { color: #a9f0cf; }
+body.page-top .alert-error svg { color: #ff8b9c; }
+body.page-top .alert-warn svg { color: #f0c56a; }
+body.page-top .alert-info svg { color: #9fc3ff; }
+body.page-top .alert-brand svg { color: #d8c9ff; }
+
+/* ------------------------------------------------------------------ */
+/* 9. Ticket digital                                                  */
+/* ------------------------------------------------------------------ */
+body.page-top .ticket {
+  background: #0c0e13;
+  border: 1px solid #ffffff1a;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 40px 90px -50px #000;
+}
+
+body.page-top .ticket::before {
+  height: 3px;
+  background: linear-gradient(90deg, #c6b2ff, #d8c9ff 45%, #a9f0cf);
+}
+
+body.page-top .ticket-top {
+  position: relative;
+  overflow: hidden;
+  padding: 1.8rem 1.7rem 1.5rem;
+  background: #2a174c url("../assets/music-fest.svg") center / cover no-repeat;
+}
+
+body.page-top .ticket-top::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(150deg, rgba(42, 27, 84, .9), rgba(28, 20, 52, .86) 55%, rgba(22, 17, 38, .94));
+}
+
+body.page-top .ticket-top > * { position: relative; }
+
+body.page-top .ticket-event {
+  font-size: 1.85rem;
+  line-height: 1.05;
+  letter-spacing: -.045em;
+  margin: .5rem 0 .35rem;
+}
+
+body.page-top .ticket-when { font-size: .9rem; color: #e2daf3; }
+
+body.page-top .ticket-body { grid-template-columns: minmax(0, 1fr) 268px; }
+body.page-top .ticket-info { padding: 1.4rem 1.7rem 1.7rem; }
+body.page-top .ticket-info-grid { gap: 1.05rem 1.3rem; }
+
+/* La página "Mi entrada" necesita más ancho para el pase y su QR. */
+body.page-top .split:has(> #ticket-datos) {
+  grid-template-columns: minmax(0, 1.34fr) minmax(0, .66fr);
+}
+body.page-top .ticket-info-grid .k { color: #827d90; font-size: .66rem; letter-spacing: .12em; }
+body.page-top .ticket-info-grid .v { font-size: .95rem; font-weight: 600; }
+
+body.page-top .ticket-qr {
+  padding: 1.5rem 1.35rem;
+  background: #0c0e13;
+  border-left: 1px dashed #ffffff1a;
+}
+
+body.page-top .ticket-qr::before,
+body.page-top .ticket-qr::after {
+  background: var(--bg);
+  border-color: #ffffff1a;
+}
+
+body.page-top .qr-frame {
+  padding: 11px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 16px 40px -18px rgba(0, 0, 0, .9);
+}
+
+body.page-top .qr-token {
+  background: #ffffff05;
+  border: 1px solid #ffffff0f;
+  border-radius: 8px;
+  color: #a9a5b5;
+}
+
+body.page-top .countdown-num {
+  color: #d8c9ff;
+  font-size: 1.9rem;
+  letter-spacing: -.04em;
+}
+
+body.page-top .countdown-label { font-size: .7rem; color: #827d90; }
+body.page-top .countdown-track { background: #ffffff0f; }
+body.page-top .countdown-fill { background: linear-gradient(90deg, #c6b2ff, #a9f0cf); }
+
+/* ------------------------------------------------------------------ */
+/* 10. Entradas, resultados y detalles                                */
+/* ------------------------------------------------------------------ */
+body.page-top .ticket-locked {
+  display: none;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: .9rem;
+  min-height: 430px;
+  padding: 2.6rem;
+  background:
+    radial-gradient(420px 260px at 18% 8%, rgba(198, 178, 255, .16), transparent 70%),
+    #0c0e13;
+  border-style: dashed;
+  border-color: #ffffff1f;
+}
+
+body.page-top #ticket-datos.hide ~ .ticket-locked { display: flex; }
+
+body.page-top .ticket-locked-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  color: #d8c9ff;
+  background: rgba(198, 178, 255, .12);
+  border: 1px solid rgba(198, 178, 255, .3);
+}
+
+body.page-top .ticket-locked-icon svg { width: 25px; height: 25px; }
+
+body.page-top .ticket-locked h2 {
+  margin: 0;
+  font-size: clamp(1.6rem, 2.6vw, 2rem);
+  letter-spacing: -.045em;
+}
+
+body.page-top .ticket-locked p { margin: 0 0 .5rem; max-width: 34ch; font-size: .88rem; color: #a9a5b5; }
+body.page-top .ticket-locked .btn { align-self: flex-start; }
+body.page-top .ticket-locked-note { color: #8f8a9c; font-size: .7rem; }
+
+body.page-top #inicial {
+  padding: 2.6rem 1.6rem;
+  border-style: dashed;
+  border-color: #ffffff1a;
+  background: transparent;
+}
+
+body.page-top .entry-card { background: #0c0e13; }
+body.page-top .entry-card::before { opacity: 1; background: linear-gradient(90deg, #c6b2ff, #a9f0cf); }
+body.page-top .entry-event { font-size: 1.02rem; letter-spacing: -.02em; }
+body.page-top .entry-meta .k { color: #827d90; font-size: .65rem; }
+body.page-top .entry-meta .v { font-size: .86rem; }
+body.page-top .entry-actions { border-top-color: #ffffff0d; }
+
+body.page-top .result {
+  border-radius: var(--radius);
+}
+
+body.page-top .result-hero {
+  padding: 1.35rem 1.45rem;
+  border-radius: 14px;
+  border: 1px solid #ffffff12;
+  background: #0c0e13;
+}
+
+body.page-top .rh-title { font-size: 1.45rem; letter-spacing: -.035em; }
+body.page-top .rh-msg { color: #a9a5b5; }
+
+body.page-top .kv {
+  padding: .7rem 0;
+  border-bottom: 1px dashed #ffffff0f;
+  font-size: .85rem;
+}
+
+body.page-top .kv .k { color: #8b8798; }
+body.page-top .kv .v { color: #ece8f4; font-weight: 600; }
+
+body.page-top .detail-grid { gap: .85rem 1.2rem; }
+
+body.page-top .flow-node {
+  background: #0c0e13;
+  border-color: #ffffff12;
+  border-radius: 14px;
+}
+
+body.page-top .flow-node .n { color: #d8c9ff; background: rgba(198, 178, 255, .12); }
+body.page-top .flow-arrow { background: linear-gradient(180deg, rgba(198, 178, 255, .7), rgba(169, 240, 207, .4)); }
+
+/* ------------------------------------------------------------------ */
+/* 11. Línea de tiempo y tablas                                       */
+/* ------------------------------------------------------------------ */
+body.page-top .timeline::before {
+  background: linear-gradient(180deg, rgba(198, 178, 255, .7), rgba(169, 240, 207, .32), transparent);
+}
+
+body.page-top .tl-item::before { background: #0c0e13; }
+body.page-top .tl-title { font-size: .92rem; }
+body.page-top .tl-sub { color: #8f8a9c; }
+
+body.page-top .table-wrap {
+  border-color: #ffffff10;
+  border-radius: 14px;
+  background: #0c0e13;
+}
+
+body.page-top table.data th {
+  background: #ffffff04;
+  border-bottom-color: #ffffff10;
+  color: #827d90;
+  font-size: .68rem;
+  letter-spacing: .11em;
+}
+
+body.page-top table.data td {
+  border-bottom-color: #ffffff08;
+  color: #b7b3c3;
+  font-size: .84rem;
+}
+
+body.page-top table.data tbody tr:hover { background: #ffffff05; }
+
+/* ------------------------------------------------------------------ */
+/* 12. Modales, píldora y pie                                         */
+/* ------------------------------------------------------------------ */
+body.page-top .modal-backdrop {
+  background: rgba(5, 6, 9, .76);
+  backdrop-filter: blur(6px);
+}
+
+body.page-top .modal {
+  background: #111318;
+  border: 1px solid #ffffff1a;
+  border-radius: 18px;
+  box-shadow: 0 40px 100px -30px #000;
+}
+
+body.page-top .modal-head { border-bottom-color: #ffffff0d; padding: 1.35rem 1.5rem; }
+body.page-top .modal-body { padding: 1.4rem 1.5rem; }
+body.page-top .modal-foot { border-top-color: #ffffff0d; padding: 1.1rem 1.5rem; }
+body.page-top .modal-head h3 { font-size: 1.1rem; letter-spacing: -.02em; }
+body.page-top .modal-head p { margin: .2rem 0 0; font-size: .8rem; color: #827d90; }
+
+body.page-top .modal-close {
+  border-radius: 9px;
+  background: #ffffff05;
+  border: 1px solid #ffffff12;
+}
+
+body.page-top .pildora-btn {
+  background: rgba(23, 25, 34, .96);
+  border: 1px solid #ffffff1f;
+  font-size: .78rem;
+  padding: .5rem .9rem;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+body.page-top .pildora-btn:hover { border-color: #d8c9ff; }
+body.page-top .pildora-btn svg { color: #a9f0cf; }
+body.page-top .pildora-salir { background: #ffffff05; border-color: #ffffff14; }
+
+body.page-top .footer {
+  margin-top: 3rem;
+  padding: 2rem 0 4.4rem;
+  background: #08090d;
+  border-top: 1px solid #ffffff0d;
+}
+
+/* El pie necesita un gris un punto más claro para pasar AA en texto menudo. */
+body.page-top .footer-bottom {
+  margin-top: 0;
+  border-top: 0;
+  padding-top: 0;
+  color: #8f8a9c;
+  font-size: .73rem;
+}
+
+body.page-top .footer-grid { gap: 2.4rem; }
+body.page-top .footer-grid h4 { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: #cfc9da; }
+body.page-top .footer-grid ul { display: flex; flex-direction: column; gap: .5rem; list-style: none; padding: 0; margin: 0; }
+body.page-top .footer-grid a { color: #a9a5b5; font-size: .8rem; }
+body.page-top .footer-grid a:hover { color: #fff; }
+
+body.page-top .toasts .toast {
+  background: #171922;
+  border: 1px solid #ffffff1a;
+  border-radius: 12px;
+  box-shadow: 0 24px 60px -30px #000;
+}
+
+/* ------------------------------------------------------------------ */
+/* 13. Responsive                                                     */
+/* ------------------------------------------------------------------ */
+@media (max-width: 1100px) {
+  body.page-top .nav-inner { width: calc(100% - 2.4rem); }
+  body.page-top .nav-links a { padding: .5rem .55rem; font-size: .77rem; }
+}
+
+@media (max-width: 1040px) {
+  body.page-top .split:has(> #ticket-datos) { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 860px) {
+  body.page-top .nav-inner { width: calc(100% - 2rem); gap: 1rem; }
+  body.page-top .brand-logo img { height: 28px; }
+}
+
+@media (max-width: 640px) {
+  body.page-top {
+    --nav-h: 74px;
+    padding-top: calc(var(--nav-h) + 1.4rem);
+  }
+
+  body.page-top .container { width: calc(100% - 1.8rem); }
+  body.page-top .section { padding-top: 1.2rem; }
+  body.page-top .card { padding: 1.25rem; }
+  body.page-top details.card { padding: 1.15rem 1.25rem; }
+  body.page-top .stat { padding: 1.1rem 1.15rem; }
+  body.page-top .stat-value { font-size: 1.95rem; }
+  body.page-top .brand-name { font-size: .86rem; padding-left: .7rem; }
+  body.page-top .section-head { margin-bottom: 1.9rem; }
+  body.page-top .ticket-top { padding: 1.45rem 1.3rem 1.25rem; }
+  body.page-top .ticket-event { font-size: 1.5rem; }
+  body.page-top .ticket-body { grid-template-columns: minmax(0, 1fr); }
+  body.page-top .ticket-info { padding: 1.2rem 1.3rem 1.4rem; }
+  body.page-top .ticket-qr { padding: 1.4rem 1.2rem; }
+  body.page-top .ticket-locked { min-height: 0; padding: 1.8rem 1.4rem; }
+  body.page-top .ticket-locked h2 { font-size: 1.5rem; }
+  body.page-top .pildora-usuario { left: .7rem; bottom: .7rem; }
+  body.page-top .pildora-btn { font-size: .74rem; padding: .46rem .8rem; }
+  body.page-top .footer { padding-bottom: 5.3rem; }
+}
+
+@media (max-width: 380px) {
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.page-top *,
+  body.page-top *::before,
+  body.page-top *::after {
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* =========================================================================
+   14. Capa v3 — el pase de papel y la lectura cómoda
+   -------------------------------------------------------------------------
+   "Mi entrada" deja de ser una tarjeta oscura más: el pase es la pieza
+   central, en papel crema, con el arte oscuro arriba y el QR en el talón.
+   El resto de páginas conserva las superficies de tinta y recibe los
+   mismos acentos lavanda/menta de la portada.
+   ========================================================================= */
+
+/* La identidad se mantiene en la esquina inferior izquierda, dentro del
+   margen de la página, para no tapar las tarjetas de la columna derecha. */
+body.page-top .pildora-usuario {
+  left: 1rem;
+  right: auto;
+  bottom: 1rem;
+}
+
+/* --- Pase de "Mi entrada": papel crema ----------------------------- */
+body.page-top .ticket {
+  background: #f2eee3;
+  border-color: #d9d1c0;
+  color: #17131f;
+  box-shadow:
+    0 46px 100px -48px rgba(0, 0, 0, .95),
+    0 12px 30px -20px rgba(0, 0, 0, .7);
+}
+
+body.page-top .ticket::before {
+  height: 4px;
+  background: var(--grad);
+}
+
+body.page-top .ticket-top {
+  padding: 1.8rem 1.7rem 1.55rem;
+  background-color: #1b352e;
+}
+
+body.page-top .ticket-top::before {
+  background: linear-gradient(150deg, #284f41aa, #142b25dc 55%, #10201cf5);
+}
+
+body.page-top .ticket-event {
+  color: #fff;
+  font-size: 2rem;
+  letter-spacing: -.05em;
+}
+
+body.page-top .ticket-when { color: #d0eadf; }
+
+body.page-top .ticket-body {
+  background: #f2eee3;
+  color: #17131f;
+}
+
+body.page-top .ticket-info { padding: 1.5rem 1.7rem 1.7rem; }
+
+body.page-top .ticket-info-grid .k {
+  color: #6b6276;
+  font-size: .66rem;
+}
+
+body.page-top .ticket-info-grid .v {
+  color: #17131f;
+  font-size: .98rem;
+  font-weight: 700;
+}
+
+body.page-top .ticket-info-grid .v.mono { letter-spacing: -.01em; }
+
+body.page-top .ticket .alert-ok,
+body.page-top .ticket .alert-warn,
+body.page-top .ticket .alert-error,
+body.page-top .ticket .alert-info {
+  border-color: #dccba8;
+  border-left-width: 2px;
+}
+
+body.page-top .ticket .alert-warn {
+  background: #f1e6d0;
+  border-left-color: #a9741c;
+}
+
+body.page-top .ticket .alert-warn p,
+body.page-top .ticket .alert-warn { color: #57431f; }
+body.page-top .ticket .alert-warn strong { color: #3a2b10; }
+body.page-top .ticket .alert-warn svg { color: #996512; }
+
+body.page-top .ticket-qr {
+  position: relative;
+  background: #e9e3d5;
+  border-left: 1px dashed #b9af9c;
+  color: #17131f;
+}
+
+body.page-top .ticket-qr::before,
+body.page-top .ticket-qr::after {
+  background: #08090d;
+  border-color: #b9af9c;
+}
+
+body.page-top .ticket-qr .qr-frame {
+  border: 1px solid #d4cbb9;
+  box-shadow: 0 16px 34px -22px rgba(50, 38, 20, .55);
+}
+
+body.page-top .ticket-qr .tiny {
+  color: #6b6276 !important;
+  letter-spacing: .12em;
+}
+
+body.page-top .ticket .qr-token {
+  width: 100%;
+  padding: .5rem .6rem;
+  background: rgba(255, 255, 255, .5);
+  border: 1px solid #d4cbb9;
+  border-radius: 8px;
+  color: #5f566b;
+  font-size: .62rem;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+body.page-top .countdown-num { color: #235b4a; }
+
+body.page-top .countdown-label {
+  color: #6b6276;
+  font-size: .68rem;
+  text-align: center;
+}
+
+body.page-top .countdown-track { background: #d4cbb9; }
+body.page-top .countdown-fill { background: linear-gradient(90deg, #235b4a, #3f9f78); }
+
+body.page-top .ticket-qr .btn-ok {
+  background: #10251a;
+  border-color: #10251a;
+  color: #e9fff4;
+}
+
+body.page-top .ticket-qr .btn-ok:hover { background: #1a3a29; border-color: #1a3a29; }
+
+/* --- Estado bloqueado: también se siente como un pase --------------- */
+body.page-top .card.ticket-locked {
+  background:
+    radial-gradient(420px 260px at 18% 8%, rgba(198, 178, 255, .32), transparent 70%),
+    #f2eee3;
+  border-color: #c9bfae;
+  color: #17131f;
+}
+
+body.page-top .ticket-locked-icon {
+  color: #235b4a;
+  background: #d6ebe1;
+  border-color: #a6cebd;
+}
+body.page-top .ticket-locked h2 { color: #17131f; }
+body.page-top .ticket-locked p { color: #5a5363; }
+body.page-top .ticket-locked-note { color: #6b6276; }
+
+/* --- Superficies internas: misma tinta que la portada ---------------- */
+body.page-top .card,
+body.page-top .stat,
+body.page-top .entry-card,
+body.page-top .result-hero,
+body.page-top .flow-node {
+  border-color: #2a3b35;
+  background-color: #111b19;
+}
+
+body.page-top .card {
+  box-shadow: 0 24px 60px -46px #000;
+}
+
+/* --- Texto menudo: un paso más legible ------------------------------- */
+body.page-top .tiny { font-size: .68rem; }
+body.page-top .stat-label { font-size: .7rem; }
+body.page-top .stat-foot { font-size: .76rem; }
+body.page-top .ticket-locked p { font-size: .9rem; }
+
+/* El formulario del dashboard ya es la puerta de identidad: la píldora
+   flotante taparía su botón de confirmación en escritorio. */
+@media (min-width: 721px) {
+  body.page-dashboard .pildora-usuario { display: none; }
+}
+
+@media (max-width: 720px) {
+  /* La identidad se integra en la barra superior, junto al menú. */
+  body.page-top .pildora-usuario {
+    top: calc((var(--nav-h, 72px) - 40px) / 2);
+    right: 4.1rem;
+    bottom: auto;
+    left: auto;
+    z-index: 160;
+  }
+
+  body.page-top .pildora-btn {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .06);
+    border: 1px solid rgba(255, 255, 255, .16);
+  }
+
+  body.page-top .pildora-btn span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* En móvil, cerrar sesión se hace desde el modal de identidad. */
+  body.page-top .pildora-salir { display: none !important; }
+}
+
+@media (max-width: 640px) {
+  body.page-top .ticket-qr {
+    border-left: 0;
+    border-top: 0;
+    border-bottom: 1px dashed #b9af9c;
+  }
+
+  body.page-top .ticket-qr::before,
+  body.page-top .ticket-qr::after {
+    display: none;
+  }
+
+  body.page-top .ticket-info-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .9rem 1rem;
+  }
+
+  body.page-top .ticket-info-grid .v { font-size: .92rem; }
+
+  /* Los resúmenes de cuatro cifras caben en dos columnas y no alargan la página. */
+  body.page-top .grid.g-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .65rem;
+  }
+
+  body.page-top .grid.g-4 .stat { padding: .95rem .9rem; }
+  body.page-top .grid.g-4 .stat-top { margin-bottom: .55rem; }
+  body.page-top .grid.g-4 .stat-icon { width: 32px; height: 32px; border-radius: 9px; }
+  body.page-top .grid.g-4 .stat-label { font-size: .62rem; letter-spacing: .05em; }
+  body.page-top .grid.g-4 .stat-value { font-size: 1.8rem; }
+  body.page-top .grid.g-4 .stat-foot { font-size: .7rem; }
+}
+
+/* Mantiene a la vista las acciones prioritarias en las pantallas públicas. */
+body.page-verify .section-head { margin-bottom: 1.5rem; }
+body.page-verify .verify-layout { align-items: start; }
+
+body.page-verify #codigo {
+  min-width: 0;
+  min-height: 48px;
+  font-size: 1rem;
+}
+
+body.page-verify #codigo::placeholder { color: var(--muted); }
+body.page-verify #btn-verificar,
+body.page-verify .verify-controls button,
+body.page-verify .verify-demo .btn,
+body.page-pass .ticket-locked .btn,
+body.page-history .history-jump,
+body.page-history #btn-exportar { min-height: 44px; }
+
+body.page-verify .verify-controls { gap: .4rem .75rem; justify-content: flex-end; }
+
+body.page-verify .verify-controls .btn-link {
+  padding-inline: .2rem;
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.verify-demo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .65rem 1rem;
+  padding-top: 1rem;
+  margin-top: 1rem;
+  border-top: 1px solid var(--border-strong);
+}
+
+body.page-verify #resultado,
+body.page-dashboard #seccion-identidad,
+body.page-history #registro-historial { scroll-margin-top: calc(var(--nav-h) + 1rem); }
+
+body.page-pass:has(#ticket-datos.hide) #aviso-titular[data-requiere-identificacion="1"],
+body.page-pass #aviso-titular:not([data-requiere-identificacion]) + .split > .ticket-locked,
+body.page-pass .pass-actions:has(a[href*="__CODIGO__"]),
+body.page-history:has(#registro-historial.hide, #resultados-flujo .skeleton) .history-jump { display: none; }
+
+body.page-pass .card.ticket-locked {
+  min-height: 330px;
+  gap: .75rem;
+  background: radial-gradient(420px 300px at 12% 4%, #c5e7da, transparent 80%), #f2eee3;
+}
+
+body.page-pass .ticket-locked-note { font-size: .76rem; }
+
+body.page-pass .split:has(> #ticket-datos.hide) {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 780px;
+}
+
+body.page-pass .split:has(> #ticket-datos.hide) > .stack { display: none; }
+
+.pass-payload {
+  margin-top: .8rem;
+  border-top: 1px solid var(--border);
+}
+
+.pass-payload summary {
+  width: fit-content;
+  padding-block: .65rem;
+  color: var(--brand-2);
+  font-size: .82rem;
+  cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  body.page-verify .section-head { margin-bottom: 1.15rem; }
+  body.page-verify .input-group > * { flex: 1 1 100%; }
+  body.page-verify .verify-demo .btn { width: 100%; }
+  body.page-verify .result-hero { flex-direction: row; text-align: left; }
+  body.page-verify .rh-title { font-size: 1.05rem; }
+  body.page-verify #res-datos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body.page-pass .card.ticket-locked { min-height: 0; padding: 1.3rem; }
+}

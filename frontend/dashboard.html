@@ -3,13 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dashboard — Joinnus Secure Pass</title>
+<meta name="theme-color" content="#0b0d13">
+<title>Mis entradas — Joinnus Secure Pass</title>
 <meta name="description" content="Panel de control con tus entradas digitales, estados y códigos de entrada.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/fonts/fonts.css">
 <link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/theme.css">
 </head>
-<body class="page-top">
+<body class="page-top page-dashboard">
 
 <header class="nav">
   <div class="nav-inner">
@@ -17,12 +19,12 @@
       <span class="brand-logo">
         <img src="assets/logo.svg" alt="Logo de Joinnus" width="228" height="72">
       </span>
-      <span class="brand-name">Secure Pass<span>Verifica · Transfiere · Protege</span></span>
+      <span class="brand-name">Secure Pass</span>
     </a>
     <nav class="nav-links" aria-label="Navegación principal">
       <ul>
         <li><a href="index.html">Inicio</a></li>
-        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="dashboard.html">Mis entradas</a></li>
         <li><a href="verificar.html">Verificar entrada</a></li>
         <li><a href="entrada.html">Mi entrada</a></li>
                 <li><a href="transferencia.html">Transferir entrada</a></li>
@@ -40,13 +42,12 @@
 </header>
 <div class="nav-mobile" id="nav-mobile">
   <a data-page href="index.html">Inicio</a>
-  <a data-page href="dashboard.html">Dashboard</a>
+  <a data-page href="dashboard.html">Mis entradas</a>
   <a data-page href="verificar.html">Verificar entrada</a>
   <a data-page href="entrada.html">Mi entrada</a>
     <a data-page href="transferencia.html">Transferir entrada</a>
   <a data-page href="historial.html">Historial</a>
   <a data-page href="sobre.html">Sobre el proyecto</a>
-  <a href="entrada.html" class="btn btn-primary btn-block">Mi entrada</a>
 </div>
 
 <main>
@@ -56,10 +57,10 @@
       <div class="row-between fade-in">
         <div>
           <span class="eyebrow">Panel de control</span>
-          <h1 style="margin-bottom:.2rem" id="saludo">Hola, Bienvenido <span aria-hidden="true">👋</span></h1>
-          <p class="muted" style="margin:0">Resumen de tus entradas digitales ficticias y su estado de seguridad.</p>
+          <h1 style="margin-bottom:.2rem" id="saludo">Mis entradas</h1>
         </div>
         <div class="row">
+          <a href="#seccion-identidad" class="btn btn-ghost btn-sm">Identificación</a>
           <a href="verificar.html" class="btn btn-ghost btn-sm">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 3a7 7 0 1 0 4.2 12.6l4.6 4.6 1.4-1.4-4.6-4.6A7 7 0 0 0 10 3Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"/></svg>
             Verificar
@@ -75,11 +76,10 @@
       <div class="grid g-4 mt-4" id="stats">
         <div class="stat ok fade-in">
           <div class="stat-top">
-            <span class="stat-label">Entradas activas</span>
+            <span class="stat-label">Entradas válidas</span>
             <span class="stat-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4-7 7Z"/></svg></span>
           </div>
           <div class="stat-value" id="stat-activas">0</div>
-          <div class="stat-foot">Válidas y sin usar</div>
         </div>
 
         <div class="stat danger fade-in d1">
@@ -88,7 +88,6 @@
             <span class="stat-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm3.5 12.1-1.4 1.4L12 13.4l-2.1 2.1-1.4-1.4 2.1-2.1-2.1-2.1 1.4-1.4 2.1 2.1 2.1-2.1 1.4 1.4-2.1 2.1 2.1 2.1Z"/></svg></span>
           </div>
           <div class="stat-value" id="stat-usadas">0</div>
-          <div class="stat-foot">Ya ingresaron al evento</div>
         </div>
 
         <div class="stat info fade-in d2">
@@ -97,7 +96,6 @@
             <span class="stat-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7Zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4Z"/></svg></span>
           </div>
           <div class="stat-value" id="stat-transferidas">0</div>
-          <div class="stat-foot">Cambiaron de titular</div>
         </div>
 
         <div class="stat warn fade-in d3">
@@ -106,7 +104,6 @@
             <span class="stat-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM4 12a8 8 0 0 1 12.9-6.3L5.7 16.9A8 8 0 0 1 4 12Zm8 8a8 8 0 0 1-4.9-1.7L18.3 7.1A8 8 0 0 1 12 20Z"/></svg></span>
           </div>
           <div class="stat-value" id="stat-anuladas">0</div>
-          <div class="stat-foot">Sin validez de uso</div>
         </div>
       </div>
 
@@ -117,37 +114,30 @@
             <span class="icon-box brand">
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-4.4 0-8 2.2-8 5v3h16v-3c0-2.8-3.6-5-8-5Z"/></svg>
             </span>
-            <h3>Formulario de identidad</h3>
+            <h3>Inicio de sesión</h3>
             <span class="badge badge-brand" id="identidad-badge">Sin confirmar</span>
           </div>
-          <p class="small muted">Elige la persona con la que quieres navegar: el panel muestra <strong>sus</strong> entradas y <strong>sus</strong> movimientos. El sistema sólo comprueba que el DNI y el nombre existan en los datos ficticios: <strong>no hay contraseña</strong>, por eso esto es una simulación y no una autenticación real.</p>
+          <p class="small muted">Entra con tu DNI y tu contraseña para ver <strong>tus</strong> entradas.</p>
+          <p class="small"><a class="btn-link" href="activar.html">Activar cuenta con un código</a></p>
 
           <form id="form-identidad" novalidate>
             <div class="field">
               <label for="identidad-dni">DNI</label>
               <input class="input mono" type="text" id="identidad-dni" placeholder="12345678"
-                     inputmode="numeric" maxlength="8" autocomplete="off">
+                     inputmode="numeric" maxlength="8" autocomplete="username">
               <div class="help">Exactamente 8 números.</div>
               <div class="error-msg" id="error-dni-identidad">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg><span></span>
               </div>
             </div>
 
-            <div class="grid g-2" style="gap:0 1rem">
-              <div class="field">
-                <label for="identidad-nombres">Nombres</label>
-                <input class="input" type="text" id="identidad-nombres" placeholder="Carlos" autocomplete="off">
-                <div class="error-msg" id="error-nombres-identidad">
-                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg><span></span>
-                </div>
-              </div>
-
-              <div class="field">
-                <label for="identidad-apellidos">Apellidos</label>
-                <input class="input" type="text" id="identidad-apellidos" placeholder="Pérez" autocomplete="off">
-                <div class="error-msg" id="error-apellidos-identidad">
-                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg><span></span>
-                </div>
+            <div class="field">
+              <label for="identidad-password">Contraseña</label>
+              <input class="input" type="password" id="identidad-password" placeholder="Tu contraseña"
+                     maxlength="200" autocomplete="current-password">
+              <div class="help">Demo: <span class="mono">45678945</span> / <span class="mono">Carlos2026!</span></div>
+              <div class="error-msg" id="error-password-identidad">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg><span></span>
               </div>
             </div>
 
@@ -159,7 +149,7 @@
             <div class="row mt-2">
               <button type="submit" class="btn btn-primary" id="btn-identificar">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6 12-12-1.4-1.4-10.6 10.6Z"/></svg>
-                Confirmar identidad
+                Entrar
               </button>
               <button type="button" class="btn btn-ghost" id="btn-cambiar-identidad">Limpiar formulario</button>
             </div>
@@ -172,7 +162,7 @@
               <span class="icon-box ok">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1 3 5v6c0 5.6 3.8 10.7 9 12 5.2-1.3 9-6.4 9-12V5l-9-4Zm0 2.2 7 3.1V11c0 4.7-3 9-7 10.2C8 20 5 15.7 5 11V6.3l7-3.1Z"/></svg>
               </span>
-              <h3>Identificación actual</h3>
+              <h3>Sesión actual</h3>
             </div>
             <div class="kv"><span class="k">Persona</span><span class="v" id="identidad-nombre">—</span></div>
             <div class="kv"><span class="k">DNI</span><span class="v mono" id="identidad-dni-actual">—</span></div>
@@ -181,7 +171,7 @@
 
           <div class="alert alert-info">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1 5h2v2h-2V7Zm0 4h2v6h-2v-6Z"/></svg>
-            <p><strong>Usuario de demostración:</strong> DNI <span class="mono">45678945</span> · <strong>Carlos Pérez</strong>. Sin conexión con la API sólo se reconoce esta persona.</p>
+            <p><strong>Cuenta de demostración</strong> · Carlos Pérez · DNI <span class="mono">45678945</span> · contraseña <span class="mono">Carlos2026!</span></p>
           </div>
         </div>
       </div>
@@ -189,7 +179,7 @@
       <!-- Mis entradas -->
       <div class="row-between mt-4" style="align-items:flex-end">
         <div>
-          <h2 style="margin-bottom:.2rem">Mis entradas</h2>
+          <h2 style="margin-bottom:.2rem">Pases</h2>
           <p class="muted small" style="margin:0">Entradas que pertenecen a <strong id="usuario-dni">—</strong></p>
         </div>
         <div class="row">

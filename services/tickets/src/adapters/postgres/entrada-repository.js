@@ -71,6 +71,7 @@ class PostgresEntradaRepository extends EntradaRepository {
 
   async transferir({
     codigo,
+    dniSolicitante,
     usuarioNuevoId,
     nombre,
     dni,
@@ -84,7 +85,7 @@ class PostgresEntradaRepository extends EntradaRepository {
       await cliente.query('BEGIN');
 
       const actual = await cliente.query(
-        'SELECT id, titular_id, titular_nombre, titular_dni FROM entradas WHERE codigo = $1 FOR UPDATE',
+        'SELECT id, titular_id, titular_nombre, titular_dni, estado FROM entradas WHERE codigo = $1 FOR UPDATE',
         [codigo]
       );
 
@@ -93,6 +94,12 @@ class PostgresEntradaRepository extends EntradaRepository {
       }
 
       const fila = actual.rows[0];
+      if (fila.titular_dni !== dniSolicitante) {
+        throw new AppError('Esta entrada pertenece a otro titular.', 403, 'ENTRADA_AJENA');
+      }
+      if (fila.estado !== 'valido') {
+        throw new AppError('Solo se pueden transferir entradas válidas.', 409, 'ESTADO_INVALIDO');
+      }
 
       await cliente.query(
         `UPDATE entradas
@@ -177,43 +184,24 @@ class PostgresEntradaRepository extends EntradaRepository {
     return rowCount;
   }
 
-  async cambiarEstado(codigo, estado) {
-    const columnas = { usado: 'usada_en', anulado: 'anulada_en', valido: 'transferida_en' };
-    const columna = columnas[estado];
-    if (!columna) {
+  async cambiarEstado(codigo, estado, dni, estadoAnterior) {
+    if (!['anulado', 'valido'].includes(estado)) {
       throw new AppError(`Estado no permitido: ${estado}`, 400, 'ESTADO_NO_PERMITIDO');
     }
 
-    if (estado === 'valido') {
-      await this.pool.query(
-        `UPDATE entradas
-            SET estado = 'valido',
-                transferida_en = NULL,
-                qr_ultimo_token = NULL,
-                qr_anterior_token = NULL,
-                qr_firma = NULL,
-                qr_expira_en = NULL
-          WHERE codigo = $1`,
-        [codigo]
-      );
-    } else if (estado === 'anulado') {
-      await this.pool.query(
-        `UPDATE entradas
-            SET estado = 'anulado',
-                anulada_en = NOW(),
-                qr_ultimo_token = NULL,
-                qr_anterior_token = NULL,
-                qr_firma = NULL,
-                qr_expira_en = NULL
-          WHERE codigo = $1`,
-        [codigo]
-      );
-    } else {
-      await this.pool.query(
-        `UPDATE entradas SET estado = $1, ${columna} = NOW() WHERE codigo = $2`,
-        [estado, codigo]
-      );
-    }
+    const resultado = await this.pool.query(
+      `UPDATE entradas
+          SET estado = $2::varchar,
+              anulada_en = CASE WHEN $2::varchar = 'anulado' THEN NOW() ELSE NULL END,
+              transferida_en = CASE WHEN $2::varchar = 'valido' THEN NULL ELSE transferida_en END,
+              qr_ultimo_token = NULL,
+              qr_anterior_token = NULL,
+              qr_firma = NULL,
+              qr_expira_en = NULL
+        WHERE codigo = $1 AND titular_dni = $3 AND estado = $4`,
+      [codigo, estado, dni, estadoAnterior]
+    );
+    return resultado.rowCount;
   }
 }
 

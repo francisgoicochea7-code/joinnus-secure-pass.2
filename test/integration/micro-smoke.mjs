@@ -68,7 +68,31 @@ async function main() {
   comprobar(resetInicial.datos.usuarios === 6, 'reset inicial deja 6 usuarios');
   comprobar(resetInicial.datos.tokens === 0, 'reset inicial deja 0 tokens QR');
 
-  const entradaInicial = await pedir('GET', '/api/entradas/ENTRY001', undefined, { 'X-Usuario-DNI': '45678945' });
+  // ---------------------------------------------------------------------
+  // 1b. Inicio de sesión real (DNI + contraseña → token firmado)
+  // ---------------------------------------------------------------------
+  const loginCarlos = await pedir('POST', '/api/usuarios/login', { dni: '45678945', password: 'Carlos2026!' });
+  comprobar(loginCarlos.status === 200 && Boolean(loginCarlos.datos.token), 'Carlos inicia sesión y recibe un token');
+  comprobar(!loginCarlos.datos.usuario.password_hash, 'el login nunca devuelve el hash de la contraseña');
+  const authCarlos = { Authorization: 'Bearer ' + loginCarlos.datos.token };
+
+  const loginMaria = await pedir('POST', '/api/usuarios/login', { dni: '43871264', password: 'Maria2026!' });
+  comprobar(loginMaria.status === 200 && Boolean(loginMaria.datos.token), 'María inicia sesión y recibe un token');
+  const authMaria = { Authorization: 'Bearer ' + loginMaria.datos.token };
+
+  const loginUsuarioMalo = await pedir('POST', '/api/usuarios/login', { dni: '45678945', password: 'incorrecta' });
+  comprobar(loginUsuarioMalo.status === 401, 'una contraseña incorrecta devuelve 401');
+
+  const loginInexistente = await pedir('POST', '/api/usuarios/login', { dni: '49999999', password: 'Cualquiera1' });
+  comprobar(loginInexistente.status === 401, 'un DNI inexistente también devuelve 401');
+  comprobar(loginInexistente.datos.error === loginUsuarioMalo.datos.error,
+    'el mensaje es idéntico para DNI y contraseña incorrectos');
+
+  const cabeceraVieja = await pedir('GET', '/api/entradas/ENTRY005', undefined, { 'X-Usuario-DNI': '43871264' });
+  comprobar(cabeceraVieja.datos.entrada && cabeceraVieja.datos.entrada.esMia === false,
+    'la cabecera X-Usuario-DNI ya no permite hacerse pasar por otra persona');
+
+  const entradaInicial = await pedir('GET', '/api/entradas/ENTRY001', undefined, authCarlos);
   comprobar(entradaInicial.status === 200 && entradaInicial.datos.ok, 'GET /api/entradas/ENTRY001 responde 200');
   comprobar(entradaInicial.datos.entrada.titular === 'Carlos Pérez', 'ENTRY001 pertenece a Carlos Pérez');
   comprobar(entradaInicial.datos.entrada.qrToken === null, 'la semilla no inventa tokens QR');
@@ -76,21 +100,24 @@ async function main() {
   // ---------------------------------------------------------------------
   // 2. QR propio y ajeno
   // ---------------------------------------------------------------------
-  const qr = await pedir('POST', '/api/entradas/ENTRY001/qr', {}, { 'X-Usuario-DNI': '45678945' });
+  const qrSinSesion = await pedir('POST', '/api/entradas/ENTRY001/qr', {});
+  comprobar(qrSinSesion.status === 401, 'la emisión de QR requiere sesión');
+
+  const qr = await pedir('POST', '/api/entradas/ENTRY001/qr', {}, authCarlos);
   comprobar(qr.status === 200 && qr.datos.ok, 'POST /api/entradas/ENTRY001/qr responde 200');
   comprobar(Boolean(qr.datos.token), 'el QR trae token');
   comprobar(Boolean(qr.datos.payload), 'el QR trae payload');
   comprobar(qr.datos.entrada.qrToken === qr.datos.token, 'la entrada devuelta trae el token vigente');
   comprobar(qr.datos.entrada.esMia === true, 'la entrada se marca como propia del titular');
 
-  const qrAjeno = await pedir('POST', '/api/entradas/ENTRY005/qr', {}, { 'X-Usuario-DNI': '45678945' });
+  const qrAjeno = await pedir('POST', '/api/entradas/ENTRY005/qr', {}, authCarlos);
   comprobar(qrAjeno.status === 403 && qrAjeno.datos.motivo === 'no-es-tuya', 'otro DNI no puede generar el QR ajeno');
 
-  const validar = await pedir('POST', '/api/qr/validar', { token: qr.datos.token }, { 'X-Usuario-DNI': '45678945' });
+  const validar = await pedir('POST', '/api/qr/validar', { token: qr.datos.token });
   comprobar(validar.status === 200 && validar.datos.valido === true, 'el token recién generado es válido');
   comprobar(validar.datos.titular === 'Carlos Pérez', 'la validación identifica al titular');
 
-  const validarMalo = await pedir('POST', '/api/qr/validar', { token: 'JSP-ENTRY001-00000000' }, { 'X-Usuario-DNI': '45678945' });
+  const validarMalo = await pedir('POST', '/api/qr/validar', { token: 'JSP-ENTRY001-00000000' });
   comprobar(validarMalo.status === 200 && validarMalo.datos.valido === false, 'un token inventado se rechaza');
   comprobar(['desconocido', 'no-existe'].includes(validarMalo.datos.motivo), 'el motivo indica que el token no existe');
 
@@ -138,15 +165,21 @@ async function main() {
   // ---------------------------------------------------------------------
   // 4. Anulación y reactivación
   // ---------------------------------------------------------------------
-  const anular = await pedir('POST', '/api/entradas/ENTRY007/estado/anulado', {});
+  const anularSinSesion = await pedir('POST', '/api/entradas/ENTRY001/estado/anulado', {});
+  comprobar(anularSinSesion.status === 401, 'un invitado no puede cambiar el estado');
+
+  const anularAjena = await pedir('POST', '/api/entradas/ENTRY001/estado/anulado', {}, authMaria);
+  comprobar(anularAjena.status === 403, 'otra cuenta no puede cambiar el estado');
+
+  const anular = await pedir('POST', '/api/entradas/ENTRY001/estado/anulado', {}, authCarlos);
   comprobar(anular.status === 200 && anular.datos.entrada.estado === 'anulado', 'se puede anular una entrada');
   comprobar(anular.datos.entrada.qrToken === null, 'al anular se limpia la proyección del QR');
 
-  const reactivar = await pedir('POST', '/api/entradas/ENTRY007/estado/valido', {});
+  const reactivar = await pedir('POST', '/api/entradas/ENTRY001/estado/valido', {}, authCarlos);
   comprobar(reactivar.status === 200 && reactivar.datos.entrada.estado === 'valido', 'se puede reactivar una entrada');
   comprobar(reactivar.datos.entrada.qrToken === null, 'al reactivar se pide un QR nuevo');
 
-  const usadoDirecto = await pedir('POST', '/api/entradas/ENTRY001/estado/usado', {});
+  const usadoDirecto = await pedir('POST', '/api/entradas/ENTRY001/estado/usado', {}, authCarlos);
   comprobar(usadoDirecto.status === 403, 'el titular no puede marcar usado sin encargado');
 
   // ---------------------------------------------------------------------
@@ -155,28 +188,43 @@ async function main() {
   const nuevo = await pedir('POST', '/api/usuarios', {
     nombre: 'Lucía Ramos',
     dni: '40000001',
-    correo: 'lucia.ramos@demo.pe'
+    correo: 'lucia.ramos@demo.pe',
+    password: 'Lucia2026!'
   });
-  comprobar(nuevo.status === 201 && nuevo.datos.ok, 'se registra un usuario nuevo');
+  comprobar(nuevo.status === 201 && nuevo.datos.ok, 'se registra un usuario nuevo con contraseña');
   comprobar(nuevo.datos.usuario.dni === '40000001', 'el usuario devuelve su DNI');
+
+  const nuevoSinClave = await pedir('POST', '/api/usuarios', {
+    nombre: 'Sin Clave',
+    dni: '40000002',
+    correo: 'sin.clave@demo.pe'
+  });
+  comprobar(nuevoSinClave.status === 400, 'el registro sin contraseña se rechaza');
+
+  const loginLucia = await pedir('POST', '/api/usuarios/login', { dni: '40000001', password: 'Lucia2026!' });
+  comprobar(loginLucia.status === 200 && Boolean(loginLucia.datos.token), 'la cuenta recién creada puede iniciar sesión');
 
   const duplicado = await pedir('POST', '/api/usuarios', {
     nombre: 'Lucía Ramos',
     dni: '40000001',
-    correo: 'lucia.ramos@demo.pe'
+    correo: 'lucia.ramos@demo.pe',
+    password: 'Lucia2026!'
   });
   comprobar(duplicado.status === 409, 'un DNI duplicado devuelve 409');
 
-  const buscar = await pedir('GET', '/api/usuarios/40000001');
-  comprobar(buscar.status === 200 && buscar.datos.usuario.nombre === 'Lucía Ramos', 'GET /api/usuarios/:dni encuentra al usuario');
+  const authLucia = { Authorization: 'Bearer ' + loginLucia.datos.token };
+  const buscar = await pedir('GET', '/api/usuarios/40000001', undefined, authLucia);
+  comprobar(buscar.status === 200 && buscar.datos.usuario.nombre === 'Lucía Ramos', 'la titular puede consultar su perfil');
 
-  const noExiste = await pedir('GET', '/api/usuarios/49999999');
-  comprobar(noExiste.status === 404, 'un DNI inexistente devuelve 404');
+  const perfilInvitado = await pedir('GET', '/api/usuarios/40000001');
+  comprobar(perfilInvitado.status === 401 && !perfilInvitado.datos.usuario, 'el perfil requiere sesión');
+  const perfilAjeno = await pedir('GET', '/api/usuarios/40000001', undefined, authCarlos);
+  comprobar(perfilAjeno.status === 403 && !perfilAjeno.datos.usuario, 'otra cuenta no puede leer el perfil');
 
   // ---------------------------------------------------------------------
   // 6. Transferencia con rotación de QR
   // ---------------------------------------------------------------------
-  const qrMaria = await pedir('POST', '/api/entradas/ENTRY005/qr', {}, { 'X-Usuario-DNI': '43871264' });
+  const qrMaria = await pedir('POST', '/api/entradas/ENTRY005/qr', {}, authMaria);
   comprobar(qrMaria.status === 200 && Boolean(qrMaria.datos.token), 'María genera el QR de ENTRY005');
 
   const transferenciaAjena = await pedir('POST', '/api/entradas/ENTRY005/transferir', {
@@ -184,7 +232,7 @@ async function main() {
     dni: '41234567',
     correo: 'pedro.castillo@demo.pe',
     precio: 50
-  }, { 'X-Usuario-DNI': '45678945' });
+  }, authCarlos);
   comprobar(transferenciaAjena.status === 403, 'otro DNI no puede transferir una entrada ajena');
 
   const transferenciaInvalida = await pedir('POST', '/api/entradas/ENTRY005/transferir', {
@@ -192,7 +240,7 @@ async function main() {
     dni: '123',
     correo: 'no-es-correo',
     precio: 999
-  }, { 'X-Usuario-DNI': '43871264' });
+  }, authMaria);
   comprobar(transferenciaInvalida.status === 400, 'datos inválidos devuelven 400');
   comprobar(Boolean(transferenciaInvalida.datos.campos), 'los errores indican los campos');
 
@@ -201,23 +249,27 @@ async function main() {
     dni: '41234567',
     correo: 'pedro.castillo@demo.pe',
     precio: 50
-  }, { 'X-Usuario-DNI': '43871264' });
+  }, authMaria);
   comprobar(transferencia.status === 200 && transferencia.datos.ok, 'la transferencia correcta responde 200');
   comprobar(transferencia.datos.titularNuevo === 'Pedro Castillo', 'la transferencia cambia el titular');
   comprobar(transferencia.datos.estado === 'transferido', 'la entrada queda en estado transferido');
-  comprobar(Boolean(transferencia.datos.tokenNuevo), 'la transferencia rota el QR');
+  comprobar(!transferencia.datos.tokenNuevo && !transferencia.datos.payload && !transferencia.datos.entrada.qrToken,
+    'el remitente no recibe el QR del destinatario');
   comprobar(transferencia.datos.qrPendiente === false, 'el QR no queda pendiente');
 
-  const tokenViejo = await pedir('POST', '/api/qr/validar', { token: qrMaria.datos.token }, { 'X-Usuario-DNI': '43871264' });
+  const tokenViejo = await pedir('POST', '/api/qr/validar', { token: qrMaria.datos.token });
   comprobar(tokenViejo.datos.valido === false, 'el token del titular anterior queda invalidado');
 
-  const tokenNuevo = await pedir('POST', '/api/qr/validar', { token: transferencia.datos.tokenNuevo }, { 'X-Usuario-DNI': '41234567' });
-  comprobar(tokenNuevo.datos.valido === true, 'el token del nuevo titular es válido');
-  comprobar(tokenNuevo.datos.titular === 'Pedro Castillo', 'el token nuevo identifica a Pedro Castillo');
-
-  const entradaPedro = await pedir('GET', '/api/entradas/ENTRY005', undefined, { 'X-Usuario-DNI': '41234567' });
+  // El destinatario necesita activar su cuenta antes de pedir un QR propio.
+  const loginPendiente = await pedir('POST', '/api/usuarios/login', { dni: '41234567', password: 'ClaveDePrueba1' });
+  comprobar(loginPendiente.status === 401, 'una cuenta pendiente requiere activación');
+  const entradaPedro = await pedir('GET', '/api/entradas/ENTRY005', undefined, authMaria);
   comprobar(entradaPedro.datos.entrada.titular === 'Pedro Castillo', 'ENTRY005 muestra al nuevo titular');
-  comprobar(entradaPedro.datos.entrada.esMia === true, 'ENTRY005 es propia para Pedro');
+  comprobar(entradaPedro.datos.entrada.esMia === false, 'ENTRY005 ya no es propia para María');
+
+  const entradaPedroCabecera = await pedir('GET', '/api/entradas/ENTRY005', undefined, { 'X-Usuario-DNI': '41234567' });
+  comprobar(entradaPedroCabecera.datos.entrada.esMia === false,
+    'escribir el DNI del nuevo titular en la cabecera no da acceso');
 
   const historial = await pedir('GET', '/api/historial?dni=43871264');
   const acciones = (historial.datos.historial || []).map((h) => h.accion);
@@ -233,7 +285,7 @@ async function main() {
   comprobar(resetFinal.datos.usuarios === 6, 'el reinicio final deja 6 usuarios');
   comprobar(resetFinal.datos.tokens === 0, 'el reinicio final deja 0 tokens');
 
-  const entradaFinal = await pedir('GET', '/api/entradas/ENTRY005', undefined, { 'X-Usuario-DNI': '43871264' });
+  const entradaFinal = await pedir('GET', '/api/entradas/ENTRY005', undefined, authMaria);
   comprobar(entradaFinal.datos.entrada.titular === 'María Torres', 'ENTRY005 vuelve a María Torres');
   comprobar(entradaFinal.datos.entrada.estado === 'valido', 'ENTRY005 vuelve a estado válido');
 

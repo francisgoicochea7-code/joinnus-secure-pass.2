@@ -13,6 +13,10 @@ class UsuarioRepository {
   async buscarPorDni() {
     throw new Error('UsuarioRepository.buscarPorDni no implementado');
   }
+
+  async activar() {
+    throw new Error('UsuarioRepository.activar no implementado');
+  }
 }
 
 module.exports = { UsuarioRepository };

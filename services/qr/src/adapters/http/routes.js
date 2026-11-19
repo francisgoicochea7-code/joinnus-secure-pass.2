@@ -2,7 +2,7 @@
 
 const express = require('express');
 const { AppError, asyncHandler } = require('../../../../shared/errors');
-const { dniDePeticion } = require('../../../../shared/validaciones');
+const { requerirDniDeSesion } = require('../../../../shared/validaciones');
 const { extraerToken } = require('../../domain/qr');
 
 function crearRutas({
@@ -31,7 +31,7 @@ function crearRutas({
    * ------------------------------------------------------------------ */
   router.post('/api/entradas/:codigo/qr', asyncHandler(async (req, res) => {
     const codigo = String(req.params.codigo).toUpperCase();
-    const dni = dniDePeticion(req, config.demoDni);
+    const dni = requerirDniDeSesion(req, config.sessionSecret);
     const respuesta = await obtenerDatosEntrada(codigo, req.id, dni);
     const datos = respuesta.datos;
 

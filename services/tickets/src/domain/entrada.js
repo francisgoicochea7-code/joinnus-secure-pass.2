@@ -5,10 +5,10 @@ const { fechaCorta } = require('../../../shared/fechas');
 const { ocultarDNI } = require('../../../shared/validaciones');
 
 /** Convierte una fila de PostgreSQL al formato que consume el frontend. */
-function enriquecer(fila, dni, demoDni) {
+function enriquecer(fila, dni) {
   if (!fila) return null;
   const meta = ESTADOS[fila.estado] || ESTADOS.valido;
-  const esMia = fila.titular_dni === (dni || demoDni);
+  const esMia = Boolean(dni) && fila.titular_dni === dni;
 
   return {
     codigo: fila.codigo,
@@ -20,8 +20,10 @@ function enriquecer(fila, dni, demoDni) {
     fila: fila.fila,
     asiento: fila.asiento,
     titular: fila.titular_nombre,
-    dni: fila.titular_dni,
-    correo: fila.titular_correo,
+    // El DNI y el correo completos sólo se entregan al titular. El resto
+    // recibe la versión enmascarada que ya usa la interfaz.
+    dni: esMia ? fila.titular_dni : null,
+    correo: esMia ? fila.titular_correo : null,
     estado: fila.estado,
     estadoEtiqueta: meta.etiqueta,
     estadoDetalle: meta,
@@ -31,16 +33,16 @@ function enriquecer(fila, dni, demoDni) {
     precio: Number(fila.precio),
     qrToken: esMia ? fila.qr_ultimo_token : null,
     qrAnterior: esMia ? fila.qr_anterior_token : null,
-    qrExpiraEn: fila.qr_expira_en,
-    qrGeneradoEn: fila.qr_generado_en,
+    qrExpiraEn: esMia ? fila.qr_expira_en : null,
+    qrGeneradoEn: esMia ? fila.qr_generado_en : null,
     creadoEn: fila.creado_en,
     transferidaEn: fila.transferida_en,
     usadoEn: fila.usada_en,
     anuladoEn: fila.anulada_en,
     motivoAnulacion: fila.motivo_anulacion,
     titularAnterior: fila.titular_anterior,
-    dniAnterior: fila.dni_anterior,
-    puedeTransferir: fila.estado === 'valido',
+    dniAnterior: esMia ? fila.dni_anterior : null,
+    puedeTransferir: esMia && fila.estado === 'valido',
     esMia
   };
 }

@@ -2,7 +2,7 @@
 
 const express = require('express');
 const { AppError, asyncHandler } = require('../../../../shared/errors');
-const { dniDePeticion } = require('../../../../shared/validaciones');
+const { dniDePeticion, requerirDniDeSesion } = require('../../../../shared/validaciones');
 const { enriquecer, datosInternos } = require('../../domain/entrada');
 
 function crearRutas({
@@ -23,27 +23,27 @@ function crearRutas({
    * Consultas
    * ------------------------------------------------------------------ */
   router.get('/api/resumen', asyncHandler(async (req, res) => {
-    const dni = dniDePeticion(req, config.demoDni);
+    const dni = dniDePeticion(req, config.demoDni, config.sessionSecret);
     const resumen = await consultas.resumen(dni);
     res.json({ ok: true, resumen });
   }));
 
   router.get('/api/entradas', asyncHandler(async (req, res) => {
-    const dni = dniDePeticion(req, config.demoDni);
+    const dni = dniDePeticion(req, null, config.sessionSecret);
     const entradas = await consultas.listar(dni);
     res.json({ ok: true, entradas });
   }));
 
   router.get('/api/entradas/:codigo', asyncHandler(async (req, res) => {
     const codigo = String(req.params.codigo).toUpperCase();
-    const dni = dniDePeticion(req, config.demoDni);
+    const dni = dniDePeticion(req, null, config.sessionSecret);
     const entrada = await consultas.obtener(codigo, dni);
     res.json({ ok: true, entrada });
   }));
 
   router.get('/api/verificar/:codigo', asyncHandler(async (req, res) => {
     const codigo = String(req.params.codigo).toUpperCase();
-    const dni = dniDePeticion(req, config.demoDni);
+    const dni = dniDePeticion(req, null, config.sessionSecret);
     const resultado = await consultas.verificar(codigo, dni);
     res.json({ ok: true, ...resultado });
   }));
@@ -65,7 +65,7 @@ function crearRutas({
    * ------------------------------------------------------------------ */
   router.post('/api/entradas/:codigo/transferir', asyncHandler(async (req, res) => {
     const codigo = String(req.params.codigo).toUpperCase();
-    const dni = dniDePeticion(req, config.demoDni);
+    const dni = requerirDniDeSesion(req, config.sessionSecret);
     const resultado = await transferirEntrada({
       codigo,
       datos: req.body || {},
@@ -78,7 +78,7 @@ function crearRutas({
   router.post('/api/entradas/:codigo/estado/:estado', asyncHandler(async (req, res) => {
     const codigo = String(req.params.codigo).toUpperCase();
     const estado = String(req.params.estado).toLowerCase();
-    const dni = dniDePeticion(req, config.demoDni);
+    const dni = requerirDniDeSesion(req, config.sessionSecret);
     const entrada = await cambiarEstado({
       codigo,
       estado,
@@ -111,7 +111,7 @@ function crearRutas({
   router.get('/internal/v1/entradas/:codigo', internalAuth, asyncHandler(async (req, res) => {
     const codigo = String(req.params.codigo).toUpperCase();
     const dni = String(req.get('X-Usuario-DNI') || '').trim();
-    const esDni = /^\d{8}$/.test(dni) ? dni : '00000000';
+    const esDni = /^\d{8}$/.test(dni) ? dni : null;
     const fila = await entradaRepo.obtenerPorCodigo(codigo);
     if (!fila) {
       throw new AppError(`La entrada ${codigo} no existe.`, 404, 'ENTRADA_NO_ENCONTRADA');
@@ -119,7 +119,7 @@ function crearRutas({
 
     res.json({
       ok: true,
-      entrada: enriquecer(fila, esDni, config.demoDni),
+      entrada: enriquecer(fila, esDni),
       datos: datosInternos(fila)
     });
   }));
@@ -143,7 +143,7 @@ function crearRutas({
     const actualizada = await entradaRepo.obtenerPorCodigo(codigo);
     res.json({
       ok: true,
-      entrada: enriquecer(actualizada, '00000000', config.demoDni)
+      entrada: enriquecer(actualizada, null)
     });
   }));
 

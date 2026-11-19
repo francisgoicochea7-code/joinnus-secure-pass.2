@@ -163,11 +163,13 @@
       cont.innerHTML = '';
       return;
     }
-    cont.innerHTML = '<span class="tiny muted">Ver:</span>' + utilizables.map(e =>
-      `<button class="code-chip" data-ir="${JSP.escapeHtml(e.codigo)}"
+    cont.innerHTML = '<span class="tiny muted">Ver:</span>' + utilizables.map(function (e) {
+      const nombre = e.evento.length > 18 ? e.evento.slice(0, 17).trim() + '…' : e.evento;
+      return `<button class="code-chip" data-ir="${JSP.escapeHtml(e.codigo)}"
         style="font-family:var(--font);${e.codigo === codigoActual ? 'border-color:var(--brand)' : ''}">
-        ${JSP.escapeHtml(e.evento.slice(0, 18))}
-      </button>`).join('');
+        ${JSP.escapeHtml(nombre)}
+      </button>`;
+    }).join('');
   }
 
   /* ------------------------------------------------------------------ */
@@ -200,6 +202,7 @@
     const selector = $('selector-entradas');
     if (selector) selector.innerHTML = '';
     if ($('aviso-no-mia')) $('aviso-no-mia').classList.add('hide');
+    if ($('ticket-bloqueado')) $('ticket-bloqueado').classList.add('hide');
     JSP.pintarModo();
   }
 
@@ -217,7 +220,7 @@
     if (texto) {
       texto.innerHTML =
         '<strong>Identifícate para ver tu entrada.</strong> Pulsa el botón ' +
-        '<strong>Identifícate</strong> (abajo a la izquierda) y escribe tu DNI, nombres y ' +
+        '<strong>Identifícate</strong> y escribe tu DNI, nombres y ' +
         'apellidos: enseguida aparecerán <strong>los datos de tu compra</strong> y tu QR.';
     }
     if (aviso) {
@@ -229,6 +232,8 @@
       if (el) el.classList.add('hide');
     });
     if ($('aviso-no-mia')) $('aviso-no-mia').classList.add('hide');
+    // En su lugar se muestra el placeholder de identificaci��n.
+    if ($('ticket-bloqueado')) $('ticket-bloqueado').classList.remove('hide');
     JSP.pintarModo();
   }
 
@@ -251,6 +256,7 @@
       const el = $(id);
       if (el) el.classList.remove('hide');
     });
+    if ($('ticket-bloqueado')) $('ticket-bloqueado').classList.add('hide');
 
     let codigo = JSP.parametro('codigo');
 

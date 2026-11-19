@@ -192,8 +192,7 @@ joinnus-secure-pass.2/
 │   ├── qr-selftest.js            Verificación del generador de QR
 │   ├── verificacion.js           Pruebas funcionales de todas las páginas
 │   ├── unit/                     Pruebas unitarias con node:test
-│   ├── dom-sim.js                Micro-DOM para ejecutar las páginas en Node
-│   └── debug-tmp.js              Utilidad de depuración
+│   └── dom-sim.js                Micro-DOM para ejecutar las páginas en Node
 │
 ├── scripts/                      Utilidades sobre la base de datos
 │   ├── encargado.js              Alta/baja de encargados (local y --remoto)
@@ -218,15 +217,17 @@ Todos responden JSON. `ok: true` indica éxito.
 | `GET` | `/api/entradas` | Lista todas las entradas ficticias |
 | `GET` | `/api/entradas/:codigo` | **Consultar entrada** |
 | `GET` | `/api/verificar/:codigo` | **Verificar estado** (y registra el evento) |
-| `POST` | `/api/entradas/:codigo/qr?log=0\|1` | **Generar token del QR** (`log=0` en rotaciones automáticas) |
+| `POST` | `/api/entradas/:codigo/qr?log=0\|1` | **Generar token del QR**. Requiere sesión del titular (`log=0` en rotaciones automáticas). |
 | `POST` | `/api/qr/validar` | **Validar token** (recibe `{ "token": "JSP-ENTRY001-XXXXXXXX" }` o el payload `JSP\|CODIGO\|TOKEN\|HORA`) |
 | `POST` | `/api/encargados/login` | **Acceso del encargado** (`{ "nombre", "codigo" }`; `401` si no coincide) |
 | `POST` | `/api/encargados/validar` | **Validar el QR en la puerta** y registrar el ingreso (`{ "encargado", "codigo", "token" o "entrada", "registrar" }`) |
-| `POST` | `/api/usuarios` | **Registrar usuario nuevo** (alta: `{ "dni", "nombre", "correo" }`; `409` si el DNI ya existe) |
-| `GET` | `/api/usuarios/:dni` | **Comprobar identidad** (DNI de la persona que se identifica) |
-| `POST` | `/api/entradas/:codigo/transferir` | **Transferir entrada** |
+| `POST` | `/api/usuarios` | **Registrar usuario nuevo** (alta: `{ "dni", "nombre", "correo", "password" }`; `409` si el DNI ya existe) |
+| `POST` | `/api/usuarios/login` | **Iniciar sesión** (`{ "dni", "password" }`; devuelve `token` firmado; `401` genérico) |
+| `POST` | `/api/usuarios/activar` | **Establecer una contraseña** con un código privado de un solo uso (`dni`, `codigo`, `password`). |
+| `GET` | `/api/usuarios/:dni` | **Consultar el perfil propio**. Requiere sesión del titular. |
+| `POST` | `/api/entradas/:codigo/transferir` | **Transferir entrada**. Requiere sesión del titular. |
 | `GET` | `/api/entradas/:codigo/historial` | **Obtener historial** |
-| `POST` | `/api/entradas/:codigo/estado/:estado` | Marcar como `usado`, `anulado` o `valido` |
+| `POST` | `/api/entradas/:codigo/estado/:estado` | Cambiar el estado. Requiere sesión del titular. |
 | `POST` | `/api/demo/reiniciar` | Reinicia los datos ficticios |
 
 ### Ejemplos
@@ -251,17 +252,41 @@ curl -X POST http://localhost:3001/api/entradas/ENTRY001/transferir \
      -H "Content-Type: application/json" \
      -d '{"nombre":"Andrea Torres","dni":"52311878","correo":"andrea.torres@demo.pe","precio":100}'
 
-# Registrar una persona nueva (alta en la base de usuarios)
+# Registrar una persona nueva (la contraseña se guarda como hash scrypt)
 curl -X POST http://localhost:3001/api/usuarios \
      -H "Content-Type: application/json" \
-     -d '{"dni":"77665544","nombre":"Ana Maria Gomez","correo":"ana@correo.pe"}'
+     -d '{"dni":"77665544","nombre":"Ana Maria Gomez","correo":"ana@correo.pe","password":"Ana2026!"}'
 
-# Ese DNI ya se puede usar para identificarse
-curl http://localhost:3001/api/usuarios/77665544
+# Iniciar sesión: devuelve un token firmado (8 h)
+curl -X POST http://localhost:3001/api/usuarios/login \
+     -H "Content-Type: application/json" \
+     -d '{"dni":"77665544","password":"Ana2026!"}'
+
+# Usar ese token para pedir tus entradas (sin el token se ve la cuenta demo)
+curl http://localhost:3001/api/entradas \
+     -H "Authorization: Bearer TOKEN_DEVUELTO"
 
 # Historial
 curl http://localhost:3001/api/entradas/ENTRY001/historial
 ```
+
+### Cuentas de demostración
+
+Todas son ficticias. La contraseña se guarda en la base como hash **scrypt**
+(con sal distinta por cuenta), nunca en claro.
+
+| Persona | DNI | Contraseña |
+|---|---|---|
+| Carlos Pérez | `45678945` | `Carlos2026!` |
+| Andrea Torres | `52311878` | `Andrea2026!` |
+| Luis Ramírez | `40125678` | `Luis2026!` |
+| Diego Vargas | `47258963` | `Diego2026!` |
+| María Torres | `43871264` | `Maria2026!` |
+| Renato Silva | `39521478` | `Renato2026!` |
+
+Sin conexión con la API (modo local con `node server.js`) sólo funciona la
+cuenta de Carlos; el resto necesita Docker para comprobar la contraseña en
+PostgreSQL.
 
 ### Panel de encargados (`/staff/`)
 
@@ -506,7 +531,8 @@ http://192.168.1.25:8081
 2. **Dashboard** — “Hola, Carlos”: 2 activas, 1 usada, 1 transferida.
 3. **Verificar entrada** — consultar `ENTRY001` (🟢 válida), `ENTRY002`
    (🔴 utilizada), `ENTRY003` (🟠 anulada) y `ENTRY004` (🔵 transferida).
-   Probar **“Simular escaneo QR”**.
+   Sin sesión sólo se publica el estado; al identificarte aparece la ficha
+   completa con el acceso a la entrada y al historial.
 4. **Mi entrada** — señalar el contador de 15 s y cómo el token y la imagen
    cambian. Pulsar **“Validar token en el servidor”**.
 5. **Transferir entrada** — primero elegir la entrada y escribir el DNI del
@@ -589,13 +615,15 @@ Definidas en `docker-compose.yml` (y personalizables en `.env`):
 
 ### ⚠️ Simulado (pendiente para un sistema productivo)
 
-- Autenticación de usuarios: hay **identificación** (DNI + nombres + apellidos,
-  comprobados contra la base) disponible desde el panel y desde la píldora
-  *Identifícate* que aparece en todas las páginas; el servidor exige además que
-  la entrada sea de esa persona para emitir el QR o transferirla (devuelve
-  `403`). Lo que sigue faltando es la **contraseña**: quien conozca los datos de
-  una persona puede identificarse como ella, y eso es identificación, no
-  autenticación.
+- Autenticación de usuarios: **DNI + contraseña**. La contraseña se guarda en
+  la base como hash **scrypt** con sal aleatoria (nunca en claro) y el login
+  devuelve un **token firmado con HMAC-SHA256** (8 horas). El servidor ya no
+  exige ese token para transferir, generar el QR, cambiar el estado de una
+  entrada y consultar el perfil propio. La verificación pública muestra el
+  estado del pase y sus datos del evento. La activación de una cuenta de
+  destinatario usa un código de un solo uso que emite el administrador.
+  Sigue pendiente la recuperación por correo y guardar el token en una cookie
+  `httpOnly` (hoy va en `localStorage`).
 - Lector de QR físico dedicado (torniquete): la validación en puerta ya existe,
   pero se hace desde el celular del encargado en `/staff/`.
 - Pagos reales y validación de identidad contra RENIEC.
@@ -821,8 +849,9 @@ La configuración del despliegue está en el repositorio: `vercel.json`
    docker compose up -d --build
    docker compose ps        # los tres deben aparecer "Up (healthy)"
    ```
-8. **Probar**: abre `http://IP_PUBLICA` desde cualquier navegador y registra
-   una cuenta nueva en la píldora de identificación.
+8. **Probar**: abre `http://IP_PUBLICA` desde cualquier navegador y crea
+   una cuenta nueva en la píldora de inicio de sesión (DNI, nombre, correo y
+   contraseña de al menos 8 caracteres).
 
 Los datos (entradas, historial y usuarios registrados) viven en el volumen
 `jsp_postgres_data`: sobreviven a los reinicios (`sudo reboot` y después
@@ -856,9 +885,10 @@ Alternativa: `ngrok http 8081` (cuenta gratuita).
   `*.vercel.app` para que la web publicada pueda llamar a su propia API.
 - Las rutas de escritura tienen límite de peticiones (20/min), el QR rota cada
   15 s y se firma con HMAC en el servidor; la transferencia exige además que
-  la entrada sea del DNI que la pide.
-- **Límite a recordar (sección 10): no hay contraseña.** Cualquiera que conozca
-  un DNI y un nombre puede identificarse como esa persona. Para compartir con
-  conocidos está bien; si algún día es público de verdad, habría que añadir
-  contraseña (bcrypt) y HTTPS con certificado (por ejemplo Caddy delante de
-  nginx, o certbot).
+  la entrada sea de la persona dueña de la sesión.
+- **Contraseñas reales desde esta versión.** El login comprueba la contraseña
+  contra un hash scrypt guardado en la base y entrega un token firmado
+  (`Authorization: Bearer ...`). La cabecera `X-Usuario-DNI` ya no autentica.
+  Pendiente para producción: recuperación de contraseña, verificación de
+  correo, cookie `httpOnly`/`Secure` y HTTPS con certificado (por ejemplo Caddy
+  delante de nginx, o certbot).

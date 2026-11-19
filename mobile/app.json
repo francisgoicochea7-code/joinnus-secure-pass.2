@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Joinnus Secure Pass",
+    "slug": "joinnus-secure-pass",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/pass-512.png",
+    "scheme": "joinnussecurepass",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.joinnus.securepass"
+    },
+    "android": {
+      "package": "com.joinnus.securepass",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/pass-512.png",
+        "backgroundColor": "#08090d"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permite a Joinnus Secure Pass escanear el QR de tus entradas."
+        }
+      ],
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#08090d",
+          "image": "./assets/pass-512.png",
+          "imageWidth": 180
+        }
+      ]
+    ]
+  }
+}

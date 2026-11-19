@@ -8,6 +8,8 @@
 const JSP = (function () {
   'use strict';
 
+  let modalAbierto = null;
+
   /* -------------------------------------------------------------------
    * 1. Iconos SVG (sin dependencias externas)
    * ----------------------------------------------------------------- */
@@ -165,40 +167,151 @@ const JSP = (function () {
   function toast(tipo, titulo, mensaje, duracion) {
     const contenedor = contenedorToasts();
     const iconos = { ok: 'checkCircle', error: 'xCircle', warn: 'alert', info: 'info' };
+    const firma = [tipo, titulo, mensaje || ''].join('|');
+
+    // Evita el mismo aviso repetido mientras el anterior sigue en pantalla.
+    const visibles = contenedor.querySelectorAll ? contenedor.querySelectorAll('.toast') : [];
+    for (let i = 0; i < visibles.length; i++) {
+      if (visibles[i].getAttribute('data-firma') === firma &&
+          !visibles[i].classList.contains('out')) {
+        return visibles[i];
+      }
+    }
+
     const el = document.createElement('div');
     el.className = 'toast toast-' + tipo;
+    el.setAttribute('data-firma', firma);
+    el.setAttribute('role', tipo === 'error' ? 'alert' : 'status');
+    el.setAttribute('tabindex', '0');
     el.innerHTML =
       '<span class="toast-icon">' + icon(iconos[tipo] || 'info', { size: 20 }) + '</span>' +
       '<div class="toast-body"><strong>' + escapeHtml(titulo) + '</strong>' +
-      (mensaje ? '<span>' + escapeHtml(mensaje) + '</span>' : '') + '</div>';
+      (mensaje ? '<span>' + escapeHtml(mensaje) + '</span>' : '') + '</div>' +
+      '<button type="button" class="toast-close" aria-label="Cerrar aviso">' +
+        icon('x', { size: 13 }) +
+      '</button>';
     contenedor.appendChild(el);
 
+    let temporizador = null;
     const cerrar = () => {
+      if (el.classList.contains('out')) return;
+      clearTimeout(temporizador);
       el.classList.add('out');
       setTimeout(() => el.remove(), 260);
     };
+    const programar = () => {
+      clearTimeout(temporizador);
+      temporizador = setTimeout(cerrar, duracion || 5200);
+    };
+
     el.addEventListener('click', cerrar);
-    setTimeout(cerrar, duracion || 4200);
+    el.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape' || ev.key === 'Enter' || ev.key === ' ') {
+        ev.preventDefault();
+        cerrar();
+      }
+    });
+    el.addEventListener('mouseenter', () => clearTimeout(temporizador));
+    el.addEventListener('mouseleave', programar);
+    el.addEventListener('focusin', () => clearTimeout(temporizador));
+    el.addEventListener('focusout', programar);
+    programar();
     return el;
   }
 
   /* -------------------------------------------------------------------
    * 6. Modales
    * ----------------------------------------------------------------- */
+  /** Elementos realmente enfocables dentro de un modal. */
+  function enfocables(raiz) {
+    if (!raiz || typeof raiz.querySelectorAll !== 'function') return [];
+    const grupos = ['a[href]', 'button', 'input', 'select', 'textarea', '[tabindex]'];
+    const lista = [];
+
+    grupos.forEach(function (selector) {
+      let encontrados;
+      try { encontrados = raiz.querySelectorAll(selector); }
+      catch (e) { encontrados = []; }
+      for (let i = 0; i < encontrados.length; i++) {
+        const el = encontrados[i];
+        if (lista.indexOf(el) >= 0) continue;
+        if (el.disabled || el.getAttribute('aria-hidden') === 'true') continue;
+        if (el.getAttribute('tabindex') === '-1') continue;
+
+        // El micro-DOM de las pruebas no calcula layout: sólo en un
+        // navegador real se comprueba si el elemento tiene caja visible.
+        if (typeof el.getClientRects === 'function' && el.getClientRects().length === 0) continue;
+
+        let oculto = false;
+        let nodo = el;
+        while (nodo && nodo !== document.body) {
+          if (nodo.classList && nodo.classList.contains('hide')) { oculto = true; break; }
+          if (nodo.hasAttribute && (nodo.hasAttribute('hidden') || nodo.getAttribute('aria-hidden') === 'true')) {
+            oculto = true;
+            break;
+          }
+          nodo = nodo.parentElement || nodo.parentNode || nodo.parent;
+        }
+        if (!oculto) lista.push(el);
+      }
+    });
+    return lista;
+  }
+
   function abrirModal(id) {
     const m = document.getElementById(id);
     if (!m) return;
+    if (modalAbierto && modalAbierto !== m) cerrarModal(modalAbierto);
+
+    m._jspDisparador = document.activeElement || null;
+    m._jspOverflow = document.body.style.overflow;
+    modalAbierto = m;
+
     m.classList.add('open');
+    m.setAttribute('aria-hidden', 'false');
+    if (!m.hasAttribute('role')) m.setAttribute('role', 'dialog');
+    m.setAttribute('aria-modal', 'true');
+    m.setAttribute('tabindex', '-1');
+
+    const titulo = m.querySelector('.modal-head h3');
+    if (titulo && !m.hasAttribute('aria-labelledby')) {
+      if (!titulo.id) titulo.id = 'modal-titulo-' + id;
+      m.setAttribute('aria-labelledby', titulo.id);
+    } else if (!titulo && !m.hasAttribute('aria-label')) {
+      m.setAttribute('aria-label', 'Ventana de diálogo');
+    }
+
+    document.body.classList.add('modal-open');
     document.body.style.overflow = 'hidden';
-    const focusable = m.querySelector('input, select, textarea, button');
-    if (focusable) setTimeout(() => focusable.focus(), 120);
+
+    setTimeout(function () {
+      if (modalAbierto !== m) return;
+      const lista = enfocables(m);
+      const campos = lista.filter(function (el) {
+        return /^(input|select|textarea)$/i.test(el.tagName || '');
+      });
+      const destino = campos[0] || lista[0] || m;
+      if (destino && typeof destino.focus === 'function') destino.focus();
+    }, 90);
   }
 
   function cerrarModal(id) {
     const m = typeof id === 'string' ? document.getElementById(id) : id;
     if (!m) return;
+
     m.classList.remove('open');
-    document.body.style.overflow = '';
+    m.setAttribute('aria-hidden', 'true');
+    if (modalAbierto === m) modalAbierto = null;
+
+    if (!modalAbierto) {
+      document.body.classList.remove('modal-open');
+      document.body.style.overflow = m._jspOverflow || '';
+    }
+
+    const disparador = m._jspDisparador;
+    if (disparador && typeof disparador.focus === 'function') {
+      setTimeout(function () { disparador.focus(); }, 30);
+    }
   }
 
   function initModales() {
@@ -219,10 +332,38 @@ const JSP = (function () {
         cerrarModal(ev.target);
       }
     });
+
     document.addEventListener('keydown', function (ev) {
+      if (!modalAbierto) return;
+
       if (ev.key === 'Escape') {
-        const abierto = document.querySelector('.modal-backdrop.open');
-        if (abierto) cerrarModal(abierto);
+        ev.preventDefault();
+        cerrarModal(modalAbierto);
+        return;
+      }
+
+      if (ev.key !== 'Tab') return;
+
+      const lista = enfocables(modalAbierto);
+      if (!lista.length) {
+        ev.preventDefault();
+        if (typeof modalAbierto.focus === 'function') modalAbierto.focus();
+        return;
+      }
+
+      const activo = document.activeElement;
+      const indice = lista.indexOf(activo);
+      const primero = lista[0];
+      const ultimo = lista[lista.length - 1];
+
+      if (ev.shiftKey) {
+        if (indice <= 0) {
+          ev.preventDefault();
+          ultimo.focus();
+        }
+      } else if (indice === -1 || indice === lista.length - 1) {
+        ev.preventDefault();
+        primero.focus();
       }
     });
   }
@@ -236,10 +377,25 @@ const JSP = (function () {
     const movil = document.getElementById('nav-mobile');
 
     if (toggle && movil) {
+      const cerrarMenu = function () {
+        movil.classList.remove('open');
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.innerHTML = icon('menu', { size: 20 });
+      };
+
+      toggle.setAttribute('aria-expanded', 'false');
       toggle.addEventListener('click', function () {
         const abierto = movil.classList.toggle('open');
         toggle.setAttribute('aria-expanded', String(abierto));
         toggle.innerHTML = icon(abierto ? 'x' : 'menu', { size: 20 });
+      });
+
+      // Al navegar o pulsar Escape el menu deja de tapar la pagina.
+      movil.querySelectorAll('a').forEach(function (a) {
+        a.addEventListener('click', cerrarMenu);
+      });
+      document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && movil.classList.contains('open')) cerrarMenu();
       });
     }
 

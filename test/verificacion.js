@@ -56,7 +56,8 @@ function pruebasEstaticas() {
 
   const secciones = ['index.html', 'dashboard.html', 'verificar.html', 'entrada.html',
     'transferencia.html', 'historial.html', 'sobre.html'];
-  secciones.forEach(p => ok(fs.existsSync(path.join(APP, p)), 'Falta la pagina frontend/' + p));
+  const paginas = [...secciones, 'activar.html'];
+  paginas.forEach(p => ok(fs.existsSync(path.join(APP, p)), 'Falta la pagina frontend/' + p));
 
   ['css/styles.css', 'js/app.js', 'js/api.js', 'js/qr.js', 'js/cliente-api.js', 'js/home.js',
    'js/dashboard.js', 'js/verificar.js', 'js/entrada.js', 'js/transferencia.js',
@@ -95,7 +96,7 @@ function pruebasEstaticas() {
 
   // Enlaces y recursos locales de cada pagina del frontend
   const htmls = fs.readdirSync(APP).filter(f => f.endsWith('.html'));
-  ok(htmls.length === 7, 'Se esperaban 7 paginas HTML, hay ' + htmls.length);
+  ok(htmls.length === paginas.length, 'Cantidad inesperada de paginas HTML: ' + htmls.length);
   htmls.forEach(pag => {
     const html = fs.readFileSync(path.join(APP, pag), 'utf8');
     const refs = [...html.matchAll(/(?:href|src)="([^"#][^"]*)"/g)].map(m => m[1])
@@ -108,7 +109,7 @@ function pruebasEstaticas() {
   });
 
   // Navegacion completa en cada pagina
-  htmls.forEach(pag => {
+  secciones.forEach(pag => {
     const html = fs.readFileSync(path.join(APP, pag), 'utf8');
     secciones.forEach(destino => {
       ok(html.includes('href="' + destino + '"'), pag + ': no enlaza a ' + destino);
@@ -124,7 +125,8 @@ function pruebasEstaticas() {
     ['verificar.html', ['js/verificar.js']],
     ['entrada.html', ['js/entrada.js']],
     ['transferencia.html', ['js/transferencia.js']],
-    ['historial.html', ['js/historial.js']]
+    ['historial.html', ['js/historial.js']],
+    ['activar.html', ['js/activacion.js']]
   ];
   pares.forEach(([pag, scripts]) => {
     const html = fs.readFileSync(path.join(APP, pag), 'utf8');
@@ -146,8 +148,10 @@ function pruebasEstaticas() {
   // Scripts base cargados en cada pagina
   htmls.forEach(pag => {
     const html = fs.readFileSync(path.join(APP, pag), 'utf8');
-    ['js/qr.js', 'js/cliente-api.js', 'js/api.js', 'js/app.js',
-     'js/sesion.js', 'js/identificacion.js'].forEach(s => {
+    const scripts = pag === 'activar.html'
+      ? ['js/cliente-api.js', 'js/activacion.js']
+      : ['js/qr.js', 'js/cliente-api.js', 'js/api.js', 'js/app.js', 'js/sesion.js', 'js/identificacion.js'];
+    scripts.forEach(s => {
       ok(html.includes('src="' + s + '"'), pag + ': no carga ' + s);
     });
   });
@@ -386,24 +390,31 @@ async function pruebasPaginas() {
   grupo('3. Paginas: carga y flujos sin errores de JavaScript');
 
   /* --- Verificar ---------------------------------------------------- */
+  const verificarHtml = fs.readFileSync(path.join(RAIZ, 'frontend/verificar.html'), 'utf8');
+  ok(!verificarHtml.includes('Simular escaneo QR'),
+    'La pagina no debe ofrecer "Simular escaneo QR"');
+  ok(!verificarHtml.includes('Ver códigos de prueba'),
+    'La pagina no debe ofrecer "Ver códigos de prueba"');
+  ok(!verificarHtml.includes('id="btn-escanear"'),
+    'Falta quitar el boton de escaneo simulado');
+  ok(!verificarHtml.includes('id="chips-codigos"') && !verificarHtml.includes('id="modal-entradas"'),
+    'Faltan quitar los chips y el modal de codigos ficticios');
+  ok(!verificarHtml.includes('scan-overlay'),
+    'Falta quitar la simulacion de escaneo');
+
   await probarPagina('verificar.html', ['js/verificar.js'],
     async ctx => {
       const doc = ctx.document;
       ok(!!doc.getElementById('codigo'), 'No se encontro el campo de codigo');
-      ok(doc.getElementById('chips-codigos').innerHTML.includes('ENTRY001'),
-        'Los chips de codigos de prueba no se rellenaron');
-      // En el micro-DOM el class del HTML queda en getAttribute; className y
-      // classList sólo reflejan los cambios hechos por JavaScript.
-      ok(String(doc.getElementById('chips-codigos').getAttribute('class') || '').includes('hide'),
-        'Los chips de codigos de prueba deben estar ocultos en la interfaz');
-      ok(doc.getElementById('tabla-db').innerHTML.includes('ENTRY001'),
-        'La tabla de la base de datos no se relleno');
+      ok(!!doc.getElementById('btn-verificar'), 'Falta el boton "Verificar entrada"');
+      ok(!!doc.getElementById('btn-limpiar'), 'Falta el boton "Limpiar consulta"');
     },
     async ctx => {
       const doc = ctx.document;
       const API = evaluar(ctx, 'SecurePassAPI');
       const form = doc.getElementById('form-verificar');
 
+      // Sin sesión: sólo el estado; nunca los detalles ni los accesos.
       doc.getElementById('codigo').value = 'ENTRY001';
       await form._fire('submit', { target: form });
       await dormir(600);
@@ -411,18 +422,25 @@ async function pruebasPaginas() {
         'ENTRY001 debe mostrarse como valida');
       ok(doc.getElementById('res-titulo').textContent === NOMBRES.valido,
         'Titulo incorrecto: [' + doc.getElementById('res-titulo').textContent + ']');
-      ok(doc.getElementById('res-datos').innerHTML.includes(NOMBRES.carlos),
-        'El resultado no muestra al titular');
-      ok(doc.getElementById('res-datos').innerHTML.includes('ENTRY001'),
-        'El resultado no muestra el codigo de entrada');
-      ok(doc.getElementById('res-datos').innerHTML.includes('Estadio Nacional'),
-        'El resultado no muestra el lugar');
+      ok(doc.getElementById('res-mensaje').textContent.length > 20,
+        'Falta la descripcion del estado');
+      ok(doc.getElementById('res-detalles').classList.contains('hide'),
+        'Sin sesion no deben mostrarse los detalles de la entrada');
+      ok(doc.getElementById('res-datos').innerHTML === '',
+        'Sin sesion el detalle debe quedar vacio: ' +
+        doc.getElementById('res-datos').innerHTML.slice(0, 80));
+      ok(doc.getElementById('res-acciones').classList.contains('hide'),
+        'Sin sesion no deben mostrarse los botones de detalle');
+      ok(!doc.getElementById('res-acciones').innerHTML.includes('Ver historial'),
+        'Sin sesion no debe ofrecerse el historial');
 
       doc.getElementById('codigo').value = 'NOEXISTE99';
       await form._fire('submit', {});
       await esperarHasta(() => doc.getElementById('res-titulo').textContent === 'CÓDIGO NO ENCONTRADO');
       ok(doc.getElementById('res-titulo').textContent === 'CÓDIGO NO ENCONTRADO',
         'No se maneja el codigo inexistente');
+      ok(doc.getElementById('res-detalles').classList.contains('hide'),
+        'Un codigo inexistente no debe abrir el detalle');
 
       for (const par of [['ENTRY002', NOMBRES.usado], ['ENTRY003', NOMBRES.anulado],
       ['ENTRY004', NOMBRES.transferido], ['ENTRY005', NOMBRES.valido]]) {
@@ -432,6 +450,8 @@ async function pruebasPaginas() {
         ok(doc.getElementById('res-titulo').textContent === par[1],
           par[0] + ': se esperaba [' + par[1] + '] y se obtuvo [' +
           doc.getElementById('res-titulo').textContent + ']');
+        ok(doc.getElementById('res-detalles').classList.contains('hide'),
+          par[0] + ': sin sesion no deben mostrarse detalles');
       }
 
       const h = await API.obtenerHistorial('ENTRY002');
@@ -442,7 +462,40 @@ async function pruebasPaginas() {
       ok(Number(doc.getElementById('contador-verificaciones').textContent) > 0,
         'El contador de verificaciones no se actualizo');
     },
-    c => c.document.getElementById('tabla-db').innerHTML.includes('ENTRY001'));
+    c => !!c.document.getElementById('form-verificar'));
+
+  // Con sesión iniciada sí se ve la ficha completa de la entrada.
+  const ctxVer = crearContexto();
+  ctxVer.localStorage.setItem('jsp.sesion.usuario.v1', JSON.stringify({
+    dni: '45678945', nombre: 'Carlos Pérez', nombres: 'Carlos', apellidos: 'Pérez'
+  }));
+  cargarJs(ctxVer, 'frontend/js/qr.js');
+  cargarJs(ctxVer, 'frontend/js/cliente-api.js');
+  cargarJs(ctxVer, 'frontend/js/api.js');
+  cargarJs(ctxVer, 'frontend/js/sesion.js');
+  cargarPagina(ctxVer, 'frontend/verificar.html',
+    ['frontend/js/app.js', 'frontend/js/identificacion.js', 'frontend/js/verificar.js']);
+  await dormir(400);
+
+  const docVer = ctxVer.document;
+  const formVer = docVer.getElementById('form-verificar');
+  docVer.getElementById('codigo').value = 'ENTRY001';
+  await formVer._fire('submit', { target: formVer });
+  await dormir(700);
+
+  ok(!docVer.getElementById('res-detalles').classList.contains('hide'),
+    'Con sesion deben verse los detalles de la entrada');
+  ok(docVer.getElementById('res-datos').innerHTML.includes(NOMBRES.carlos),
+    'Con sesion el detalle debe mostrar al titular');
+  ok(docVer.getElementById('res-datos').innerHTML.includes('ENTRY001'),
+    'Con sesion el detalle debe mostrar el codigo');
+  ok(docVer.getElementById('res-datos').innerHTML.includes('Estadio Nacional'),
+    'Con sesion el detalle debe mostrar el lugar');
+  ok(!docVer.getElementById('res-acciones').classList.contains('hide'),
+    'Con sesion deben verse los accesos de detalle');
+  ok(docVer.getElementById('res-acciones').innerHTML.includes('Ver entrada completa') &&
+    docVer.getElementById('res-acciones').innerHTML.includes('Ver historial'),
+    'Con sesion debe ofrecerse la entrada completa y el historial');
 
   /* --- Dashboard ---------------------------------------------------- */
   await probarPagina('dashboard.html', ['js/dashboard.js'],
@@ -513,8 +566,10 @@ async function pruebasPaginas() {
       const doc = ctx.document;
       const html = doc.getElementById('detalle-entrada').innerHTML;
       ok(html.includes('Lima Music Fest'), 'No se muestra la entrada a transferir');
-      ok(html.includes(NOMBRES.carlos), 'No se muestra el titular actual');
-      ok(html.includes('********45'), 'No se muestra el DNI enmascarado');
+      ok(!html.includes(NOMBRES.carlos),
+        'El detalle no debe mostrar el titular de la entrada: ' + NOMBRES.carlos);
+      ok(!html.includes('********45'),
+        'El detalle no debe mostrar el DNI del titular');
       ok(html.includes('S/ 120.00'), 'No se muestra el precio original/maximo');
       ok(html.includes('btn-abrir-transferencia'), 'No aparece el boton de transferir');
     },
@@ -596,8 +651,8 @@ async function pruebasPaginas() {
       ok(doc.getElementById('r-codigo').textContent === 'ENTRY001', 'Codigo de entrada incorrecto');
       ok(doc.getElementById('r-estado').innerHTML.includes('badge-transferido'),
         'El estado final no es "Transferido"');
-      ok(doc.getElementById('btn-ver-nueva').href.includes('entrada.html?codigo=ENTRY001'),
-        'El boton "Ver nueva entrada" no apunta a la entrada nueva');
+      ok(doc.getElementById('btn-ver-nueva').href.includes('verificar.html?codigo=ENTRY001'),
+        'El boton de resultado debe abrir la consulta publica de la entrada transferida');
 
       // Persistencia y trazabilidad
       const e = await API.consultarEntrada('ENTRY001');
@@ -616,24 +671,86 @@ async function pruebasPaginas() {
     },
     c => c.document.getElementById('detalle-entrada').innerHTML.includes('Lima Music Fest'));
 
-  /* --- Historial ----------------------------------------------------- */
-  await probarPagina('historial.html', ['js/historial.js'],
-    async ctx => {
-      const doc = ctx.document;
-      ok(doc.getElementById('linea-tiempo').innerHTML.includes('tl-item'),
-        'La linea de tiempo esta vacia');
-      ok(doc.getElementById('tabla-historial').innerHTML.includes('Entrada creada'),
-        'La tabla no contiene la accion "Entrada creada"');
-      ok(doc.getElementById('tabla-historial').innerHTML.includes('ENTRY001'),
-        'La tabla no contiene los codigos');
-      ok(doc.getElementById('estados-actuales').innerHTML.includes('ENTRY005'),
-        'El panel de estados actuales esta vacio');
-      ok(doc.getElementById('filtro-codigo').innerHTML.includes('ENTRY001'),
-        'El selector de entradas no se relleno');
-      ok(Number(doc.getElementById('stat-eventos').textContent) > 5,
-        'Las estadisticas del historial no se calcularon');
-    },
-    c => c.document.getElementById('linea-tiempo').innerHTML.includes('tl-item'));
+  /* --- Historial: sólo la actividad de la persona identificada -------- */
+  // a) SIN sesión: estado vacío con aviso para entrar y sin datos de nadie.
+  const ctxHist = crearContexto();
+  cargarJs(ctxHist, 'frontend/js/qr.js');
+  cargarJs(ctxHist, 'frontend/js/cliente-api.js');
+  cargarJs(ctxHist, 'frontend/js/api.js');
+  cargarJs(ctxHist, 'frontend/js/sesion.js');
+  cargarPagina(ctxHist, 'frontend/historial.html',
+    ['frontend/js/app.js', 'frontend/js/identificacion.js', 'frontend/js/historial.js']);
+  await dormir(900);
+
+  const docHist = ctxHist.document;
+  const sinLinea = docHist.getElementById('linea-tiempo').innerHTML;
+  const sinTabla = docHist.getElementById('tabla-historial').innerHTML;
+  const sinEstados = docHist.getElementById('estados-actuales').innerHTML;
+  const sinFiltro = docHist.getElementById('filtro-codigo').innerHTML;
+
+  ok(!sinLinea.includes('tl-item'),
+    'Sin sesion la linea de tiempo no debe mostrar eventos');
+  ok(sinLinea.includes('Inicia sesión'),
+    'Sin sesion debe pedir iniciar sesión: ' + sinLinea.slice(0, 120));
+  ok(!sinTabla.includes('ENTRY') && !sinTabla.includes('Entrada creada'),
+    'Sin sesion no debe listarse el historial de ninguna entrada');
+  ok(!sinEstados.includes('ENTRY'),
+    'Sin sesion no deben mostrarse entradas');
+  ok(Number(docHist.getElementById('stat-eventos').textContent) === 0,
+    'Sin sesion la metrica de eventos debe quedar en 0: ' +
+    docHist.getElementById('stat-eventos').textContent);
+  ok(sinFiltro.includes('Inicia sesión') && !sinFiltro.includes('ENTRY'),
+    'Sin sesion el filtro no debe ofrecer entradas');
+  ok(docHist.getElementById('btn-exportar').disabled === true,
+    'Sin sesion la exportacion CSV debe quedar deshabilitada');
+
+  // b) Con sesión de Carlos: sólo SUS entradas y SUS movimientos.
+  const ctxCarlos = crearContexto();
+  ctxCarlos.localStorage.setItem('jsp.sesion.usuario.v1', JSON.stringify({
+    dni: '45678945', nombre: 'Carlos Pérez', nombres: 'Carlos', apellidos: 'Pérez'
+  }));
+  cargarJs(ctxCarlos, 'frontend/js/qr.js');
+  cargarJs(ctxCarlos, 'frontend/js/cliente-api.js');
+  cargarJs(ctxCarlos, 'frontend/js/api.js');
+  cargarJs(ctxCarlos, 'frontend/js/sesion.js');
+  cargarPagina(ctxCarlos, 'frontend/historial.html',
+    ['frontend/js/app.js', 'frontend/js/identificacion.js', 'frontend/js/historial.js']);
+
+  // El barrido espera a que la maqueta local termine de pintar y a que las
+  // metricas terminen su animación.
+  const listoHist = await esperarHasta(() => {
+    const doc = ctxCarlos.document;
+    return doc.getElementById('tabla-historial').innerHTML.includes('ENTRY001') &&
+      Number(doc.getElementById('stat-eventos').textContent) === 4;
+  }, 6000, 20);
+  ok(listoHist, 'El historial de Carlos no se pinto (metrica=' +
+    ctxCarlos.document.getElementById('stat-eventos').textContent + ')');
+
+  const docCarlos = ctxCarlos.document;
+  const lineaCarlos = docCarlos.getElementById('linea-tiempo').innerHTML;
+  const tablaCarlos = docCarlos.getElementById('tabla-historial').innerHTML;
+  const estadosCarlos = docCarlos.getElementById('estados-actuales').innerHTML;
+  const filtroCarlos = docCarlos.getElementById('filtro-codigo').innerHTML;
+
+  ok(lineaCarlos.includes('tl-item'), 'La linea de tiempo esta vacia');
+  ok(tablaCarlos.includes('Entrada creada'),
+    'La tabla no contiene la accion "Entrada creada"');
+  ok(tablaCarlos.includes('ENTRY001'), 'La tabla no contiene los codigos propios');
+  ok(!tablaCarlos.includes('ENTRY005') && !tablaCarlos.includes('ENTRY002') &&
+     !tablaCarlos.includes('ENTRY003'),
+    'La tabla muestra el historial de otra persona');
+  ok(lineaCarlos.includes('ENTRY001') && !lineaCarlos.includes('ENTRY005'),
+    'La linea de tiempo mezcla movimientos ajenos');
+  ok(estadosCarlos.includes('ENTRY001'),
+    'El panel de estados actuales esta vacio');
+  ok(!estadosCarlos.includes('ENTRY005') && !estadosCarlos.includes('ENTRY002'),
+    'El panel de estados muestra entradas de otra persona');
+  ok(filtroCarlos.includes('ENTRY001'), 'El selector de entradas no se relleno');
+  ok(!filtroCarlos.includes('ENTRY005') && !filtroCarlos.includes('ENTRY002'),
+    'El selector ofrece entradas de otra persona');
+  ok(Number(docCarlos.getElementById('stat-eventos').textContent) === 4,
+    'Las metricas deben contar solo los eventos de Carlos: ' +
+    docCarlos.getElementById('stat-eventos').textContent);
 
   /* --- Sobre --------------------------------------------------------- */
   grupo('4. Paginas secundarias: index.html y sobre.html');
@@ -656,6 +773,49 @@ async function pruebasPaginas() {
     'El QR de la portada no genero un token valido: ' + heroToken);
   const heroCanvas = ctx3.document.getElementById('hero-qr');
   ok(heroCanvas.width > 50, 'El canvas del QR de portada no se dibujo');
+
+  // La portada ya no tiene titulo, subtitulo ni tarjetas ficticias.
+  const homeHtml = fs.readFileSync(path.join(RAIZ, 'frontend/index.html'), 'utf8');
+  ok(!homeHtml.includes('Entradas de prueba'),
+    'La portada no debe tener el titulo "Entradas de prueba"');
+  ok(!homeHtml.includes('Elige un evento ficticio'),
+    'La portada no debe tener el subtitulo de eventos ficticios');
+  ok(!homeHtml.includes('class="show-card"'),
+    'Las tarjetas de la portada deben generarse con entradas reales');
+
+  // Sin sesion: estado vacio limpio, sin tarjetas.
+  ok(ctx3.document.getElementById('show-grid').innerHTML === '',
+    'Sin sesion la portada no debe pintar tarjetas de ejemplo');
+  ok(ctx3.document.getElementById('lineup-vacio-titulo').textContent.includes('Inicia sesión'),
+    'Sin sesion la portada debe pedir iniciar sesion: ' +
+    ctx3.document.getElementById('lineup-vacio-titulo').textContent);
+  ok(!ctx3.document.getElementById('lineup-vacio').classList.contains('hide'),
+    'Sin sesion se debe ver el estado vacio de entradas');
+
+  // Con sesion: solo las entradas reales de la persona identificada.
+  const ctxHome = crearContexto();
+  ctxHome.localStorage.setItem('jsp.sesion.usuario.v1', JSON.stringify({
+    dni: '45678945', nombre: 'Carlos Pérez', nombres: 'Carlos', apellidos: 'Pérez'
+  }));
+  cargarJs(ctxHome, 'frontend/js/qr.js');
+  cargarJs(ctxHome, 'frontend/js/cliente-api.js');
+  cargarJs(ctxHome, 'frontend/js/api.js');
+  cargarJs(ctxHome, 'frontend/js/sesion.js');
+  cargarPagina(ctxHome, 'frontend/index.html', ['frontend/js/app.js', 'frontend/js/home.js']);
+
+  const listoHome = await esperarHasta(() =>
+    ctxHome.document.getElementById('show-grid').innerHTML.includes('ENTRY001'), 6000, 30);
+  ok(listoHome, 'Con sesion la portada no pinto las entradas reales');
+
+  const gridHome = ctxHome.document.getElementById('show-grid').innerHTML;
+  ok(gridHome.includes('ENTRY006'),
+    'La portada debe mostrar todas las entradas propias');
+  ok(!gridHome.includes('ENTRY002') && !gridHome.includes('ENTRY005'),
+    'La portada no debe mostrar entradas de otras personas');
+  ok(gridHome.includes('Verificar pase'),
+    'Las tarjetas deben conservar el enlace "Verificar pase"');
+  ok(ctxHome.document.getElementById('lineup-vacio').classList.contains('hide'),
+    'Con entradas reales no debe verse el estado vacio');
 }
 
 /* ===================================================================== */
@@ -719,10 +879,10 @@ async function pruebasTransferenciaBackend() {
 
   const backend = fs.readFileSync(path.join(RAIZ, 'backend/index.js'), 'utf8');
 
-  ok(backend.includes('let usuarioNuevoId'),
-    'El id del nuevo titular debe declararse con "let": con "const" toda transferencia hacia un usuario ya registrado terminaba en 500 (Assignment to constant variable)');
-  ok(!/const\s+usuarioNuevoId/.test(backend),
-    'Sigue existiendo "const usuarioNuevoId", que rompia las transferencias');
+  ok(backend.includes('const [usuarioNuevo] = usr.rows.length'),
+    'La transferencia debe resolver al destinatario nuevo o registrado');
+  ok(backend.includes('ON CONFLICT (dni) DO NOTHING'),
+    'La transferencia debe conservar el perfil de un destinatario registrado');
 
   const inicio = backend.indexOf('INSERT INTO transferencias');
   const bloque = inicio >= 0 ? backend.slice(inicio, inicio + 900) : '';
@@ -1058,6 +1218,83 @@ async function pruebasRegistroUsuarios() {
 }
 
 /* ===================================================================== */
+/* 5f. Inicio de sesión con contraseña (token firmado)                   */
+/* ===================================================================== */
+async function pruebasInicioSesion() {
+  grupo('5f. Inicio de sesión con contraseña (token firmado)');
+
+  const llamadas = [];
+  const ctx = crearContexto();
+  ctx.sandbox.fetch = async (url, opciones) => {
+    opciones = opciones || {};
+    const metodo = opciones.method || 'GET';
+    llamadas.push({ url: String(url), metodo: metodo, cuerpo: opciones.body });
+    const responder = (cuerpo, status) => ({
+      ok: (status || 200) < 400,
+      status: status || 200,
+      json: async () => cuerpo
+    });
+
+    if (String(url).endsWith('/health')) {
+      return responder({ ok: true, baseDatos: 'conectada', tablas: 6 });
+    }
+    if (String(url).endsWith('/api/usuarios/login') && metodo === 'POST') {
+      const cuerpo = JSON.parse(opciones.body);
+      if (cuerpo.dni === '45678945' && cuerpo.password === 'Carlos2026!') {
+        return responder({
+          ok: true,
+          usuario: { id: 1, nombre: 'Carlos Pérez', dni: '45678945', correo: 'carlos.perez@demo.pe' },
+          token: 'payload.firma',
+          expiraEn: Date.now() + 3600000
+        });
+      }
+      return responder({ ok: false, error: 'DNI o contraseña incorrectos.' }, 401);
+    }
+    return responder({ ok: false, error: 'Ruta no simulada: ' + url }, 404);
+  };
+  cargarJs(ctx, 'frontend/js/qr.js');
+  cargarJs(ctx, 'frontend/js/cliente-api.js');
+  cargarJs(ctx, 'frontend/js/sesion.js');
+
+  let r = await evaluar(ctx, 'Sesion.iniciarSesion("123", "Carlos2026!")');
+  ok(r && r.ok === false && r.campo === 'dni',
+    'Un DNI inválido debe marcar el campo DNI antes de llamar a la API');
+
+  r = await evaluar(ctx, 'Sesion.iniciarSesion("45678945", "otra-clave")');
+  ok(r && r.ok === false && r.campo === 'password' && /incorrectos/.test(r.mensaje || ''),
+    'Una contraseña incorrecta debe devolver el mensaje genérico del servidor');
+  ok(evaluar(ctx, 'Sesion.estaIdentificado()') === false,
+    'Tras un inicio de sesión fallido no debe quedar sesión');
+
+  r = await evaluar(ctx, 'Sesion.iniciarSesion("45678945", "Carlos2026!")');
+  ok(r && r.ok === true && r.usuario && r.usuario.dni === '45678945',
+    'El inicio de sesión correcto no devolvió a la persona');
+  ok(evaluar(ctx, 'Sesion.estaIdentificado()') === true,
+    'El inicio de sesión correcto no dejó la sesión activa');
+
+  const cab = await evaluar(ctx, 'Sesion.cabeceras()');
+  ok(cab && cab.Authorization === 'Bearer payload.firma',
+    'El token firmado debe viajar en la cabecera Authorization');
+  ok(cab && cab['X-Usuario-DNI'] === '45678945',
+    'La cabecera de compatibilidad debe conservar el DNI de la sesión');
+
+  evaluar(ctx, 'Sesion.olvidar()');
+  ok(evaluar(ctx, 'Sesion.estaIdentificado()') === false,
+    'Cerrar sesión no debe dejar la sesión activa');
+
+  // Sin API (modo local) sólo puede entrar el usuario de demostración.
+  const sinApi = crearContexto();
+  cargarJs(sinApi, 'frontend/js/sesion.js');
+  const local = await evaluar(sinApi, 'Sesion.iniciarSesion("45678945", "Carlos2026!")');
+  ok(local && local.ok === true,
+    'Sin API el usuario de demostración debe poder entrar con su contraseña');
+
+  const localOtra = await evaluar(sinApi, 'Sesion.iniciarSesion("52311878", "Andrea2026!")');
+  ok(localOtra && localOtra.ok === false,
+    'Sin API no debe entrar una cuenta que no existe en el modo local');
+}
+
+/* ===================================================================== */
 /* 6. Modo API (Docker): el cliente HTTP contra un fetch simulado        */
 /* =================================================================== */
 async function pruebasModoApi() {
@@ -1345,6 +1582,7 @@ async function pruebasEncargados() {
   await pruebasQrDeLaPersona();
   await pruebasEntradaTrasIdentificar();
   await pruebasRegistroUsuarios();
+  await pruebasInicioSesion();
   await pruebasModoApi();
   await pruebasEnrutadoVercel();
   await pruebasFirmaQr();

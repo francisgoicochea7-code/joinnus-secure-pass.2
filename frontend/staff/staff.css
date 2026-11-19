@@ -21,7 +21,10 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; }
+/* `.st-btn` usa inline-flex; sin esta regla, hidden no lo ocultaba. */
+[hidden] { display: none !important; }
+
+html { -webkit-text-size-adjust: 100%; color-scheme: dark; }
 
 body {
   min-height: 100dvh;
@@ -105,16 +108,23 @@ h3 { font-size: 1.1rem; }
   border: 1.5px solid var(--line); border-radius: 12px;
   transition: border-color .15s, box-shadow .15s;
 }
-.st-input::placeholder { color: #5f7b8b; }
+.st-input::placeholder { color: #82a6b7; }
 .st-input:focus {
   outline: none; border-color: var(--mint-2);
   box-shadow: 0 0 0 4px rgba(0, 211, 166, .18);
+}
+.st-input:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+
+.st-btn:focus-visible,
+.st-link:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 3px;
 }
 
 /* ------------------------------- Botones -------------------------------- */
 .st-btn {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 100%; padding: .9rem 1rem; border: 0; border-radius: 12px;
+  width: 100%; min-height: 46px; padding: .9rem 1rem; border: 0; border-radius: 12px;
   font: inherit; font-size: 1rem; font-weight: 800; cursor: pointer;
   transition: transform .08s, filter .15s, opacity .15s;
 }

@@ -69,6 +69,10 @@ services:
       QR_SECRET: "${QR_SECRET:?Falta QR_SECRET - copia .env.example a .env y define tu clave}"
       # Vigencia de cada token dinámico, en segundos
       QR_TTL_SECONDS: ${QR_TTL_SECONDS:-15}
+      # Firma de las sesiones (login con contrasena). Opcional: si falta se
+      # deriva de QR_SECRET. En produccion conviene un valor propio.
+      SESSION_SECRET: "${SESSION_SECRET:-}"
+      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-28800}
       # DNI del usuario de la sesión demo ("Mis entradas")
       DEMO_DNI: ${DEMO_DNI:-45678945}
       TZ: ${TZ:-America/Lima}

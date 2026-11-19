@@ -22,6 +22,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Herramientas locales de IA (skills descargadas, no forman parte del producto)
+.opencode/
+
 # Analisis estatico (SonarQube)
 .scannerwork/
 .sonar/

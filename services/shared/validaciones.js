@@ -1,5 +1,8 @@
 'use strict';
 
+const { verificarSesion } = require('./session');
+const { AppError } = require('./errors');
+
 const RE_DNI = /^\d{8}$/;
 const RE_CORREO = /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/;
 const RE_NOMBRE = /^\p{L}[\p{L}\s'.-]*$/u;
@@ -49,10 +52,28 @@ function validarUsuario(datos) {
   };
 }
 
-/** Devuelve el DNI de la petición o el DNI demo. */
-function dniDePeticion(req, demoDni) {
-  const dni = String(req.get('X-Usuario-DNI') || '').trim();
-  return RE_DNI.test(dni) ? dni : demoDni;
+/**
+ * DNI de la persona que hace la petición.
+ *
+ * Sólo se acepta la sesión firmada que emite auth-service al comprobar la
+ * contraseña (cabecera Authorization: Bearer ...). La antigua cabecera
+ * X-Usuario-DNI ya NO se usa para autenticar: cualquiera podía escribir el
+ * DNI de otra persona. El DNI de demostración queda reservado para los
+ * resúmenes públicos que lo solicitan explícitamente.
+ */
+function dniDePeticion(req, demoDni, secreto) {
+  const cabecera = String(req.get('Authorization') || '');
+  const encontrado = /^Bearer\s+([^\s]+)$/i.exec(cabecera);
+  const sesion = encontrado ? verificarSesion(encontrado[1], secreto) : null;
+  return sesion ? sesion.dni : demoDni;
+}
+
+function requerirDniDeSesion(req, secreto) {
+  const dni = dniDePeticion(req, null, secreto);
+  if (!dni) {
+    throw new AppError('Inicia sesión para continuar.', 401, 'SESION_REQUERIDA');
+  }
+  return dni;
 }
 
 module.exports = {
@@ -62,5 +83,6 @@ module.exports = {
   ocultarDNI,
   normalizarNombre,
   validarUsuario,
-  dniDePeticion
+  dniDePeticion,
+  requerirDniDeSesion
 };

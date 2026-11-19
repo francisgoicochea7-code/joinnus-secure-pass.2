@@ -17,6 +17,8 @@ database/*
 # Las tres semillas de microservicios sí viajan a la imagen de Render, que las
 # usa para inicializar la base administrada y el reinicio de demo.
 !database/micro/
-backend
+backend/*
+!backend/activacion.js
+!backend/emitir-activacion.js
 docker-compose.yml
 .dockerignore
