@@ -291,6 +291,29 @@ Sin conexión con la API (modo local con `node server.js`) sólo funciona la
 cuenta de Carlos; el resto necesita Docker para comprobar la contraseña en
 PostgreSQL.
 
+#### Consultar y gestionar contraseñas en la base local
+
+El comando usa `.env.micro` y la base `auth_db` en `127.0.0.1:5434`.
+No permite recuperar la contraseña original: en DBeaver sólo verás `password_hash`.
+
+```powershell
+# Listar cuentas (sin mostrar contraseñas ni hashes completos)
+npm run contrasena -- --listar
+
+# Comprobar una contraseña sin cambiarla
+npm run contrasena -- --verificar 45678945 "Carlos2026!"
+
+# Asignar una nueva contraseña (entre 8 y 200 caracteres)
+npm run contrasena -- 45678945 "NuevaClave1"
+
+# Generar un hash scrypt para la columna password_hash, sin modificar la base
+npm run contrasena -- --hash "NuevaClave1"
+```
+
+Los ejemplos usan claves ficticias. Los argumentos pueden quedar en el historial
+de la terminal; no uses contraseñas personales en una terminal compartida.
+Si defines `DATABASE_URL`, el comando usará esa base en lugar de la local.
+
 ### Panel de encargados (`/staff/`)
 
 El personal de puerta tiene una página propia, pensada para el celular:

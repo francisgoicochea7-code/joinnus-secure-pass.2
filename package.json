@@ -20,7 +20,8 @@
     "test:micro": "node test/integration/micro-smoke.mjs",
     "db:remoto": "node scripts/sembrar-remoto.js",
     "db:encargados": "node scripts/migrar-encargados.js",
-    "encargado": "node scripts/encargado.js"
+    "encargado": "node scripts/encargado.js",
+    "contrasena": "node scripts/contrasena.js"
   },
   "keywords": ["qr", "entradas", "seguridad", "prototipo", "universidad"],
   "license": "MIT",
