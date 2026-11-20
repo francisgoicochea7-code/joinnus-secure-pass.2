@@ -250,6 +250,12 @@ async function pruebasApi() {
   ok(h1.every(x => x.codigo === 'ENTRY001'), 'El historial mezcla codigos');
 
   // Transferencia
+  const anonima = await API.transferirEntrada('ENTRY001', {
+    nombre: NOMBRES.andrea, dni: '52311878', correo: 'andrea.torres@demo.pe', precio: 100
+  });
+  ok(!anonima.ok && anonima.status === 401, 'El modo local no debe transferir sin iniciar sesion');
+  cargarJs(ctx, 'frontend/js/sesion.js');
+  await evaluar(ctx, 'Sesion.iniciarSesion("45678945", "Carlos2026!")');
   const historialAntes = (await API.obtenerHistorial('ENTRY001')).length;
   const qrPrevio = (await API.consultarEntrada('ENTRY001')).qrToken;
 
@@ -369,11 +375,12 @@ async function esperarListo(ctx, condicion, etiqueta) {
   return false;
 }
 
-async function probarPagina(pagina, scripts, antes, despues, listo) {
+async function probarPagina(pagina, scripts, antes, despues, listo, preparar) {
   const ctx = crearContexto();
   cargarJs(ctx, 'frontend/js/qr.js');
   cargarJs(ctx, 'frontend/js/cliente-api.js');
   cargarJs(ctx, 'frontend/js/api.js');
+  if (preparar) await preparar(ctx);
   cargarPagina(ctx, 'frontend/' + pagina, ['frontend/js/app.js'].concat(scripts.map(s => 'frontend/' + s)));
   if (listo) {
     await esperarListo(ctx, listo, pagina);
@@ -641,8 +648,7 @@ async function pruebasPaginas() {
       // Confirmar
       await click(doc.getElementById('btn-confirmar'));
       await esperarHasta(() => !doc.getElementById('paso-resultado').classList.contains('hide'));
-      await esperarHasta(() => doc.getElementById('detalle-entrada').innerHTML.includes('badge-transferido')
-        || doc.getElementById('detalle-entrada').innerHTML.includes('no puede transferirse'));
+      await esperarHasta(() => doc.getElementById('detalle-entrada').innerHTML.includes('ENTRY006'));
       ok(!doc.getElementById('paso-resultado').classList.contains('hide'),
         'No se mostro la pantalla de resultado');
       ok(doc.getElementById('r-anterior').textContent === NOMBRES.carlos, 'Titular anterior incorrecto');
@@ -664,12 +670,16 @@ async function pruebasPaginas() {
       ok(h.some(x => x.detalle && x.detalle.includes(NOMBRES.carlos) && x.detalle.includes(NOMBRES.andrea)),
         'El historial no registra el paso de titularidad');
 
-      // El detalle de la pagina ya no ofrece transferir
-      ok(doc.getElementById('detalle-entrada').innerHTML.includes('no puede transferirse') ||
-        doc.getElementById('detalle-entrada').innerHTML.includes('badge-transferido'),
-        'La pagina no refleja el estado transferido');
+      // La entrada transferida ya no se muestra ni puede seleccionarse.
+      ok(!doc.getElementById('detalle-entrada').innerHTML.includes('ENTRY001') &&
+        !doc.getElementById('entrada-transferir').innerHTML.includes('ENTRY001'),
+        'La pagina conserva la entrada que ya pertenece al nuevo titular');
     },
-    c => c.document.getElementById('detalle-entrada').innerHTML.includes('Lima Music Fest'));
+    c => c.document.getElementById('detalle-entrada').innerHTML.includes('Lima Music Fest'),
+    async ctx => {
+      cargarJs(ctx, 'frontend/js/sesion.js');
+      await evaluar(ctx, 'Sesion.iniciarSesion("45678945", "Carlos2026!")');
+    });
 
   /* --- Historial: sólo la actividad de la persona identificada -------- */
   // a) SIN sesión: estado vacío con aviso para entrar y sin datos de nadie.

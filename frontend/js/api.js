@@ -446,7 +446,11 @@ const SecurePassAPI = (function () {
     const mapa = obtenerMapaEntradas();
     const entrada = mapa[clave];
 
+    const sesion = typeof window !== 'undefined' && window.Sesion;
+    const dni = sesion && sesion.estaIdentificado() ? sesion.dni() : null;
+    if (!dni) return { ok: false, error: 'Inicia sesión para transferir tu entrada.', status: 401 };
     if (!entrada) return { ok: false, error: 'La entrada no existe en el sistema.' };
+    if (entrada.dni !== dni) return { ok: false, error: 'Solo puedes transferir tus propias entradas.', status: 403 };
     if (entrada.estado !== 'valido') {
       return {
         ok: false,
@@ -683,7 +687,11 @@ const SecurePassAPI = (function () {
       try {
         const entrada = await Cliente.consultarEntrada(codigo);
         return entrada ? normalizarRemota(entrada) : null;
-      } catch (e) { degradar(e); }
+      } catch (e) {
+        // Un rechazo de sesión/permisos nunca se sustituye por una entrada demo.
+        if (errorDeServidor(e)) return null;
+        degradar(e);
+      }
     }
     return consultarEntradaLocal(codigo);
   }
@@ -730,6 +738,7 @@ const SecurePassAPI = (function () {
         const delServidor = errorDeServidor(e);
         if (delServidor) return delServidor;
         degradar(e);
+        return { ok: false, error: 'No se pudo conectar con el servidor. Comprueba el estado de la entrada antes de reintentar.' };
       }
     }
     return transferirEntradaLocal(codigo, nuevoTitular);
@@ -811,7 +820,10 @@ const SecurePassAPI = (function () {
     if (await usarApi()) {
       try {
         return await Cliente.obtenerHistorial(codigo, dni);
-      } catch (e) { degradar(e); }
+      } catch (e) {
+        if (errorDeServidor(e)) return [];
+        degradar(e);
+      }
     }
     return obtenerHistorialLocal(codigo, dni);
   }
@@ -833,7 +845,10 @@ const SecurePassAPI = (function () {
       try {
         const lista = await Cliente.listarEntradas();
         return lista.map(normalizarRemota);
-      } catch (e) { degradar(e); }
+      } catch (e) {
+        if (errorDeServidor(e)) return [];
+        degradar(e);
+      }
     }
     return listarEntradasLocal();
   }
