@@ -5,9 +5,13 @@ const { enriquecer, mapearHistorial } = require('../domain/entrada');
 
 function crearConsultas({ entradaRepo, historialRepo }) {
   return {
+    /** Entradas de la persona identificada (nunca el listado completo). */
     async listar(dni) {
+      if (!dni) return [];
       const filas = await entradaRepo.listar();
-      return filas.map((fila) => enriquecer(fila, dni));
+      return filas
+        .filter((fila) => fila.titular_dni === dni)
+        .map((fila) => enriquecer(fila, dni));
     },
 
     async obtener(codigo, dni) {

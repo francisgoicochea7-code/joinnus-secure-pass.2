@@ -5,6 +5,34 @@ const { AppError, asyncHandler } = require('../../../../shared/errors');
 const { dniDePeticion, requerirDniDeSesion } = require('../../../../shared/validaciones');
 const { enriquecer, datosInternos } = require('../../domain/entrada');
 
+/** Verificación pública: sólo el estado, sin datos de la entrada ni del titular. */
+function soloEstado(entrada) {
+  return {
+    codigo: entrada.codigo,
+    estado: entrada.estado,
+    estadoEtiqueta: entrada.estadoEtiqueta,
+    estadoDetalle: entrada.estadoDetalle
+  };
+}
+
+/** Entrada ajena: se oculta todo dato personal y el QR del titular. */
+function sinDatosPersonales(entrada) {
+  return {
+    ...entrada,
+    titular: null,
+    dni: null,
+    correo: null,
+    dniOculto: null,
+    dniAnterior: null,
+    dniAnteriorOculto: null,
+    titularAnterior: null,
+    qrToken: null,
+    qrAnterior: null,
+    qrExpiraEn: null,
+    qrGeneradoEn: null
+  };
+}
+
 function crearRutas({
   config,
   consultas,
@@ -21,41 +49,55 @@ function crearRutas({
 
   /* --------------------------------------------------------------------
    * Consultas
+   *
+   * Todo lo que devuelve datos personales exige la sesión firmada y se
+   * limita a la persona identificada. La verificación pública sólo publica
+   * el estado de la entrada.
    * ------------------------------------------------------------------ */
   router.get('/api/resumen', asyncHandler(async (req, res) => {
-    const dni = dniDePeticion(req, config.demoDni, config.sessionSecret);
+    const dni = requerirDniDeSesion(req, config.sessionSecret);
     const resumen = await consultas.resumen(dni);
     res.json({ ok: true, resumen });
   }));
 
   router.get('/api/entradas', asyncHandler(async (req, res) => {
-    const dni = dniDePeticion(req, null, config.sessionSecret);
+    const dni = requerirDniDeSesion(req, config.sessionSecret);
     const entradas = await consultas.listar(dni);
     res.json({ ok: true, entradas });
   }));
 
   router.get('/api/entradas/:codigo', asyncHandler(async (req, res) => {
     const codigo = String(req.params.codigo).toUpperCase();
-    const dni = dniDePeticion(req, null, config.sessionSecret);
+    const dni = requerirDniDeSesion(req, config.sessionSecret);
     const entrada = await consultas.obtener(codigo, dni);
-    res.json({ ok: true, entrada });
+    res.json({ ok: true, entrada: entrada.esMia ? entrada : sinDatosPersonales(entrada) });
   }));
 
   router.get('/api/verificar/:codigo', asyncHandler(async (req, res) => {
     const codigo = String(req.params.codigo).toUpperCase();
     const dni = dniDePeticion(req, null, config.sessionSecret);
     const resultado = await consultas.verificar(codigo, dni);
-    res.json({ ok: true, ...resultado });
+    const entrada = dni ? resultado.entrada : soloEstado(resultado.entrada);
+    res.json({ ok: true, ...resultado, entrada });
   }));
 
   router.get('/api/historial', asyncHandler(async (req, res) => {
-    const dni = String(req.query.dni || '').trim();
-    const historial = await consultas.historial(/^\d{8}$/.test(dni) ? dni : '');
+    const dni = requerirDniDeSesion(req, config.sessionSecret);
+    const pedido = String(req.query.dni || '').trim();
+    if (pedido && pedido !== dni) {
+      throw new AppError('Sólo puedes consultar tu propio historial.', 403, 'DNI_AJENO');
+    }
+    const historial = await consultas.historial(dni);
     res.json({ ok: true, historial });
   }));
 
   router.get('/api/entradas/:codigo/historial', asyncHandler(async (req, res) => {
     const codigo = String(req.params.codigo).toUpperCase();
+    const dni = requerirDniDeSesion(req, config.sessionSecret);
+    const entrada = await consultas.obtener(codigo, dni);
+    if (!entrada.esMia) {
+      throw new AppError('Sólo el titular puede consultar este historial.', 403, 'ENTRADA_AJENA');
+    }
     const historial = await consultas.historialEntrada(codigo);
     res.json({ ok: true, historial });
   }));

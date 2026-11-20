@@ -213,10 +213,10 @@ Todos responden JSON. `ok: true` indica éxito.
 | Método | Ruta | Descripción |
 |---|---|---|
 | `GET` | `/api/health` | Estado del servicio y de la conexión con PostgreSQL |
-| `GET` | `/api/resumen` | Tarjetas estadísticas del dashboard |
-| `GET` | `/api/entradas` | Lista todas las entradas ficticias |
-| `GET` | `/api/entradas/:codigo` | **Consultar entrada** |
-| `GET` | `/api/verificar/:codigo` | **Verificar estado** (y registra el evento) |
+| `GET` | `/api/resumen` | Tarjetas estadísticas del dashboard. Requiere sesión. |
+| `GET` | `/api/entradas` | Entradas del titular de la sesión (nunca el listado completo). Sin sesión: `401`. |
+| `GET` | `/api/entradas/:codigo` | **Consultar entrada**. Requiere sesión; si no es tuya, oculta nombre, DNI y QR. |
+| `GET` | `/api/verificar/:codigo` | **Verificar estado** (y registra el evento). Sin sesión sólo devuelve el estado; con sesión, la ficha completa. |
 | `POST` | `/api/entradas/:codigo/qr?log=0\|1` | **Generar token del QR**. Requiere sesión del titular (`log=0` en rotaciones automáticas). |
 | `POST` | `/api/qr/validar` | **Validar token** (recibe `{ "token": "JSP-ENTRY001-XXXXXXXX" }` o el payload `JSP\|CODIGO\|TOKEN\|HORA`) |
 | `POST` | `/api/encargados/login` | **Acceso del encargado** (`{ "nombre", "codigo" }`; `401` si no coincide) |
@@ -226,17 +226,19 @@ Todos responden JSON. `ok: true` indica éxito.
 | `POST` | `/api/usuarios/activar` | **Establecer una contraseña** con un código privado de un solo uso (`dni`, `codigo`, `password`). |
 | `GET` | `/api/usuarios/:dni` | **Consultar el perfil propio**. Requiere sesión del titular. |
 | `POST` | `/api/entradas/:codigo/transferir` | **Transferir entrada**. Requiere sesión del titular. |
-| `GET` | `/api/entradas/:codigo/historial` | **Obtener historial** |
+| `GET` | `/api/entradas/:codigo/historial` | **Obtener historial**. Requiere sesión del titular. |
 | `POST` | `/api/entradas/:codigo/estado/:estado` | Cambiar el estado. Requiere sesión del titular. |
+| `GET` | `/api/historial?dni=` | Historial del titular de la sesión. Sin sesión: `401`; pedir otro DNI: `403`. |
 | `POST` | `/api/demo/reiniciar` | Reinicia los datos ficticios |
 
 ### Ejemplos
 
 ```bash
-# Consultar una entrada
-curl http://localhost:3001/api/entradas/ENTRY001
+# Consultar una entrada (requiere el token de su titular)
+curl http://localhost:3001/api/entradas/ENTRY001 \
+     -H "Authorization: Bearer TOKEN_DEVUELTO"
 
-# Verificar su estado
+# Verificar su estado (público: sólo devuelve el estado)
 curl http://localhost:3001/api/verificar/ENTRY001
 
 # Generar un token de QR
@@ -262,12 +264,13 @@ curl -X POST http://localhost:3001/api/usuarios/login \
      -H "Content-Type: application/json" \
      -d '{"dni":"77665544","password":"Ana2026!"}'
 
-# Usar ese token para pedir tus entradas (sin el token se ve la cuenta demo)
+# Usar ese token para pedir tus entradas (sin token responde 401)
 curl http://localhost:3001/api/entradas \
      -H "Authorization: Bearer TOKEN_DEVUELTO"
 
-# Historial
-curl http://localhost:3001/api/entradas/ENTRY001/historial
+# Historial de tu propia entrada (requiere ser el titular)
+curl http://localhost:3001/api/entradas/ENTRY001/historial \
+     -H "Authorization: Bearer TOKEN_DEVUELTO"
 ```
 
 ### Cuentas de demostración

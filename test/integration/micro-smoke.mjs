@@ -89,13 +89,42 @@ async function main() {
     'el mensaje es idéntico para DNI y contraseña incorrectos');
 
   const cabeceraVieja = await pedir('GET', '/api/entradas/ENTRY005', undefined, { 'X-Usuario-DNI': '43871264' });
-  comprobar(cabeceraVieja.datos.entrada && cabeceraVieja.datos.entrada.esMia === false,
+  comprobar(cabeceraVieja.status === 401,
     'la cabecera X-Usuario-DNI ya no permite hacerse pasar por otra persona');
 
   const entradaInicial = await pedir('GET', '/api/entradas/ENTRY001', undefined, authCarlos);
   comprobar(entradaInicial.status === 200 && entradaInicial.datos.ok, 'GET /api/entradas/ENTRY001 responde 200');
   comprobar(entradaInicial.datos.entrada.titular === 'Carlos Pérez', 'ENTRY001 pertenece a Carlos Pérez');
   comprobar(entradaInicial.datos.entrada.qrToken === null, 'la semilla no inventa tokens QR');
+
+  // Datos personales: sólo con sesión y sólo los propios.
+  const entradasSinSesion = await pedir('GET', '/api/entradas');
+  comprobar(entradasSinSesion.status === 401, 'el listado de entradas exige sesión');
+
+  const entradasCarlos = await pedir('GET', '/api/entradas', undefined, authCarlos);
+  const codigosCarlos = (entradasCarlos.datos.entradas || []).map((e) => e.codigo).sort();
+  comprobar(entradasCarlos.status === 200 && codigosCarlos.length === 2 &&
+    codigosCarlos[0] === 'ENTRY001' && codigosCarlos[1] === 'ENTRY006',
+    'el listado sólo trae las entradas de Carlos: ' + codigosCarlos.join(','));
+
+  const verificarPublico = await pedir('GET', '/api/verificar/ENTRY001');
+  comprobar(verificarPublico.status === 200 && verificarPublico.datos.entrada.estado === 'valido',
+    'la verificación pública devuelve el estado');
+  comprobar(!('titular' in verificarPublico.datos.entrada) &&
+    !('evento' in verificarPublico.datos.entrada) &&
+    !('dniOculto' in verificarPublico.datos.entrada),
+    'la verificación pública no expone la entrada ni al titular');
+
+  const verificarConSesion = await pedir('GET', '/api/verificar/ENTRY001', undefined, authCarlos);
+  comprobar(verificarConSesion.datos.entrada.evento === 'Lima Music Fest' &&
+    verificarConSesion.datos.entrada.titular === 'Carlos Pérez',
+    'con sesión la verificación muestra la ficha completa');
+
+  const historialSinSesion = await pedir('GET', '/api/historial?dni=43871264');
+  comprobar(historialSinSesion.status === 401, 'el historial exige sesión');
+
+  const historialAjeno = await pedir('GET', '/api/historial?dni=45678945', undefined, authMaria);
+  comprobar(historialAjeno.status === 403, 'no se puede consultar el historial de otro DNI');
 
   // ---------------------------------------------------------------------
   // 2. QR propio y ajeno
@@ -264,14 +293,16 @@ async function main() {
   const loginPendiente = await pedir('POST', '/api/usuarios/login', { dni: '41234567', password: 'ClaveDePrueba1' });
   comprobar(loginPendiente.status === 401, 'una cuenta pendiente requiere activación');
   const entradaPedro = await pedir('GET', '/api/entradas/ENTRY005', undefined, authMaria);
-  comprobar(entradaPedro.datos.entrada.titular === 'Pedro Castillo', 'ENTRY005 muestra al nuevo titular');
   comprobar(entradaPedro.datos.entrada.esMia === false, 'ENTRY005 ya no es propia para María');
+  comprobar(entradaPedro.datos.entrada.titular === null &&
+    entradaPedro.datos.entrada.dniOculto === null,
+    'una entrada ajena no expone el nombre ni el DNI del titular');
 
   const entradaPedroCabecera = await pedir('GET', '/api/entradas/ENTRY005', undefined, { 'X-Usuario-DNI': '41234567' });
-  comprobar(entradaPedroCabecera.datos.entrada.esMia === false,
+  comprobar(entradaPedroCabecera.status === 401,
     'escribir el DNI del nuevo titular en la cabecera no da acceso');
 
-  const historial = await pedir('GET', '/api/historial?dni=43871264');
+  const historial = await pedir('GET', '/api/historial?dni=43871264', undefined, authMaria);
   const acciones = (historial.datos.historial || []).map((h) => h.accion);
   comprobar(acciones.includes('transferida'), 'el historial de María conserva la transferencia');
   comprobar(acciones.includes('qr'), 'el historial conserva la rotación del QR');
