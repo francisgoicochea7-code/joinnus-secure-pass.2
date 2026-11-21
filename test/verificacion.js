@@ -292,7 +292,7 @@ async function pruebasApi() {
   ok(transferida.dni === '52311878', 'El DNI no se actualizo');
   ok(transferida.estado === 'transferido', 'El estado no se guardo');
   ok(transferida.qrAnterior === qrPrevio, 'El QR anterior no quedo invalidado');
-  ok(transferida.puedeTransferir === false, 'Una entrada transferida no deberia volver a transferirse');
+  ok(transferida.puedeTransferir === true, 'El titular actual debe poder retransmitir su entrada vigente');
 
   const hd = await API.obtenerHistorial('ENTRY001');
   ok(hd.length > historialAntes, 'La transferencia no se registro en el historial');
@@ -505,6 +505,12 @@ async function pruebasPaginas() {
     'Con sesion debe ofrecerse la entrada completa y el historial');
 
   /* --- Dashboard ---------------------------------------------------- */
+  // Sin sesión no se muestra información demo ni formulario redundante.
+  const sinSesion = await probarPagina('dashboard.html', ['js/dashboard.js']);
+  ok(!sinSesion.document.getElementById('lista-entradas').innerHTML.includes('ENTRY001'),
+    'El dashboard anónimo no debe pintar entradas ajenas');
+  ok(sinSesion.document.getElementById('card-sesion-dashboard').hidden,
+    'Sin sesión no se muestra la tarjeta de sesión activa');
   await probarPagina('dashboard.html', ['js/dashboard.js'],
     async ctx => {
       const doc = ctx.document;
@@ -515,14 +521,24 @@ async function pruebasPaginas() {
       ok(html.includes('Transferir entrada'), 'Falta el boton "Transferir entrada"');
       ok(Number(doc.getElementById('stat-activas').textContent) === 2,
         'Tarjeta "Entradas activas" = ' + doc.getElementById('stat-activas').textContent);
-      ok(Number(doc.getElementById('stat-usadas').textContent) === 1,
+      ok(Number(doc.getElementById('stat-usadas').textContent) === 0,
         'Tarjeta "Entradas usadas" incorrecta');
-      ok(Number(doc.getElementById('stat-transferidas').textContent) === 1,
+      ok(Number(doc.getElementById('stat-transferidas').textContent) === 0,
         'Tarjeta "Entradas transferidas" incorrecta');
       ok(doc.getElementById('actividad-reciente').innerHTML.includes('Entrada creada'),
         'La actividad reciente esta vacia');
+      ok(doc.getElementById('card-login-dashboard').hidden &&
+        !doc.getElementById('card-sesion-dashboard').hidden,
+        'Con sesión activa debe ocultarse el login y mostrarse solo la sesión');
     },
-    c => c.document.getElementById('lista-entradas').innerHTML.includes('ENTRY001'));
+    null,
+    c => c.document.getElementById('lista-entradas').innerHTML.includes('ENTRY001') &&
+      c.document.getElementById('actividad-reciente').innerHTML.includes('Entrada creada') &&
+      Number(c.document.getElementById('stat-activas').textContent) === 2,
+    async ctx => {
+      cargarJs(ctx, 'frontend/js/sesion.js');
+      await evaluar(ctx, 'Sesion.iniciarSesion("45678945", "Carlos2026!")');
+    });
 
   /* --- Mi entrada (QR dinamico) ------------------------------------- */
   await probarPagina('entrada.html', ['js/entrada.js'],
@@ -1512,7 +1528,7 @@ async function pruebasEncargados() {
 
   ['vista-login', 'form-login', 'enc-nombre', 'enc-codigo', 'btn-entrar',
    'vista-panel', 'btn-salir', 'btn-camara', 'qr-texto', 'btn-verificar',
-   'resultado', 'btn-registrar', 'contador', 'escaneos'].forEach(id => {
+    'resultado', 'contador', 'escaneos', 'ingresos-recientes'].forEach(id => {
     ok(html.includes('id="' + id + '"'), 'El panel no tiene el id "' + id + '"');
   });
 
@@ -1528,7 +1544,8 @@ async function pruebasEncargados() {
   ok(codigo.includes('BarcodeDetector'), 'staff.js no usa BarcodeDetector para leer el QR');
   ok(codigo.includes('/encargados/login'), 'staff.js no llama al login de encargados');
   ok(codigo.includes('/encargados/validar'), 'staff.js no llama a la validacion de encargados');
-  ok(codigo.includes('jsp_encargado'), 'staff.js no conserva la sesion del encargado');
+  ok(!codigo.includes('localStorage.setItem') && !codigo.includes('jsp_encargado'),
+    'El código de encargado no debe quedar guardado en el navegador');
 
   // Backend: endpoints, hash y trazabilidad
   ok(backend.includes("app.post('/api/encargados/login'"), 'Falta POST /api/encargados/login');

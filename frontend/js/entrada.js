@@ -157,7 +157,7 @@
   async function cargarSelector(codigoActual) {
     const cont = $('selector-entradas');
     const mias = await SecurePassAPI.listarMisEntradas();
-    const utilizables = mias.filter(e => e.estado === 'valido');
+    const utilizables = mias.filter(e => ['valido', 'transferido'].includes(e.estado));
 
     if (utilizables.length <= 1) {
       cont.innerHTML = '';
@@ -264,8 +264,7 @@
       // Sin código en la URL se abre LA COMPRA de la persona identificada
       // (su entrada válida), no siempre la misma de una sola persona.
       const mias = await SecurePassAPI.listarMisEntradas();
-      const preferida = mias.find(e => e.codigo === 'ENTRY001') ||
-        mias.find(e => e.estado === 'valido') || mias[0];
+      const preferida = mias.find(e => ['valido', 'transferido'].includes(e.estado)) || mias[0];
       if (!preferida) return pintarSinEntradas();
       codigo = preferida.codigo;
     }

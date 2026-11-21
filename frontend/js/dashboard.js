@@ -14,6 +14,7 @@
 
   let entradas = [];
   let filtroActual = 'todas';
+  let cargaActual = 0;
 
   /* ------------------------------------------------------------------ */
   /* Tarjeta de entrada                                                  */
@@ -79,7 +80,9 @@
   function render() {
     const visibles = filtroActual === 'todas'
       ? entradas
-      : entradas.filter(e => e.estado === filtroActual);
+      : entradas.filter(e => filtroActual === 'valido'
+        ? ['valido', 'transferido'].includes(e.estado)
+        : e.estado === filtroActual);
 
     if (!visibles.length) {
       lista.innerHTML = `
@@ -88,7 +91,7 @@
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Zm2 0v2h14V8H5Zm0 6v2h14v-2H5Z"/></svg>
           </div>
           <h3>Ninguna entrada para este filtro</h3>
-          <p class="small">Cuando transfers o uses una entrada, el panel se actualizará automáticamente.</p>
+           <p class="small">${sesion()?.estaIdentificado() ? 'Todavía no tienes entradas para este filtro.' : 'Inicia sesión para consultar tus entradas.'}</p>
         </div>`;
       return;
     }
@@ -108,9 +111,10 @@
     anulada: 'Entrada anulada'
   };
 
-  async function cargarActividad() {
+  async function cargarActividad(dni, carga) {
     const cont = document.getElementById('actividad-reciente');
-    const historial = await SecurePassAPI.obtenerHistorial();
+    const historial = await SecurePassAPI.obtenerHistorial(null, dni);
+    if (carga !== cargaActual || sesion()?.dni() !== dni) return;
     const recientes = historial.slice(-4).reverse();
 
     cont.innerHTML = recientes.length
@@ -204,7 +208,7 @@
   function pintarIdentidad() {
     const s = sesion();
     const u = s ? s.usuario() : null;
-    const actual = SecurePassAPI.USUARIO;   // identificado, o el de demostración
+    const actual = u;
 
     const nombre = document.getElementById('identidad-nombre');
     const dniActual = document.getElementById('identidad-dni-actual');
@@ -213,14 +217,14 @@
     const saludo = document.getElementById('saludo');
     const botonCambiar = document.getElementById('btn-cambiar-identidad');
 
-    if (nombre) nombre.textContent = actual.nombre;
-    if (dniActual) dniActual.textContent = actual.dni;
+    if (nombre) nombre.textContent = actual ? actual.nombre : '—';
+    if (dniActual) dniActual.textContent = actual ? actual.dni : '—';
     if (origen) {
       origen.textContent = u
         ? 'Inicio de sesión (este navegador)'
-        : 'Invitado — usuario de demostración';
+        : 'Sin sesión iniciada';
     }
-    if (insignia) insignia.textContent = u ? 'Identificado' : 'Modo demo';
+    if (insignia) insignia.textContent = u ? 'Identificado' : 'Sin sesión';
     if (saludo) {
       saludo.textContent = u
         ? 'Hola, ' + String(actual.nombre).split(' ')[0] + '.'
@@ -230,24 +234,48 @@
     const campoDni = document.getElementById('identidad-dni');
     const campoPassword = document.getElementById('identidad-password');
     if (u) {
-      if (campoDni) campoDni.value = u.dni;
+      if (campoDni) campoDni.value = '';
       if (campoPassword) campoPassword.value = '';
     }
-    if (botonCambiar) botonCambiar.textContent = u ? 'Cerrar sesión' : 'Limpiar formulario';
+    const login = document.getElementById('card-login-dashboard');
+    const activa = document.getElementById('card-sesion-dashboard');
+    if (login) login.hidden = !!u;
+    if (activa) activa.hidden = !u;
+    if (formIdentidad) {
+      formIdentidad.querySelectorAll('input, button').forEach(campo => { campo.disabled = !!u; });
+    }
+    if (botonCambiar) botonCambiar.hidden = !u;
   }
 
   /* ------------------------------------------------------------------ */
   /* Carga inicial                                                      */
   /* ------------------------------------------------------------------ */
   async function cargar() {
+    const carga = ++cargaActual;
+    const s = sesion();
+    if (!s || !s.estaIdentificado()) {
+      entradas = [];
+      ['stat-activas', 'stat-usadas', 'stat-transferidas', 'stat-anuladas', 'sys-total', 'sys-eventos'].forEach(id => {
+        document.getElementById(id).textContent = '0';
+      });
+      document.getElementById('usuario-dni').textContent = 'tu cuenta';
+      document.getElementById('actividad-reciente').innerHTML = '';
+      render();
+      return;
+    }
+    const dni = s.dni();
     try {
-      const [mias, resumen, historial] = await Promise.all([
-        SecurePassAPI.listarMisEntradas(),
-        SecurePassAPI.obtenerResumen(),
-        SecurePassAPI.obtenerHistorial()
-      ]);
+      const mias = await SecurePassAPI.listarMisEntradas();
 
-      entradas = mias.length ? mias : await SecurePassAPI.listarEntradas();
+      if (carga !== cargaActual || !s.estaIdentificado() || s.dni() !== dni) return;
+      entradas = mias.filter(e => e.esMia === true && String(e.dni) === dni);
+      const resumen = {
+        activas: entradas.filter(e => ['valido', 'transferido'].includes(e.estado)).length,
+        usadas: entradas.filter(e => e.estado === 'usado').length,
+        transferidas: entradas.filter(e => e.estado === 'transferido').length,
+        anuladas: entradas.filter(e => e.estado === 'anulado').length,
+        total: entradas.length
+      };
 
       JSP.animarContador(document.getElementById('stat-activas'), resumen.activas);
       JSP.animarContador(document.getElementById('stat-usadas'), resumen.usadas);
@@ -256,7 +284,7 @@
 
       document.getElementById('usuario-dni').textContent = SecurePassAPI.USUARIO.nombre;
       document.getElementById('sys-total').textContent = resumen.total;
-      document.getElementById('sys-eventos').textContent = historial.length;
+      document.getElementById('sys-eventos').textContent = '0';
       const almacen = document.getElementById('sys-almacen');
       if (almacen) {
         almacen.textContent = SecurePassAPI.modoActual() === 'api'
@@ -265,9 +293,10 @@
       }
 
       render();
-      await cargarActividad();
+      await cargarActividad(dni, carga);
       JSP.pintarModo();
     } catch (e) {
+      if (carga !== cargaActual || !s.estaIdentificado()) return;
       console.error('[Dashboard]', e);
       lista.innerHTML = '<div class="card" style="grid-column:1/-1"><p>No se pudieron cargar las entradas.</p></div>';
     }
@@ -299,6 +328,7 @@
       ev.preventDefault();
 
       const s = sesion();
+      if (s && s.estaIdentificado()) return;
       if (!s) {
         mostrarErrorIdentidad('El módulo de identidad (js/sesion.js) no está disponible en esta página.');
         return;
@@ -332,8 +362,6 @@
         JSP.toast('ok', 'Sesión iniciada',
           'El panel ahora muestra las entradas de ' + r.usuario.nombre + '.');
         s.notificar();
-        pintarIdentidad();
-        await cargar();
       } catch (e) {
         console.error('[Dashboard][identidad]', e);
         mostrarErrorIdentidad('No se pudo iniciar sesión. Inténtalo de nuevo.');
@@ -354,18 +382,9 @@
         s.olvidar();
         JSP.toast('info', 'Sesión cerrada',
           'Vuelves a ver el panel con el usuario de demostración.');
-        pintarIdentidad();
-        cargar();
         return;
       }
 
-      ['identidad-dni', 'identidad-password'].forEach(function (id) {
-        const campo = document.getElementById(id);
-        if (campo) campo.value = '';
-      });
-      limpiarErroresIdentidad();
-      const primero = document.getElementById('identidad-dni');
-      if (primero) primero.focus();
     });
   }
 
@@ -392,7 +411,7 @@
   }
 
   const sesionInicial = sesion();
-  if (sesionInicial) sesionInicial.alCambiar(pintarIdentidad);
+  if (sesionInicial) sesionInicial.alCambiar(() => { pintarIdentidad(); cargar(); });
   limpiarErroresIdentidad();
   pintarIdentidad();
 

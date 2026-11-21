@@ -46,7 +46,7 @@ class PostgresEntradaRepository extends EntradaRepository {
   async resumen(dni) {
     const { rows } = await this.pool.query(
       `SELECT
-         SUM(CASE WHEN estado = 'valido'      THEN 1 ELSE 0 END) AS activas,
+         SUM(CASE WHEN estado IN ('valido', 'transferido') THEN 1 ELSE 0 END) AS activas,
          SUM(CASE WHEN estado = 'usado'       THEN 1 ELSE 0 END) AS usadas,
          SUM(CASE WHEN estado = 'transferido' THEN 1 ELSE 0 END) AS transferidas,
          SUM(CASE WHEN estado = 'anulado'     THEN 1 ELSE 0 END) AS anuladas,
@@ -97,8 +97,8 @@ class PostgresEntradaRepository extends EntradaRepository {
       if (fila.titular_dni !== dniSolicitante) {
         throw new AppError('Esta entrada pertenece a otro titular.', 403, 'ENTRADA_AJENA');
       }
-      if (fila.estado !== 'valido') {
-        throw new AppError('Solo se pueden transferir entradas válidas.', 409, 'ESTADO_INVALIDO');
+       if (!['valido', 'transferido'].includes(fila.estado)) {
+         throw new AppError('Solo se pueden transferir entradas vigentes.', 409, 'ESTADO_INVALIDO');
       }
 
       await cliente.query(
@@ -174,14 +174,60 @@ class PostgresEntradaRepository extends EntradaRepository {
     return rowCount;
   }
 
-  async marcarUsada(codigo) {
-    const { rowCount } = await this.pool.query(
-      `UPDATE entradas
-          SET estado = 'usado', usada_en = NOW()
-        WHERE codigo = $1 AND estado <> 'usado'`,
-      [codigo]
+  async registrarIngreso(codigo, dniTitular, encargado, token = null) {
+    const cliente = await this.pool.connect();
+    try {
+      await cliente.query('BEGIN');
+      const { rows } = await cliente.query(
+        `UPDATE entradas
+            SET estado = 'usado', usada_en = NOW()
+          WHERE codigo = $1 AND titular_dni = $2
+            AND estado IN ('valido', 'transferido')
+            AND ($3::text IS NULL OR qr_ultimo_token = $3)
+          RETURNING id, titular_nombre`,
+        [codigo, dniTitular, token]
+      );
+      if (!rows.length) {
+        await cliente.query('ROLLBACK');
+        return false;
+      }
+      await cliente.query(
+        `INSERT INTO historial (entrada_id, accion, titular, detalle, estado_registrado)
+         VALUES ($1, 'usada', $2, $3, 'usado')`,
+        [rows[0].id, rows[0].titular_nombre, `Ingreso registrado por ${encargado} (encargado)`]
+      );
+      await cliente.query('COMMIT');
+      return true;
+    } catch (error) {
+      await cliente.query('ROLLBACK');
+      throw error;
+    } finally {
+      cliente.release();
+    }
+  }
+
+  async resumenPuerta() {
+    const { rows: total } = await this.pool.query(
+      `SELECT COUNT(*)::int AS ingresos FROM entradas
+        WHERE (usada_en AT TIME ZONE 'UTC' AT TIME ZONE 'America/Lima')::date =
+              (NOW() AT TIME ZONE 'America/Lima')::date`
     );
-    return rowCount;
+    const { rows: recientes } = await this.pool.query(
+      `SELECT e.codigo, e.titular_nombre AS titular,
+              TO_CHAR(e.usada_en AT TIME ZONE 'UTC' AT TIME ZONE 'America/Lima', 'HH24:MI') AS hora,
+              ev.nombre AS evento, h.detalle
+         FROM entradas e
+         JOIN eventos ev ON ev.id = e.evento_id
+         LEFT JOIN LATERAL (
+           SELECT detalle FROM historial
+            WHERE entrada_id = e.id AND accion = 'usada'
+            ORDER BY id DESC LIMIT 1
+         ) h ON true
+        WHERE (e.usada_en AT TIME ZONE 'UTC' AT TIME ZONE 'America/Lima')::date =
+              (NOW() AT TIME ZONE 'America/Lima')::date
+        ORDER BY e.usada_en DESC LIMIT 5`
+    );
+    return { ingresos: total[0].ingresos, recientes };
   }
 
   async cambiarEstado(codigo, estado, dni, estadoAnterior) {

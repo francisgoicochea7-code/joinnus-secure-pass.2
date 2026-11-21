@@ -42,7 +42,7 @@ function enriquecer(fila, dni) {
     motivoAnulacion: fila.motivo_anulacion,
     titularAnterior: fila.titular_anterior,
     dniAnterior: esMia ? fila.dni_anterior : null,
-    puedeTransferir: esMia && fila.estado === 'valido',
+    puedeTransferir: esMia && ['valido', 'transferido'].includes(fila.estado),
     esMia
   };
 }

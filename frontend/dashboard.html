@@ -109,7 +109,7 @@
 
       <!-- Formulario de identidad -->
       <div class="split mt-4" style="align-items:start" id="seccion-identidad">
-        <div class="card fade-in">
+        <div class="card fade-in" id="card-login-dashboard" hidden>
           <div class="card-title">
             <span class="icon-box brand">
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-4.4 0-8 2.2-8 5v3h16v-3c0-2.8-3.6-5-8-5Z"/></svg>
@@ -135,7 +135,7 @@
               <label for="identidad-password">Contraseña</label>
               <input class="input" type="password" id="identidad-password" placeholder="Tu contraseña"
                      maxlength="200" autocomplete="current-password">
-              <div class="help">Demo: <span class="mono">45678945</span> / <span class="mono">Carlos2026!</span></div>
+               <div class="help">Tu contraseña se comprueba de forma segura en el servidor.</div>
               <div class="error-msg" id="error-password-identidad">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2Zm1 14h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg><span></span>
               </div>
@@ -151,28 +151,24 @@
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6 12-12-1.4-1.4-10.6 10.6Z"/></svg>
                 Entrar
               </button>
-              <button type="button" class="btn btn-ghost" id="btn-cambiar-identidad">Limpiar formulario</button>
             </div>
           </form>
         </div>
 
         <div class="stack">
-          <div class="card">
+          <div class="card" id="card-sesion-dashboard" hidden>
             <div class="card-title">
               <span class="icon-box ok">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1 3 5v6c0 5.6 3.8 10.7 9 12 5.2-1.3 9-6.4 9-12V5l-9-4Zm0 2.2 7 3.1V11c0 4.7-3 9-7 10.2C8 20 5 15.7 5 11V6.3l7-3.1Z"/></svg>
               </span>
-              <h3>Sesión actual</h3>
+              <h3>Sesión activa</h3>
             </div>
             <div class="kv"><span class="k">Persona</span><span class="v" id="identidad-nombre">—</span></div>
             <div class="kv"><span class="k">DNI</span><span class="v mono" id="identidad-dni-actual">—</span></div>
             <div class="kv"><span class="k">Origen</span><span class="v" id="identidad-origen">—</span></div>
+            <button type="button" class="btn btn-ghost btn-sm mt-3" id="btn-cambiar-identidad">Cerrar sesión</button>
           </div>
 
-          <div class="alert alert-info">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1 5h2v2h-2V7Zm0 4h2v6h-2v-6Z"/></svg>
-            <p><strong>Cuenta de demostración</strong> · Carlos Pérez · DNI <span class="mono">45678945</span> · contraseña <span class="mono">Carlos2026!</span></p>
-          </div>
         </div>
       </div>
 

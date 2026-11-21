@@ -67,7 +67,7 @@ test('escribir un DNI sin iniciar sesion no abre el formulario ni transfiere', a
   assert.equal(ctx.document.getElementById('detalle-entrada').innerHTML, '');
 });
 
-test('el selector muestra solo entradas propias validas y confirma el DNI de la sesion', async () => {
+test('el selector muestra entradas propias vigentes, incluso recibidas, y confirma el DNI de la sesion', async () => {
   const ctx = await pagina({ dni: PROPIA.dni, entradas: [
     PROPIA,
     { ...PROPIA, codigo: 'AJENA', dni: '52311878', esMia: false },
@@ -80,7 +80,8 @@ test('el selector muestra solo entradas propias validas y confirma el DNI de la 
   assert.match(doc.getElementById('detalle-entrada').innerHTML, /Evento privado/);
   const selector = doc.getElementById('entrada-transferir').innerHTML;
   assert.match(selector, /ENTRY001/);
-  for (const codigo of ['AJENA', 'SINPERTENENCIA', 'USADA', 'ANULADA', 'TRANSFERIDA']) assert.ok(!selector.includes(codigo));
+  assert.match(selector, /TRANSFERIDA/);
+  for (const codigo of ['AJENA', 'SINPERTENENCIA', 'USADA', 'ANULADA']) assert.ok(!selector.includes(codigo));
   assert.deepEqual(ctx.llamadas.historial, [[null, PROPIA.dni]]);
   assert.ok(doc.getElementById('btn-abrir-transferencia').disabled);
   const campo = doc.getElementById('dni-titular');
@@ -103,6 +104,17 @@ test('una cuenta sin entradas no recibe una entrada de demostracion por defecto'
   assert.equal(ctx.llamadas.consultar, 0);
   assert.equal(ctx.document.getElementById('detalle-entrada').innerHTML, '');
   assert.match(ctx.document.getElementById('transferencia-aviso-titulo').textContent, /No tienes entradas/);
+});
+
+test('la entrada recibida por transferencia aparece y permite iniciar otra transferencia', async () => {
+  const recibida = { ...PROPIA, codigo: 'RECIBIDA', estado: 'transferido',
+    titularAnterior: 'Titular anterior', esMia: true, puedeTransferir: true };
+  const ctx = await pagina({ dni: PROPIA.dni, entradas: [recibida], codigo: 'RECIBIDA' });
+  assert.match(ctx.document.getElementById('detalle-entrada').innerHTML, /RECIBIDA/);
+  const dni = ctx.document.getElementById('dni-titular');
+  dni.value = PROPIA.dni;
+  dni._fire('input');
+  assert.equal(ctx.document.getElementById('btn-abrir-transferencia').disabled, false);
 });
 
 test('un error de carga mantiene oculto el detalle y ofrece iniciar sesion', async () => {

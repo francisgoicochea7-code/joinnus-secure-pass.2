@@ -28,7 +28,7 @@ function crearTransferirEntrada({
       );
     }
 
-    if (fila.estado !== 'valido') {
+    if (!['valido', 'transferido'].includes(fila.estado)) {
       throw new AppError(
         `No es posible transferir una entrada con estado "${(ESTADOS[fila.estado] || ESTADOS.valido).etiqueta}".`,
         409,

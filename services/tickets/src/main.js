@@ -64,6 +64,7 @@ crearServicio({
       }),
       reiniciarDemo: crearReiniciarDemo({ demoRepo, authClient, qrClient }),
       entradaRepo,
+      authClient,
       historialRepo,
       demoRepo,
       internalAuth: internalAuth(config.internalToken)

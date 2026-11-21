@@ -390,7 +390,7 @@ const SecurePassAPI = (function () {
       dniOculto: ocultarDNI(entrada.dni),
       dniAnteriorOculto: entrada.dniAnterior ? ocultarDNI(entrada.dniAnterior) : null,
       precio: entrada.precioOriginal != null ? Number(entrada.precioOriginal) : 0,
-      puedeTransferir: entrada.estado === 'valido',
+       puedeTransferir: ['valido', 'transferido'].includes(entrada.estado),
       esMia: entrada.dni === USUARIO.dni
     });
   }
@@ -451,7 +451,7 @@ const SecurePassAPI = (function () {
     if (!dni) return { ok: false, error: 'Inicia sesión para transferir tu entrada.', status: 401 };
     if (!entrada) return { ok: false, error: 'La entrada no existe en el sistema.' };
     if (entrada.dni !== dni) return { ok: false, error: 'Solo puedes transferir tus propias entradas.', status: 403 };
-    if (entrada.estado !== 'valido') {
+    if (!['valido', 'transferido'].includes(entrada.estado)) {
       return {
         ok: false,
         error: `No es posible transferir una entrada con estado "${ESTADOS[entrada.estado].etiqueta}".`
@@ -461,6 +461,9 @@ const SecurePassAPI = (function () {
     const validacion = validarTransferencia(nuevoTitular, entrada);
     if (!validacion.ok) {
       return { ok: false, error: validacion.error, campos: validacion.campos };
+    }
+    if (nuevoTitular.dni.trim() === dni) {
+      return { ok: false, error: 'La entrada ya pertenece a este DNI.', campos: { dni: 'Elige otra persona.' } };
     }
 
     // En el prototipo sin backend solo existen las identidades demo sembradas.
@@ -844,7 +847,7 @@ const SecurePassAPI = (function () {
     return Object.assign({}, e, {
       estadoDetalle: e.estadoDetalle || ESTADOS[e.estado] || ESTADOS.valido,
       dniOculto: e.dniOculto || ocultarDNI(e.dni),
-      puedeTransferir: e.puedeTransferir !== undefined ? e.puedeTransferir : e.estado === 'valido',
+       puedeTransferir: e.puedeTransferir !== undefined ? e.puedeTransferir : ['valido', 'transferido'].includes(e.estado),
       esMia: e.esMia !== undefined ? e.esMia : e.dni === USUARIO.dni
     });
   }

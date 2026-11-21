@@ -33,6 +33,7 @@ function crearValidarPuerta({
     }
 
     let codigo = codigoEntrada;
+    let dniQr = null;
 
     if (token) {
       const validacion = await qrClient.validar({ token }, requestId);
@@ -46,6 +47,7 @@ function crearValidarPuerta({
         };
       }
       codigo = validacion.codigo;
+      dniQr = validacion.titularDni;
     }
 
     const fila = await entradaRepo.obtenerPorCodigo(codigo);
@@ -59,6 +61,18 @@ function crearValidarPuerta({
     }
 
     const entrada = enriquecer(fila, null);
+
+    if (token && (!dniQr || dniQr !== fila.titular_dni)) {
+      return {
+        valido: false, motivo: 'titular',
+        error: 'Este QR pertenece a un titular anterior.',
+        mensaje: 'Este QR pertenece a un titular anterior.', encargado: encargado.nombre
+      };
+    }
+    if (token && fila.qr_ultimo_token !== token) {
+      return { valido: false, motivo: 'invalidado',
+        mensaje: 'Este QR fue reemplazado. Escanea el QR actual.', encargado: encargado.nombre };
+    }
 
     if (fila.estado === 'usado') {
       return {
@@ -82,11 +96,25 @@ function crearValidarPuerta({
       };
     }
 
+    if (!['valido', 'transferido'].includes(fila.estado)) {
+      return { valido: false, motivo: 'estado', mensaje: 'La entrada no está vigente.', encargado: encargado.nombre };
+    }
+
     const registrar = b.registrar === true || b.registrar === 'true';
     let registrado = false;
 
     if (registrar) {
-      await entradaRepo.marcarUsada(codigo);
+      const guardado = await entradaRepo.registrarIngreso(codigo, fila.titular_dni, encargado.nombre, token);
+      if (!guardado) {
+        const actual = await entradaRepo.obtenerPorCodigo(codigo);
+        return {
+          valido: false,
+          motivo: actual?.estado === 'usado' ? 'usada' : actual?.estado === 'anulado' ? 'anulada' : token && actual?.titular_dni === fila.titular_dni ? 'invalidado' : 'titular',
+          mensaje: actual?.estado === 'usado' ? 'La entrada ya fue utilizada.' :
+            'La entrada cambió de estado o de titular. Escanea el QR actualizado.',
+          encargado: encargado.nombre
+        };
+      }
 
       try {
         if (token) {
@@ -99,14 +127,6 @@ function crearValidarPuerta({
         // porque la validación consulta el estado de la entrada.
         logger.warn('marcar_token_usado_fallido', { codigo, error: err.message });
       }
-
-      await historialRepo.registrar(
-        codigo,
-        'usada',
-        fila.titular_nombre,
-        `Ingreso registrado por ${encargado.nombre} (encargado)`,
-        'usado'
-      );
 
       registrado = true;
     }

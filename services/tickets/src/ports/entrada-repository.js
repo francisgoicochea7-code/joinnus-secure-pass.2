@@ -26,8 +26,8 @@ class EntradaRepository {
     throw new Error('EntradaRepository.actualizarProyeccionQr no implementado');
   }
 
-  async marcarUsada() {
-    throw new Error('EntradaRepository.marcarUsada no implementado');
+  async registrarIngreso() {
+    throw new Error('EntradaRepository.registrarIngreso no implementado');
   }
 
   async cambiarEstado() {

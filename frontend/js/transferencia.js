@@ -34,7 +34,7 @@
   }
 
   function esTransferible(e) {
-    return esPropia(e, dniDeSesion()) && e.estado === 'valido' && e.puedeTransferir === true;
+    return esPropia(e, dniDeSesion()) && ['valido', 'transferido'].includes(e.estado) && e.puedeTransferir === true;
   }
 
   function mostrarAviso(titulo, texto, pedirSesion) {
@@ -112,8 +112,8 @@
       return;
     }
     if (carga !== cargaActual || dniDeSesion() !== dni) return;
-    const lista = mias.filter(e => esPropia(e, dni) && e.estado === 'valido' && e.puedeTransferir === true);
-    const codigo = codigoForzado || JSP.parametro('codigo');
+    const lista = mias.filter(e => esPropia(e, dni) && ['valido', 'transferido'].includes(e.estado) && e.puedeTransferir === true);
+    const codigo = codigoForzado === null ? '' : codigoForzado || JSP.parametro('codigo');
     entrada = codigo ? lista.find(e => e.codigo === codigo) : lista[0];
     if (!entrada) {
       mostrarAviso(codigo ? 'Entrada no disponible para transferir' : 'No tienes entradas disponibles para transferir',
@@ -440,7 +440,9 @@
 
     // La entrada transferida ya no es propia: no se vuelve a consultar ni
     // se conserva en el selector. El modal mantiene el recibo de la operación.
-    await cargarEntrada();
+    // La URL puede apuntar a la entrada que acaba de salir de la cuenta.
+    // Volver a elegir entre las restantes, si existen, sin usar ese código.
+    await cargarEntrada(null);
     await cargarTransferencias();
   }
 

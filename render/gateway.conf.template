@@ -123,6 +123,12 @@ server {
         include /etc/nginx/api-common.conf;
     }
 
+    location = /api/encargados/resumen {
+        limit_req zone=api_general burst=20 nodelay;
+        proxy_pass http://127.0.0.1:3102;
+        include /etc/nginx/api-common.conf;
+    }
+
     # El reinicio de demo borra y vuelve a sembrar las tres bases. En la
     # versión publicada queda deshabilitado para que un visitante no pueda
     # dejar la aplicación sin datos.

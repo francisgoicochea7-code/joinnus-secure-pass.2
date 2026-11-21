@@ -5,20 +5,17 @@
  *    1. Entra con su nombre + código (el servidor comprueba el hash).
  *    2. Escanea el QR con la cámara del celular (BarcodeDetector) o escribe
  *       el código de la entrada.
- *    3. Ve el resultado y, si es correcto, guarda el ingreso. El
+   *    3. Si es válido, registra el ingreso en PostgreSQL. El
  *       historial guarda que lo validó él/ella.
  *
- *  La sesión vive en localStorage: igual que el DNI del sitio público, no
- *  es una autenticación fuerte, pero el código NO se guarda en la base y
- *  se revalida en cada petición.
+   *  El código permanece en memoria hasta cerrar o recargar la pestaña;
+   *  nunca se guarda en localStorage. El servidor lo revalida en cada petición.
  * ========================================================================= */
 
 'use strict';
 
 (function () {
   const API = '/api';
-  const CLAVE_SESION = 'jsp_encargado';
-  const CLAVE_INGRESOS = 'jsp_ingresos_';
 
   const el = id => document.getElementById(id);
 
@@ -44,15 +41,14 @@
     resTitulo: el('res-titulo'),
     resMotivo: el('res-motivo'),
     resDatos: el('res-datos'),
-    btnRegistrar: el('btn-registrar'),
     resNota: el('res-nota'),
     contador: el('contador'),
     escaneos: el('escaneos'),
+    recientes: el('ingresos-recientes'),
     quien: el('quien')
   };
 
   let sesion = null;
-  let ultimoTexto = '';
   let verificando = false;
   let camaraActiva = false;
   let streamCamara = null;
@@ -64,6 +60,18 @@
     usada: {
       icono: '🔴', titulo: 'Entrada ya utilizada', clase: 'is-bad',
       texto: 'Esta entrada ya ingresó al evento. No se permite un segundo ingreso.'
+    },
+    usado: {
+      icono: '🔴', titulo: 'Entrada ya utilizada', clase: 'is-bad',
+      texto: 'Esta entrada ya ingresó al evento. No se permite un segundo ingreso.'
+    },
+    titular: {
+      icono: '🔁', titulo: 'QR de un titular anterior', clase: 'is-warn',
+      texto: 'La entrada cambió de titular. Pide el QR actual.'
+    },
+    estado: {
+      icono: '⚠️', titulo: 'Entrada no vigente', clase: 'is-warn',
+      texto: 'Esta entrada no puede ingresar en su estado actual.'
     },
     anulada: {
       icono: '🟠', titulo: 'Entrada anulada', clase: 'is-warn',
@@ -99,25 +107,39 @@
   /* Utilidades                                                         */
   /* ------------------------------------------------------------------ */
 
-  function hoyLocal() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }
-
-  function ingresosDeHoy() {
-    const n = Number(localStorage.getItem(CLAVE_INGRESOS + hoyLocal()) || 0);
-    return Number.isFinite(n) ? n : 0;
-  }
-
-  function sumarIngreso() {
-    const clave = CLAVE_INGRESOS + hoyLocal();
-    localStorage.setItem(clave, String(ingresosDeHoy() + 1));
-    pintarContadores();
-  }
-
   function pintarContadores() {
-    ui.contador.textContent = String(ingresosDeHoy());
     ui.escaneos.textContent = String(escaneosSesion);
+  }
+
+  async function refrescarResumen() {
+    const actual = sesion;
+    if (!actual) return;
+    try {
+      const { status, datos } = await pedir('/encargados/resumen', {
+        encargado: actual.nombre, codigo: actual.codigo
+      });
+      if (sesion !== actual) return;
+      if (status === 401) { salir(); mostrarError('Vuelve a iniciar sesión.'); return; }
+      if (!datos.ok) throw new Error('Resumen no disponible');
+      ui.contador.textContent = String(datos.ingresos);
+      ui.recientes.replaceChildren();
+      if (!datos.recientes.length) {
+        ui.recientes.textContent = 'Todavía no hay ingresos hoy.';
+      } else {
+        datos.recientes.forEach(ingreso => {
+          const fila = document.createElement('div');
+          fila.className = 'st-reciente';
+          const datosEntrada = document.createElement('span');
+          datosEntrada.textContent = `${ingreso.codigo} · ${ingreso.evento} · ${ingreso.titular}`;
+          const hora = document.createElement('time');
+          hora.textContent = ingreso.hora + ' h';
+          fila.append(datosEntrada, hora);
+          ui.recientes.append(fila);
+        });
+      }
+    } catch (_) {
+      if (sesion === actual) ui.recientes.textContent = 'No se pudo consultar el resumen. Revisa la conexión.';
+    }
   }
 
   /** POST a la API. Devuelve { status, datos }; datos.ok dice si salió bien. */
@@ -167,7 +189,6 @@
         return;
       }
       sesion = { nombre: datos.encargado.nombre, codigo, id: datos.encargado.id };
-      localStorage.setItem(CLAVE_SESION, JSON.stringify(sesion));
       abrirPanel();
     } catch (e) {
       mostrarError('No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.');
@@ -187,15 +208,18 @@
     ui.resultado.hidden = true;
     ui.codigo.value = '';
     pintarContadores();
+    ui.contador.textContent = '—';
+    ui.recientes.textContent = 'Consultando la base de datos…';
+    refrescarResumen();
     ui.qrTexto.focus({ preventScroll: true });
   }
 
   function salir() {
     detenerCamara();
-    localStorage.removeItem(CLAVE_SESION);
     sesion = null;
     escaneosSesion = 0;
-    ultimoTexto = '';
+    ui.contador.textContent = '—';
+    ui.recientes.textContent = '';
     ui.chip.hidden = true;
     ui.vistaPanel.hidden = true;
     ui.vistaLogin.hidden = false;
@@ -257,7 +281,7 @@
         const texto = codigos[0].rawValue;
         detenerCamara();
         ui.qrTexto.value = texto;
-        await verificar(texto);
+         await verificar(texto, true);
         return;
       }
     } catch (e) { /* fotograma sin QR: se reintenta */ }
@@ -289,7 +313,7 @@
       return;
     }
 
-    ultimoTexto = texto;
+    const sesionAlInicio = sesion;
     verificando = true;
     ui.btnVerificar.disabled = true;
     ui.btnVerificar.textContent = 'Verificando…';
@@ -309,6 +333,7 @@
 
     try {
       const { status, datos } = await pedir('/encargados/validar', cuerpo);
+      if (sesion !== sesionAlInicio) return;
 
       if (status === 401) {
         salir();
@@ -316,14 +341,14 @@
         return;
       }
 
-      if (datos.registrado) sumarIngreso();
       pintarResultado(datos);
+      if (datos.registrado) await refrescarResumen();
     } catch (e) {
       pasarResultado(MOTIVOS.error, 'No se pudo conectar con el servidor.');
     } finally {
       verificando = false;
       ui.btnVerificar.disabled = false;
-      ui.btnVerificar.textContent = 'Verificar';
+      ui.btnVerificar.textContent = 'Validar e ingresar';
     }
   }
 
@@ -365,7 +390,6 @@
     ui.resTitulo.textContent = info.titulo;
     ui.resMotivo.textContent = mensaje || info.texto;
     ui.resDatos.innerHTML = '';
-    ui.btnRegistrar.hidden = true;
     ui.resNota.hidden = true;
     ui.resultado.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
@@ -386,19 +410,16 @@
       ui.resIcono.textContent = '✅';
       ui.resTitulo.textContent = 'Ingreso registrado';
       ui.resMotivo.textContent = datos.mensaje || 'La entrada quedó marcada como usada.';
-      ui.btnRegistrar.hidden = true;
       ui.resNota.hidden = false;
-      ui.resNota.textContent = 'Quedó en el historial como validada por ' + (datos.encargado || sesion.nombre) + '.';
+      ui.resNota.textContent = 'Quedó en el historial como validada por ' + (datos.encargado || sesion.nombre) + '.' +
+        (datos.conFirma === false ? ' Registro manual sin QR firmado: comprueba la identidad del asistente.' : '');
     } else {
-      ui.resIcono.textContent = '🟢';
-      ui.resTitulo.textContent = 'Entrada válida';
-      ui.resMotivo.textContent = datos.mensaje || 'Acceso permitido.';
-      ui.btnRegistrar.hidden = false;
-      ui.btnRegistrar.disabled = false;
-      ui.resNota.hidden = datos.conFirma !== false;
-      ui.resNota.textContent = datos.conFirma === false
-        ? 'Verificada por código, sin token firmado. Para la comprobación completa, escanea el QR.'
-        : '';
+      ui.resultado.classList.remove('is-ok');
+      ui.resultado.classList.add('is-warn');
+      ui.resIcono.textContent = '⚠️';
+      ui.resTitulo.textContent = 'Ingreso no registrado';
+      ui.resMotivo.textContent = 'No permitas el acceso hasta confirmar el ingreso en el sistema.';
+      ui.resNota.hidden = true;
     }
 
     pintarDatos(datos.entrada);
@@ -414,32 +435,11 @@
   ui.btnCamara.addEventListener('click', alternarCamara);
   ui.formVerificar.addEventListener('submit', e => {
     e.preventDefault();
-    verificar(ui.qrTexto.value, false)
+    verificar(ui.qrTexto.value, true)
       .catch(e => console.error('[staff] Error al verificar:', e));
-  });
-  ui.btnRegistrar.addEventListener('click', () => {
-    ui.btnRegistrar.disabled = true;
-    ui.btnRegistrar.textContent = 'Registrando…';
-    verificar(ultimoTexto, true)
-      .catch(e => console.error('[staff] Error al registrar:', e));
-    setTimeout(() => {
-      ui.btnRegistrar.textContent = 'Registrar ingreso';
-      ui.btnRegistrar.disabled = false;
-    }, 1200);
   });
 
   window.addEventListener('pagehide', detenerCamara);
 
-  (function restaurarSesion() {
-    try {
-      const guardada = JSON.parse(localStorage.getItem(CLAVE_SESION) || 'null');
-      if (guardada && guardada.nombre && guardada.codigo) {
-        sesion = guardada;
-        abrirPanel();
-      }
-    } catch (e) {
-      localStorage.removeItem(CLAVE_SESION);
-    }
-    pintarContadores();
-  })();
+  pintarContadores();
 })();

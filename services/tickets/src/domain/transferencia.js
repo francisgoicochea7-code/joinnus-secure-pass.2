@@ -18,6 +18,7 @@ function validarTransferencia(datos, entrada) {
   const dni = String(b.dni || '').trim();
   if (!dni) campos.dni = 'El DNI es obligatorio.';
   else if (!/^\d{8}$/.test(dni)) campos.dni = 'El DNI debe tener exactamente 8 números.';
+  else if (dni === entrada.titular_dni) campos.dni = 'La entrada ya pertenece a este DNI.';
 
   const correo = String(b.correo || '').trim();
   if (!correo) campos.correo = 'El correo electrónico es obligatorio.';

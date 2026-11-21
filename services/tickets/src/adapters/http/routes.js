@@ -41,6 +41,7 @@ function crearRutas({
   cambiarEstado,
   reiniciarDemo,
   entradaRepo,
+  authClient,
   historialRepo,
   demoRepo,
   internalAuth
@@ -142,6 +143,14 @@ function crearRutas({
     return res.json({ ok: true, ...resultado });
   }));
 
+  router.post('/api/encargados/resumen', asyncHandler(async (req, res) => {
+    await authClient.verificarEncargado({
+      nombre: req.body?.encargado,
+      codigo: req.body?.codigo
+    }, req.id);
+    res.set('Cache-Control', 'no-store').json({ ok: true, ...await entradaRepo.resumenPuerta() });
+  }));
+
   router.post('/api/demo/reiniciar', asyncHandler(async (req, res) => {
     const resultado = await reiniciarDemo(req.id);
     res.json({ ok: true, ...resultado });
@@ -173,14 +182,9 @@ function crearRutas({
       throw new AppError(`La entrada ${codigo} no existe.`, 404, 'ENTRADA_NO_ENCONTRADA');
     }
 
-    await entradaRepo.marcarUsada(codigo);
-    await historialRepo.registrar(
-      codigo,
-      'usada',
-      fila.titular_nombre,
-      'Ingreso registrado en el evento',
-      'usado'
-    );
+    if (!await entradaRepo.registrarIngreso(codigo, fila.titular_dni, 'servicio interno')) {
+      throw new AppError('La entrada ya fue usada o cambió de estado.', 409, 'ESTADO_INVALIDO');
+    }
 
     const actualizada = await entradaRepo.obtenerPorCodigo(codigo);
     res.json({
