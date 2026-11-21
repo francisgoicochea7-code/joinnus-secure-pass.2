@@ -49,19 +49,32 @@ test('el código solo puede emitirse y consumirse si aún no hay contraseña', a
   })).id, 1);
 });
 
-test('el correo del DNI existente debe coincidir: no se sustituye por otro en una transferencia', async () => {
-  const repo = new PostgresUsuarioRepository({ query: async sql => sql.includes('INSERT INTO')
-    ? { rows: [] }
-    : { rows: [{ id: 1, dni: '12345678', nombre: 'Titular Existente', correo: 'real@example.org', password_hash: null }] }
-  });
+test('sin cuenta o sin contraseña no se crea un perfil al transferir', async () => {
+  const datos = { nombre: 'Titular Existente', dni: '12345678', correo: 'real@example.org' };
+  for (const filas of [[], [{ ...datos, id: 1, password_hash: null }]]) {
+    const repo = new PostgresUsuarioRepository({ query: async sql => {
+      assert.doesNotMatch(sql, /INSERT|UPDATE/);
+      return { rows: filas };
+    } });
+    await assert.rejects(repo.upsert(datos), { status: 409, codigo: 'DESTINATARIO_SIN_CUENTA_ACTIVA' });
+  }
+});
+
+test('DNI, correo y nombre deben coincidir con una cuenta que ya tiene contraseña', async () => {
+  const repo = new PostgresUsuarioRepository({ query: async sql => {
+    assert.doesNotMatch(sql, /INSERT|UPDATE/);
+    return { rows: [{ id: 1, dni: '12345678', nombre: 'Titular Existente', correo: 'real@example.org', password_hash: 'scrypt$hash' }] };
+  } });
   await assert.rejects(repo.upsert({ nombre: 'Otro Nombre', dni: '12345678', correo: 'ajeno@example.org' }),
     { status: 409, codigo: 'CORREO_DESTINATARIO_NO_COINCIDE' });
-  const publico = await repo.upsert({ nombre: 'Otro Nombre', dni: '12345678', correo: 'REAL@example.org' });
+  await assert.rejects(repo.upsert({ nombre: 'Otro Nombre', dni: '12345678', correo: 'real@example.org' }),
+    { status: 409, codigo: 'NOMBRE_DESTINATARIO_NO_COINCIDE' });
+  const publico = await repo.upsert({ nombre: 'Titular Existente', dni: '12345678', correo: 'REAL@example.org' });
   assert.equal(publico.correo, 'real@example.org');
   assert.equal('password_hash' in publico, false);
 });
 
-test('el correo se pide después de guardar la transferencia; si falla no se repite la transferencia', async () => {
+test('la transferencia a una cuenta activa no solicita correo ni crea otra cuenta', async () => {
   const orden = [];
   const fila = {
     id: 1, codigo: 'ENTRY001', estado: 'valido', titular_dni: '45678945',
@@ -84,6 +97,6 @@ test('el correo se pide después de guardar la transferencia; si falla no se rep
   const resultado = await transferir({ codigo: 'ENTRY001', dniSolicitante: '45678945',
     datos: { nombre: 'Ana Maria Gomez', dni: '77665544', correo: 'ana@example.org', precio: 100 }
   });
-  assert.deepEqual(orden, ['transferencia', 'correo']);
-  assert.equal(resultado.activacionCorreo, 'pendiente');
+  assert.deepEqual(orden, ['transferencia']);
+  assert.equal(resultado.activacionCorreo, 'no-necesaria');
 });

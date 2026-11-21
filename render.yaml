@@ -50,15 +50,6 @@ services:
       # iniciar sesión; el Blueprint lo genera una vez y lo conserva.
       - key: SESSION_SECRET
         generateValue: true
-      # En Resend verifica tu dominio de envío y agrega la API key en Render.
-      # Sin las tres variables el envío queda pendiente, nunca se inventa una
-      # contraseña ni se informa que llegó un correo no enviado.
-      - key: RESEND_API_KEY
-        sync: false
-      - key: MAIL_FROM
-        sync: false
-      - key: PUBLIC_URL
-        value: https://joinnus-secure-pass2.onrender.com
       - key: QR_TTL_SECONDS
         value: "15"
       - key: DEMO_DNI

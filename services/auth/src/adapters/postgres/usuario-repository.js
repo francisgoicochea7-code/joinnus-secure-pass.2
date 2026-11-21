@@ -21,24 +21,24 @@ class PostgresUsuarioRepository extends UsuarioRepository {
   }
 
   async upsert({ nombre, dni, correo }) {
-    const { rows } = await this.pool.query(
-      `INSERT INTO usuarios (nombre, dni, correo)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (dni) DO NOTHING
-       RETURNING id, nombre, dni, correo`,
-      [nombre, dni, correo]
-    );
-    if (rows.length) return rows[0];
-
     const existente = await this.pool.query(
       'SELECT id, nombre, dni, correo, password_hash FROM usuarios WHERE dni = $1',
       [dni]
     );
     const usuario = existente.rows[0];
-    // No permita enviar un enlace a un correo distinto del registrado para
-    // este DNI: tampoco se modifican perfiles existentes durante el upsert.
+    if (!usuario || !usuario.password_hash) {
+      throw new AppError('El destinatario debe registrarse e iniciar sesión antes de recibir una entrada. Si ya figura su DNI sin contraseña, necesita activar su cuenta.',
+        409, 'DESTINATARIO_SIN_CUENTA_ACTIVA');
+    }
+    // Estos datos solo ayudan a evitar errores al elegir la cuenta; NO
+    // verifican que el DNI pertenezca realmente a quien se registró.
     if (usuario.correo.toLowerCase() !== correo.toLowerCase()) {
       throw new AppError('El correo no coincide con el perfil existente del destinatario.', 409, 'CORREO_DESTINATARIO_NO_COINCIDE');
+    }
+    const normalizarNombre = valor => String(valor).trim().replace(/\s+/g, ' ')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (normalizarNombre(usuario.nombre) !== normalizarNombre(nombre)) {
+      throw new AppError('El nombre no coincide con el perfil existente del destinatario.', 409, 'NOMBRE_DESTINATARIO_NO_COINCIDE');
     }
     const { password_hash, ...publico } = usuario;
     return publico;

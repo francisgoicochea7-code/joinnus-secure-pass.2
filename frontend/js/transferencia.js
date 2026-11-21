@@ -379,11 +379,7 @@
     $('r-dni').textContent = res.dniNuevo;
     $('r-codigo').textContent = res.codigo;
     $('r-estado').innerHTML = JSP.estadoBadge('transferido');
-    $('r-activacion').textContent = res.activacionCorreo === 'enviado'
-      ? 'Se solicitó el envío de un enlace al correo registrado del destinatario para que cree su contraseña. Vence en 20 minutos; revisa también spam.'
-      : res.activacionCorreo === 'no-necesaria'
-        ? 'El destinatario ya tiene cuenta: podrá entrar con su contraseña actual.'
-        : 'La entrada se transfirió, pero no se pudo confirmar el envío del enlace. El administrador deberá emitir un nuevo código de activación; no repitas la transferencia.';
+    $('r-activacion').textContent = 'El destinatario podrá iniciar sesión con la contraseña de su cuenta para ver la entrada.';
     marcarPaso('resultado');
 
     $('paso-confirmacion').classList.add('hide');

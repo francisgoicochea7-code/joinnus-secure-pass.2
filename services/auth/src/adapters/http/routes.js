@@ -64,14 +64,6 @@ function crearRutas({
     res.json({ ok: true, usuario });
   }));
 
-  // Solo tickets-service puede pedir este correo después de transferir la
-  // entrada. No se expone una ruta pública para emitir códigos arbitrarios.
-  router.post('/internal/v1/usuarios/avisar-transferencia', internalAuth, asyncHandler(async (req, res) => {
-    const dni = String(req.body?.dni || '');
-    if (!/^\d{8}$/.test(dni)) throw new AppError('DNI inválido.', 400, 'DNI_INVALIDO');
-    res.set('Cache-Control', 'no-store').json({ ok: true, activacionCorreo: await enviarActivacion(dni) });
-  }));
-
   router.post('/internal/v1/encargados/verificar', internalAuth, asyncHandler(async (req, res) => {
     const encargado = await verificarEncargado(req.body || {});
     res.json({ ok: true, encargado });

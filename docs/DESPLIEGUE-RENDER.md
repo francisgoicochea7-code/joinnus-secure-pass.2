@@ -197,37 +197,27 @@ de Aiven no caduca. Por eso la recomendación es Aiven.
 - **Sonar**: el análisis no cambia; se sigue ejecutando en local.
 - **Actualizaciones**: cada `git push` a `feat/microservicios` vuelve a
   desplegar automáticamente (`autoDeploy: true`).
-## Activación por correo de destinatarios de transferencias
+## Destinatarios de transferencias (sin dominio de correo)
 
-Se recomienda **Resend** para enviar invitaciones. En Resend verifica un
-dominio propio de envío (con sus registros DNS) y crea una API key con permiso
-de envío. En **Render → Environment**, configura sin publicarlos en GitHub:
+**El destinatario se registra primero**, elige su propia contraseña e inicia
+sesión. Después el titular puede transferirle una entrada proporcionando el
+mismo DNI, nombre y correo que figuran en esa cuenta. El servidor rechaza la
+transferencia antes de modificar la entrada si la cuenta no existe, no tiene
+contraseña o los datos no coinciden. La transferencia no crea usuarios ni
+envía contraseñas. No configures Resend si no tienes un dominio verificado.
 
-- `RESEND_API_KEY`: clave privada de Resend.
-- `MAIL_FROM`: dirección verificada, por ejemplo `Acceso <acceso@tu-dominio.pe>`.
-- `PUBLIC_URL`: origen HTTPS público del sitio, sin ruta; para el despliegue
-  actual, `https://joinnus-secure-pass2.onrender.com`.
+**Importante:** este cotejo evita errores, pero no verifica la identidad real:
+otra persona podría registrar un DNI ajeno. Antes de una transferencia real,
+ambas personas deben confirmar por un canal de confianza los datos y, si se
+necesita una garantía de titularidad, un administrador debe comprobar el DNI
+del destinatario por un proceso independiente. El sistema aún no implementa
+esa verificación; no presentar el cotejo como prueba de identidad.
 
-Reinicia/despliega el servicio tras añadir las variables. Una cuenta creada
-por transferencia **no recibe una contraseña**: si todavía no tiene una, el
-servicio envía a su correo registrado un enlace de activación de un solo uso
-que vence en 20 minutos; allí la persona elige su contraseña. El enlace lleva
-el código en el fragmento (`#`), no en una petición al servidor. Nunca
-compartas ni registres enlaces de activación. Resend puede restringir el
-destinatario a tu propio correo hasta que el dominio esté verificado.
-
-Si falta configuración o falla Resend, **la entrada sí se transfiere** y el
-resultado indica que el envío quedó pendiente; **no vuelvas a transferir la
-misma entrada**. Una vez configurado el correo, el destinatario —también si
-fue transferido antes de este despliegue— puede entrar a `activar.html`,
-escribir su DNI y pedir el enlace. La respuesta no revela si el DNI existe:
-solo se envía al correo ya registrado, con un máximo de un código nuevo cada
-20 minutos. Alternativamente, un administrador puede emitir un código nuevo
-mediante `backend/emitir-activacion.js` conectado a `auth_db` y entregarlo
-de forma privada tras comprobar la identidad. El código no se puede emitir
-para una cuenta que ya tiene contraseña.
-
-Para evitar enviar enlaces al buzón equivocado, una transferencia a un DNI ya
-registrado exige que su correo coincida con el del perfil existente. Si
-necesita cambiarlo, debe hacerlo mediante un proceso de verificación de
-identidad administrado por separado.
+Para cuentas antiguas pendientes de activación (creadas por transferencias
+anteriores), un administrador puede generar un código de un solo uso con
+`services/auth/src/emitir-activacion.js` conectado a `auth_db`, verificar
+la identidad del titular y entregarle el código en privado. Vence en 20
+minutos; después la persona elige su contraseña en `activar.html`. El correo
+automático es opcional para esas cuentas si se configuran `RESEND_API_KEY`,
+`MAIL_FROM` (dominio verificado) y `PUBLIC_URL` en Render; no es necesario
+para nuevas transferencias.

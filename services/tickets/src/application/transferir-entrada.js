@@ -44,7 +44,7 @@ function crearTransferirEntrada({
     const titularAnterior = fila.titular_nombre;
     const dniAnterior = fila.titular_dni;
 
-    // 1. El nuevo titular vive en auth_db.
+    // 1. Solo una cuenta ya registrada y con contraseña en auth_db.
     const usuarioNuevo = await authClient.upsertUsuario({
       nombre: validacion.nombre,
       dni: validacion.dni,
@@ -96,15 +96,6 @@ function crearTransferirEntrada({
 
     const actualizada = await entradaRepo.obtenerPorCodigo(codigo);
 
-    let activacionCorreo = 'pendiente';
-    try {
-      activacionCorreo = await authClient.avisarTransferencia(usuarioNuevo.dni, requestId);
-    } catch (error) {
-      // La transferencia ya está confirmada: el fallo de correo no revierte
-      // la propiedad de la entrada ni hace repetir la operación al usuario.
-      logger.warn('aviso_transferencia_fallido', { codigo, tipo: error.name });
-    }
-
     return {
       codigo,
       titularAnterior,
@@ -115,7 +106,7 @@ function crearTransferirEntrada({
       estado: 'transferido',
       estadoEtiqueta: ESTADOS.transferido.etiqueta,
       qrPendiente: !qr,
-      activacionCorreo,
+      activacionCorreo: 'no-necesaria',
       entrada: enriquecer(actualizada, null)
     };
   };

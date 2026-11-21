@@ -4,8 +4,8 @@ const { AppError } = require('../../../shared/errors');
 const { validarUsuario } = require('../../../shared/validaciones');
 
 /**
- * Busca o crea al destinatario de una transferencia. La cuenta nueva
- * queda pendiente hasta que el titular elija su contraseña al activarla.
+ * Comprueba que el destinatario se registró y eligió su contraseña antes
+ * de transferir. No crea perfiles pendientes durante la transferencia.
  */
 function crearUpsertUsuario({ usuarioRepo }) {
   return async (datos) => {

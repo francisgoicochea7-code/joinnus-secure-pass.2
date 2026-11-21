@@ -463,6 +463,15 @@ const SecurePassAPI = (function () {
       return { ok: false, error: validacion.error, campos: validacion.campos };
     }
 
+    // En el prototipo sin backend solo existen las identidades demo sembradas.
+    // No fingir una cuenta activa para un DNI inventado.
+    const destino = Object.values(BASE_DATOS_ENTRADAS).find(e => e.dni === nuevoTitular.dni.trim());
+    if (!destino || destino.correo.toLowerCase() !== nuevoTitular.correo.trim().toLowerCase() ||
+        destino.titular.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() !==
+        nuevoTitular.nombre.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()) {
+      return { ok: false, error: 'En la demostración solo se puede transferir a una cuenta demo existente con DNI, nombre y correo coincidentes.', status: 409 };
+    }
+
     const titularAnterior = entrada.titular;
     const dniAnterior = entrada.dni;
     const tokenAnterior = entrada.qrToken;
@@ -496,6 +505,7 @@ const SecurePassAPI = (function () {
       precio: Number(nuevoTitular.precio),
       estado: entrada.estado,
       estadoEtiqueta: ESTADOS[entrada.estado].etiqueta,
+      activacionCorreo: 'no-necesaria',
       tokenAnterior: tokenAnterior,
       tokenNuevo: entrada.qrToken,
       payload: construirPayload(clave, entrada.qrToken),

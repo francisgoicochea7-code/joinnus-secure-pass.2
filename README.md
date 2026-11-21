@@ -225,7 +225,7 @@ Todos responden JSON. `ok: true` indica éxito.
 | `POST` | `/api/usuarios/login` | **Iniciar sesión** (`{ "dni", "password" }`; devuelve `token` firmado; `401` genérico) |
 | `POST` | `/api/usuarios/activar` | **Establecer una contraseña** con un código privado de un solo uso (`dni`, `codigo`, `password`). |
 | `GET` | `/api/usuarios/:dni` | **Consultar el perfil propio**. Requiere sesión del titular. |
-| `POST` | `/api/entradas/:codigo/transferir` | **Transferir entrada**. Requiere sesión del titular. |
+| `POST` | `/api/entradas/:codigo/transferir` | **Transferir entrada**. Requiere sesión del titular y destinatario ya registrado con contraseña y DNI, nombre y correo coincidentes. |
 | `GET` | `/api/entradas/:codigo/historial` | **Obtener historial**. Requiere sesión del titular. |
 | `POST` | `/api/entradas/:codigo/estado/:estado` | Cambiar el estado. Requiere sesión del titular. |
 | `GET` | `/api/historial?dni=` | Historial del titular de la sesión. Sin sesión: `401`; pedir otro DNI: `403`. |
@@ -643,11 +643,14 @@ Definidas en `docker-compose.yml` (y personalizables en `.env`):
 
 - Autenticación de usuarios: **DNI + contraseña**. La contraseña se guarda en
   la base como hash **scrypt** con sal aleatoria (nunca en claro) y el login
-  devuelve un **token firmado con HMAC-SHA256** (8 horas). El servidor ya no
-  exige ese token para transferir, generar el QR, cambiar el estado de una
+  devuelve un **token firmado con HMAC-SHA256** (8 horas). El servidor ahora
+   exige ese token para transferir, generar el QR, cambiar el estado de una
   entrada y consultar el perfil propio. La verificación pública muestra el
-  estado del pase y sus datos del evento. La activación de una cuenta de
-  destinatario usa un código de un solo uso que emite el administrador.
+   estado del pase y sus datos del evento. El destinatario debe registrarse
+   primero; no se crea su cuenta al transferir. Para perfiles pendientes
+   antiguos, el administrador puede emitir un código de activación privado.
+   Coincidir en nombre, correo y DNI no verifica la identidad real: se requiere
+   una comprobación independiente antes de transferir a personas reales.
   Sigue pendiente la recuperación por correo y guardar el token en una cookie
   `httpOnly` (hoy va en `localStorage`).
 - Lector de QR físico dedicado (torniquete): la validación en puerta ya existe,

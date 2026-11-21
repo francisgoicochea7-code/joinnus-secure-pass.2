@@ -20,13 +20,6 @@ function crearAuthClient({ baseUrl, token, logger }) {
       return respuesta.usuario;
     },
 
-    async avisarTransferencia(dni, requestId) {
-      const respuesta = await cliente.pedir('/internal/v1/usuarios/avisar-transferencia', {
-        method: 'POST', body: { dni }, requestId, intentos: 1
-      });
-      return respuesta.activacionCorreo;
-    },
-
     async verificarEncargado({ nombre, codigo }, requestId) {
       const respuesta = await cliente.pedir('/internal/v1/encargados/verificar', {
         method: 'POST',
