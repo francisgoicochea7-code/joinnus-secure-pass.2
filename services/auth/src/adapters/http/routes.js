@@ -12,6 +12,7 @@ function crearRutas({
   obtenerUsuario,
   loginUsuario,
   activarUsuario,
+  enviarActivacion,
   sessionSecret,
   demoRepo,
   internalAuth
@@ -40,6 +41,15 @@ function crearRutas({
     res.set('Cache-Control', 'no-store').json({ ok: true });
   }));
 
+  // Respuesta indistinguible para DNIs inexistentes, activos o pendientes.
+  // Solo se envía al correo ya almacenado; el SQL limita a 1 envío/20 min.
+  router.post('/api/usuarios/solicitar-activacion', asyncHandler(async (req, res) => {
+    const dni = String(req.body?.dni || '');
+    if (/^\d{8}$/.test(dni)) await enviarActivacion(dni);
+    res.set('Cache-Control', 'no-store').json({ ok: true,
+      mensaje: 'Si tu cuenta está pendiente y el correo está habilitado, recibirás un enlace en el correo registrado. Revisa también spam.' });
+  }));
+
   router.get('/api/usuarios/:dni', asyncHandler(async (req, res) => {
     const dni = requerirDniDeSesion(req, sessionSecret);
     if (dni !== req.params.dni) {
@@ -52,6 +62,14 @@ function crearRutas({
   router.post('/internal/v1/usuarios/upsert', internalAuth, asyncHandler(async (req, res) => {
     const usuario = await upsertUsuario(req.body || {});
     res.json({ ok: true, usuario });
+  }));
+
+  // Solo tickets-service puede pedir este correo después de transferir la
+  // entrada. No se expone una ruta pública para emitir códigos arbitrarios.
+  router.post('/internal/v1/usuarios/avisar-transferencia', internalAuth, asyncHandler(async (req, res) => {
+    const dni = String(req.body?.dni || '');
+    if (!/^\d{8}$/.test(dni)) throw new AppError('DNI inválido.', 400, 'DNI_INVALIDO');
+    res.set('Cache-Control', 'no-store').json({ ok: true, activacionCorreo: await enviarActivacion(dni) });
   }));
 
   router.post('/internal/v1/encargados/verificar', internalAuth, asyncHandler(async (req, res) => {

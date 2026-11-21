@@ -197,3 +197,37 @@ de Aiven no caduca. Por eso la recomendación es Aiven.
 - **Sonar**: el análisis no cambia; se sigue ejecutando en local.
 - **Actualizaciones**: cada `git push` a `feat/microservicios` vuelve a
   desplegar automáticamente (`autoDeploy: true`).
+## Activación por correo de destinatarios de transferencias
+
+Se recomienda **Resend** para enviar invitaciones. En Resend verifica un
+dominio propio de envío (con sus registros DNS) y crea una API key con permiso
+de envío. En **Render → Environment**, configura sin publicarlos en GitHub:
+
+- `RESEND_API_KEY`: clave privada de Resend.
+- `MAIL_FROM`: dirección verificada, por ejemplo `Acceso <acceso@tu-dominio.pe>`.
+- `PUBLIC_URL`: origen HTTPS público del sitio, sin ruta; para el despliegue
+  actual, `https://joinnus-secure-pass2.onrender.com`.
+
+Reinicia/despliega el servicio tras añadir las variables. Una cuenta creada
+por transferencia **no recibe una contraseña**: si todavía no tiene una, el
+servicio envía a su correo registrado un enlace de activación de un solo uso
+que vence en 20 minutos; allí la persona elige su contraseña. El enlace lleva
+el código en el fragmento (`#`), no en una petición al servidor. Nunca
+compartas ni registres enlaces de activación. Resend puede restringir el
+destinatario a tu propio correo hasta que el dominio esté verificado.
+
+Si falta configuración o falla Resend, **la entrada sí se transfiere** y el
+resultado indica que el envío quedó pendiente; **no vuelvas a transferir la
+misma entrada**. Una vez configurado el correo, el destinatario —también si
+fue transferido antes de este despliegue— puede entrar a `activar.html`,
+escribir su DNI y pedir el enlace. La respuesta no revela si el DNI existe:
+solo se envía al correo ya registrado, con un máximo de un código nuevo cada
+20 minutos. Alternativamente, un administrador puede emitir un código nuevo
+mediante `backend/emitir-activacion.js` conectado a `auth_db` y entregarlo
+de forma privada tras comprobar la identidad. El código no se puede emitir
+para una cuenta que ya tiene contraseña.
+
+Para evitar enviar enlaces al buzón equivocado, una transferencia a un DNI ya
+registrado exige que su correo coincida con el del perfil existente. Si
+necesita cambiarlo, debe hacerlo mediante un proceso de verificación de
+identidad administrado por separado.

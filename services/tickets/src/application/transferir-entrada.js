@@ -96,6 +96,15 @@ function crearTransferirEntrada({
 
     const actualizada = await entradaRepo.obtenerPorCodigo(codigo);
 
+    let activacionCorreo = 'pendiente';
+    try {
+      activacionCorreo = await authClient.avisarTransferencia(usuarioNuevo.dni, requestId);
+    } catch (error) {
+      // La transferencia ya está confirmada: el fallo de correo no revierte
+      // la propiedad de la entrada ni hace repetir la operación al usuario.
+      logger.warn('aviso_transferencia_fallido', { codigo, tipo: error.name });
+    }
+
     return {
       codigo,
       titularAnterior,
@@ -106,6 +115,7 @@ function crearTransferirEntrada({
       estado: 'transferido',
       estadoEtiqueta: ESTADOS.transferido.etiqueta,
       qrPendiente: !qr,
+      activacionCorreo,
       entrada: enriquecer(actualizada, null)
     };
   };

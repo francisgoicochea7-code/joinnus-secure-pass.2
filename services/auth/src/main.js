@@ -16,6 +16,7 @@ const { crearObtenerUsuario } = require('./application/obtener-usuario');
 const { crearLoginUsuario } = require('./application/login-usuario');
 const { crearActivarUsuario } = require('./application/activar-usuario');
 const { crearRutas } = require('./adapters/http/routes');
+const { crearCorreoActivacion } = require('./adapters/email/resend');
 const { asegurarEsquema, avisarSiFaltaSecreto } = require('./adapters/postgres/migracion');
 
 const logger = crearLogger('auth');
@@ -23,6 +24,9 @@ const logger = crearLogger('auth');
 const encargadoRepo = new PostgresEncargadoRepository(pool);
 const usuarioRepo = new PostgresUsuarioRepository(pool);
 const demoRepo = new PostgresDemoRepository(pool, config.seedSql);
+const correoActivacion = crearCorreoActivacion({
+  apiKey: config.resendApiKey, from: config.mailFrom, publicUrl: config.publicUrl
+});
 
 avisarSiFaltaSecreto(config.sessionSecret, logger);
 
@@ -48,6 +52,22 @@ avisarSiFaltaSecreto(config.sessionSecret, logger);
         upsertUsuario: crearUpsertUsuario({ usuarioRepo }),
         obtenerUsuario: crearObtenerUsuario({ usuarioRepo }),
         activarUsuario: crearActivarUsuario({ usuarioRepo }),
+        enviarActivacion: async (dni) => {
+          const usuario = await usuarioRepo.buscarPorDni(dni);
+          if (!usuario || usuario.password_hash) return 'no-necesaria';
+          if (!correoActivacion.habilitado) return 'pendiente';
+          try {
+            const activacion = await usuarioRepo.emitirActivacion(dni);
+            if (!activacion) return 'pendiente';
+            return await correoActivacion.enviar({
+              correo: activacion.correo, dni, codigo: activacion.codigo
+            }) ? 'enviado' : 'pendiente';
+          } catch (error) {
+            // No registrar destinatarios, códigos ni el cuerpo de la respuesta.
+            logger.warn('correo_activacion_fallido', { tipo: error.name });
+            return 'pendiente';
+          }
+        },
         sessionSecret: config.sessionSecret,
         loginUsuario: crearLoginUsuario({
           usuarioRepo,

@@ -216,6 +216,10 @@ const ClienteAPI = (function () {
     return pedir('/usuarios/activar', { method: 'POST', body: datos });
   }
 
+  function solicitarActivacion(dni) {
+    return pedir('/usuarios/solicitar-activacion', { method: 'POST', body: { dni } });
+  }
+
   /** OBTENER historial de trazabilidad.
    *  Con dni devuelve solo los movimientos de esa persona. */
   async function obtenerHistorial(codigo, dni) {
@@ -263,6 +267,7 @@ const ClienteAPI = (function () {
     buscarUsuario: buscarUsuario,
     iniciarSesion: iniciarSesion,
     activarUsuario: activarUsuario,
+    solicitarActivacion: solicitarActivacion,
     crearUsuario: crearUsuario,
     obtenerResumen: obtenerResumen,
     listarEntradas: listarEntradas,

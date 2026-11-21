@@ -23,7 +23,8 @@ async function emitirCodigoActivacion(pool, dni) {
     UPDATE usuarios
        SET activacion_hash = $2,
            activacion_expira_en = CURRENT_TIMESTAMP + ($3 * INTERVAL '1 minute')
-     WHERE dni = $1
+      WHERE dni = $1 AND password_hash IS NULL
+        AND (activacion_expira_en IS NULL OR activacion_expira_en <= CURRENT_TIMESTAMP)
      RETURNING activacion_expira_en
   `, [dni, huella(codigo), VALIDEZ_MINUTOS]);
 
@@ -37,7 +38,8 @@ async function consumirCodigoActivacion(pool, { dni, codigo, passwordHash }) {
        SET password_hash = $3,
            activacion_hash = NULL,
            activacion_expira_en = NULL
-     WHERE dni = $1
+      WHERE dni = $1
+        AND password_hash IS NULL
        AND activacion_hash = $2
        AND activacion_expira_en > CURRENT_TIMESTAMP
      RETURNING id, nombre, dni, correo

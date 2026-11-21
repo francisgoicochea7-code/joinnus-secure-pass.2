@@ -1,7 +1,8 @@
 'use strict';
 
 const { UsuarioRepository } = require('../../ports/usuario-repository');
-const { consumirCodigoActivacion } = require('../../../../../backend/activacion');
+const { consumirCodigoActivacion, emitirCodigoActivacion } = require('../../../../../backend/activacion');
+const { AppError } = require('../../../../shared/errors');
 
 class PostgresUsuarioRepository extends UsuarioRepository {
   constructor(pool) {
@@ -30,10 +31,26 @@ class PostgresUsuarioRepository extends UsuarioRepository {
     if (rows.length) return rows[0];
 
     const existente = await this.pool.query(
-      'SELECT id, nombre, dni, correo FROM usuarios WHERE dni = $1',
+      'SELECT id, nombre, dni, correo, password_hash FROM usuarios WHERE dni = $1',
       [dni]
     );
-    return existente.rows[0];
+    const usuario = existente.rows[0];
+    // No permita enviar un enlace a un correo distinto del registrado para
+    // este DNI: tampoco se modifican perfiles existentes durante el upsert.
+    if (usuario.correo.toLowerCase() !== correo.toLowerCase()) {
+      throw new AppError('El correo no coincide con el perfil existente del destinatario.', 409, 'CORREO_DESTINATARIO_NO_COINCIDE');
+    }
+    const { password_hash, ...publico } = usuario;
+    return publico;
+  }
+
+  async emitirActivacion(dni) {
+    const { rows } = await this.pool.query(
+      'SELECT correo FROM usuarios WHERE dni = $1 AND password_hash IS NULL', [dni]
+    );
+    if (!rows.length) return null;
+    const codigo = await emitirCodigoActivacion(this.pool, dni);
+    return codigo && { ...codigo, correo: rows[0].correo };
   }
 
   async activar(datos) {

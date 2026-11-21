@@ -70,7 +70,7 @@
   function limpiarModal() {
     ['nuevo-nombre', 'nuevo-dni', 'nuevo-correo', 'nuevo-precio'].forEach(id => { $(id).value = ''; });
     ['resumen-evento', 'resumen-titular', 'precio-original', 'precio-maximo', 'c-actual', 'c-nuevo', 'c-dni', 'c-dni-completo',
-      'c-correo', 'c-precio', 'c-codigo', 'r-anterior', 'r-nuevo', 'r-dni', 'r-codigo', 'r-estado'].forEach(id => {
+      'c-correo', 'c-precio', 'c-codigo', 'r-anterior', 'r-nuevo', 'r-dni', 'r-codigo', 'r-estado', 'r-activacion'].forEach(id => {
       $(id).textContent = '';
       $(id).innerHTML = '';
     });
@@ -379,6 +379,11 @@
     $('r-dni').textContent = res.dniNuevo;
     $('r-codigo').textContent = res.codigo;
     $('r-estado').innerHTML = JSP.estadoBadge('transferido');
+    $('r-activacion').textContent = res.activacionCorreo === 'enviado'
+      ? 'Se solicitó el envío de un enlace al correo registrado del destinatario para que cree su contraseña. Vence en 20 minutos; revisa también spam.'
+      : res.activacionCorreo === 'no-necesaria'
+        ? 'El destinatario ya tiene cuenta: podrá entrar con su contraseña actual.'
+        : 'La entrada se transfirió, pero no se pudo confirmar el envío del enlace. El administrador deberá emitir un nuevo código de activación; no repitas la transferencia.';
     marcarPaso('resultado');
 
     $('paso-confirmacion').classList.add('hide');

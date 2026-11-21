@@ -26,9 +26,20 @@
       <div class="container activation-page">
         <div class="section-head">
           <h1>Activa tu cuenta</h1>
-          <p class="lead">Usa el código privado que te entregó el administrador y elige tu contraseña.</p>
+           <p class="lead">Usa el enlace enviado a tu correo o un código privado entregado por el administrador y elige tu contraseña.</p>
         </div>
         <div class="card">
+          <form id="form-pedir-activacion" method="post">
+            <h2>¿Te transfirieron una entrada y aún no tienes contraseña?</h2>
+            <p>Solicita el enlace en el correo que figura en tu cuenta. No necesitas registrarte otra vez.</p>
+            <div class="field">
+              <label for="pedir-dni">Tu DNI</label>
+              <input class="input mono" id="pedir-dni" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" autocomplete="username" required>
+            </div>
+            <button class="btn btn-ghost btn-block" id="pedir-enviar" type="submit">Enviar enlace de activación</button>
+            <p class="small muted" id="pedir-mensaje" role="status"></p>
+          </form>
+          <hr>
           <form id="form-activar" method="post">
             <div class="field">
               <label for="activar-dni">DNI</label>

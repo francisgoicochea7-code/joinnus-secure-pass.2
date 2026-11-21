@@ -7,7 +7,7 @@ async function main(pool, entrada) {
   if (!/^\d{8}$/.test(dni)) throw new Error('Indica el DNI de 8 números del titular.');
 
   const activacion = await emitirCodigoActivacion(pool, dni);
-  if (!activacion) throw new Error('Ese perfil todavía no existe.');
+  if (!activacion) throw new Error('El perfil no existe, ya tiene contraseña o hay un código vigente; espera hasta 20 minutos antes de pedir otro.');
 
   console.log('Código de un solo uso:', activacion.codigo);
   console.log('Vence:', new Date(activacion.expiraEn).toISOString());
