@@ -356,7 +356,6 @@
               '(Carlos Pérez) o <span class="mono">52311878</span> / <span class="mono">Andrea2026!</span> (Andrea Torres).</p>' +
             '<p class="tiny muted">¿Todavía no estás registrado? ' +
               '<button type="button" class="btn-link" id="identif-a-registro">Crea tu cuenta</button></p>' +
-            '<p class="tiny muted"><a class="btn-link" href="activar.html">Activar cuenta con un código</a></p>' +
           '</div>' +
           '<div id="reg-formulario" class="hide">' +
             '<div class="field">' +
