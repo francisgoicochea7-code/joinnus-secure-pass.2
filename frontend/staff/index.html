@@ -23,14 +23,26 @@
 <main class="st-main">
 
   <!-- ==================== 1. ACCESO ==================== -->
-  <section id="vista-login" class="st-card">
-    <span class="st-eyebrow">Modo staff</span>
-    <h1>Acceso de encargados</h1>
-    <p class="st-lead">Identifícate con tu nombre y tu código personal para validar entradas en la puerta del evento.</p>
+  <section id="vista-login" class="st-login">
+    <div class="st-welcome">
+      <span class="st-eyebrow">Equipo de acceso · Secure Pass</span>
+      <h1>Una buena experiencia empieza en la puerta.</h1>
+      <p class="st-lead">Todo lo que necesitas para recibir a los asistentes, en un solo lugar.</p>
+      <div class="st-pass-art" aria-hidden="true">
+        <div class="st-art-top"><span>SECURE PASS</span><span>ACCESO</span></div>
+        <svg class="st-art-qr" viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="5"><path d="M5 5h24v24H5zM51 5h24v24H51zM5 51h24v24H5z"/><path d="M13 13h8v8h-8zM59 13h8v8h-8zM13 59h8v8h-8z" fill="currentColor" stroke="none"/><path d="M40 3v16m0 12v18h17v15h18M3 40h25m35 0h14M40 60v17m12-2h10m13-23v12"/></svg>
+        <div class="st-art-bottom"><span>CONTROL DE ENTRADAS</span><b>Un pase. Un ingreso.</b></div>
+      </div>
+      <ol class="st-steps"><li><b>01</b><span>Identifícate</span></li><li><b>02</b><span>Escanea el QR</span></li><li><b>03</b><span>Confirma el resultado</span></li></ol>
+    </div>
+    <div class="st-card st-login-form">
+    <span class="st-eyebrow">Personal autorizado</span>
+    <h2>Acceso de encargados</h2>
+    <p class="st-lead">Ingresa tus datos para comenzar tu jornada.</p>
 
     <form id="form-login" novalidate>
       <div class="st-field">
-        <label for="enc-nombre">Nombre del encargado</label>
+        <label for="enc-nombre">Nombre completo</label>
         <input id="enc-nombre" class="st-input" name="nombre" autocomplete="name"
                placeholder="Ana Torres" spellcheck="false" required>
       </div>
@@ -39,37 +51,45 @@
         <input id="enc-codigo" class="st-input" name="codigo" type="password"
                 autocomplete="off" placeholder="Tu código personal" spellcheck="false" required>
       </div>
-      <p id="login-error" class="st-alert" hidden></p>
+      <p id="login-error" class="st-alert" role="alert" hidden></p>
       <button id="btn-entrar" class="st-btn st-btn-primary" type="submit">Entrar al panel</button>
     </form>
 
     <p class="st-hint">Usa el código privado asignado por el administrador. No lo compartas.</p>
+    <div class="st-login-note"><span aria-hidden="true">↗</span><p>Cada ingreso queda registrado con el nombre del encargado.</p></div>
+    </div>
   </section>
 
   <!-- ==================== 2. PANEL ==================== -->
   <section id="vista-panel" hidden>
+    <div class="st-panel-heading">
+      <div><span class="st-eyebrow">Equipo de acceso</span><h1>Control de ingresos</h1><p class="st-lead">Escanea, revisa el resultado y recibe al siguiente asistente.</p></div>
+      <button id="btn-salir" class="st-link" type="button">Cerrar sesión</button>
+    </div>
 
     <div class="st-card st-scan">
       <div class="st-row">
         <div>
-          <span class="st-eyebrow">Portero digital</span>
+          <span class="st-eyebrow">01 · Escáner de acceso</span>
           <h2>Validar entrada</h2>
         </div>
-        <button id="btn-salir" class="st-link" type="button">Salir</button>
+        <span class="st-label">QR dinámico</span>
       </div>
 
       <div class="st-cam" id="st-cam">
         <video id="video" playsinline muted hidden></video>
         <div class="st-cam-ph" id="scan-placeholder">
-          <span>📷</span>
+          <svg class="st-scan-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M16 5H5v11m27-11h11v11M5 32v11h11m16 0h11V32M15 15h7v7h-7zm12 0h7v7h-7zm-12 12h7v7h-7zm12 0h7v7h-7z"/></svg>
+          <strong>Listo para escanear</strong>
           <p>Apunta la cámara al QR del asistente</p>
         </div>
       </div>
 
       <button id="btn-camara" class="st-btn st-btn-primary" type="button">Escanear con cámara</button>
+      <p class="st-hint st-scan-help">Un QR válido registra el ingreso automáticamente.</p>
       <p class="st-hint" id="camara-aviso" hidden></p>
 
-      <div class="st-or"><span>o ingresa el código manualmente si no hay cámara</span></div>
+      <div class="st-or"><span>Ingreso manual</span></div>
 
       <form id="form-verificar" class="st-inline">
         <input id="qr-texto" class="st-input" placeholder="ENTRY001" spellcheck="false"
@@ -91,16 +111,17 @@
     </div>
 
     <div class="st-stats">
-       <div class="st-stat"><b id="contador">—</b><span>ingresos registrados hoy · PostgreSQL</span></div>
-       <div class="st-stat"><b id="escaneos">0</b><span>validaciones intentadas en esta sesión</span></div>
+       <div class="st-stat"><span class="st-stat-title">Ingresos de hoy</span><b id="contador">—</b><span>Registrados en puerta</span></div>
+       <div class="st-stat"><span class="st-stat-title">Validaciones</span><b id="escaneos">0</b><span>Intentos en esta sesión</span></div>
     </div>
 
-    <div class="st-card">
-      <h3>Últimos ingresos registrados</h3>
+    <div class="st-card st-activity">
+      <span class="st-eyebrow">Actividad de puerta</span>
+      <h3>Últimos ingresos</h3>
       <div id="ingresos-recientes" class="st-recientes" aria-live="polite">Consultando la base de datos…</div>
     </div>
 
-    <p class="st-hint center">Sesión de <b id="quien">—</b>. Cada ingreso queda en el historial con tu nombre.</p>
+    <p class="st-hint center st-session-note">Sesión de <b id="quien">—</b>. Cada ingreso queda en el historial con tu nombre.</p>
   </section>
 
 </main>
