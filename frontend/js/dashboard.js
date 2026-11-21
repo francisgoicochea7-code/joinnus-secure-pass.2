@@ -415,5 +415,13 @@
   limpiarErroresIdentidad();
   pintarIdentidad();
 
+  /* Al volver a la pestaña se recargan las entradas: alguna pudo usarse en
+     puerta mientras el panel estaba en segundo plano. */
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    const s = sesion();
+    if (s && s.estaIdentificado()) cargar();
+  });
+
   cargar();
 })();

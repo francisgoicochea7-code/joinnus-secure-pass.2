@@ -109,12 +109,65 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Estado de la entrada                                                */
+  /* ------------------------------------------------------------------ */
+
+  function noVigente(e) {
+    return !!e && (e.estado === 'usado' || e.estado === 'anulado');
+  }
+
+  function detenerCiclo() {
+    if (temporizador) {
+      clearInterval(temporizador);
+      temporizador = null;
+    }
+  }
+
+  /* Oculta el QR (ya no sirve) y explica por qué. */
+  function pintarAvisoNoVigente(estado) {
+    const aviso = $('aviso-usada');
+    const texto = $('aviso-usada-texto');
+    const qr = $('ticket-qr');
+    const panel = $('panel-token-card');
+    if (qr) qr.classList.add('hide');
+    if (panel) panel.classList.add('hide');
+    if (texto) {
+      texto.innerHTML = estado === 'anulado'
+        ? '<strong>Esta entrada está anulada.</strong> Ya no puede usarse para ingresar al evento.'
+        : '<strong>Esta entrada ya fue utilizada.</strong> El QR quedó invalidado: no permite un segundo ingreso.';
+    }
+    if (aviso) aviso.classList.remove('hide');
+  }
+
+  /* Vuelve a consultar la entrada en el servidor. Si el encargado ya la
+     registró en puerta, el badge y el QR se actualizan sin recargar. */
+  async function refrescarEstado() {
+    if (!entrada) return;
+    try {
+      const actual = await SecurePassAPI.consultarEntrada(entrada.codigo);
+      if (!actual) return;
+      entrada = actual;
+      pintarDatos(entrada);
+      if (noVigente(entrada)) {
+        detenerCiclo();
+        pintarAvisoNoVigente(entrada.estado);
+      }
+    } catch (e) {
+      // Sin conexión: se reintenta en el siguiente ciclo o al volver a la pestaña.
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Ciclo del token                                                     */
   /* ------------------------------------------------------------------ */
   async function rotar(animar) {
     if (identificacionPendiente()) return;
     if (generando || !entrada) return;
-    if (entrada.estado === 'usado' || entrada.estado === 'anulado') return;
+    if (noVigente(entrada)) {
+      detenerCiclo();
+      pintarAvisoNoVigente(entrada.estado);
+      return;
+    }
 
     generando = true;
     try {
@@ -128,6 +181,11 @@
         pintarDatos(entrada);
         pintarToken(entrada, resultado.payload);
         pintarQR(resultado.payload, animar !== false);
+      } else {
+        // El servidor no emitió un token: normalmente la entrada ya ingresó
+        // o fue anulada. Se consulta el estado real para no dejar el badge
+        // "Válido / Sin usar" congelado hasta que el asistente recargue.
+        await refrescarEstado();
       }
     } catch (e) {
       console.error('[Entrada] Error al rotar el QR', e);
@@ -141,6 +199,7 @@
 
   function iniciarContador() {
     if (temporizador) clearInterval(temporizador);
+    if (noVigente(entrada)) return;
     restante = SEGUNDOS;
     finCiclo = Date.now() + SEGUNDOS * 1000;
     pintarContador();
@@ -304,7 +363,7 @@
     const btnSimular = $('btn-marcar-usada');
     if (btnSimular) btnSimular.classList.add('hide');
 
-    if (esMia) {
+    if (esMia && !noVigente(entrada)) {
       // Si la entrada todavía no tiene token, se genera el primero
       let payload;
       if (!entrada.qrToken) {
@@ -329,6 +388,10 @@
         JSP.toast('error', 'QR no disponible',
           'El servidor no pudo emitir el QR de esta entrada.');
       }
+    } else if (esMia) {
+      // La entrada ya ingresó o fue anulada: no hay QR que mostrar.
+      detenerCiclo();
+      pintarAvisoNoVigente(entrada.estado);
     }
 
     document.addEventListener('click', function (ev) {
@@ -339,8 +402,12 @@
       location.href = `entrada.html?codigo=${encodeURIComponent(destino)}`;
     });
 
-    document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible' && Date.now() > finCiclo + 1500) rotar(true);
+    document.addEventListener('visibilitychange', async function () {
+      if (document.visibilityState !== 'visible') return;
+      // Al volver a la pestaña se consulta el estado real: pudo haberse
+      // usado en puerta mientras la pantalla estaba en segundo plano.
+      await refrescarEstado();
+      if (entrada && !noVigente(entrada) && Date.now() > finCiclo + 1500) rotar(true);
     });
   }
 
