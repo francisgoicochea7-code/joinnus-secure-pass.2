@@ -38,6 +38,7 @@
     btnVerificar: el('btn-verificar'),
     resultado: el('resultado'),
     resIcono: el('res-icono'),
+    resSello: el('res-sello'),
     resTitulo: el('res-titulo'),
     resMotivo: el('res-motivo'),
     resDatos: el('res-datos'),
@@ -129,11 +130,33 @@
         datos.recientes.forEach(ingreso => {
           const fila = document.createElement('div');
           fila.className = 'st-reciente';
-          const datosEntrada = document.createElement('span');
-          datosEntrada.textContent = `${ingreso.codigo} · ${ingreso.evento} · ${ingreso.titular}`;
+
+          const marca = document.createElement('span');
+          marca.className = 'st-reciente-mark';
+          marca.setAttribute('aria-hidden', 'true');
+          marca.textContent = '✓';
+
+          const cuerpo = document.createElement('div');
+          cuerpo.className = 'st-reciente-body';
+
+          const cabecera = document.createElement('div');
+          cabecera.className = 'st-reciente-top';
+          const codigo = document.createElement('strong');
+          codigo.textContent = ingreso.codigo;
           const hora = document.createElement('time');
           hora.textContent = ingreso.hora + ' h';
-          fila.append(datosEntrada, hora);
+          cabecera.append(codigo, hora);
+
+          const titular = document.createElement('span');
+          titular.className = 'st-reciente-titular';
+          titular.textContent = ingreso.titular;
+
+          const evento = document.createElement('span');
+          evento.className = 'st-reciente-evento';
+          evento.textContent = ingreso.evento;
+
+          cuerpo.append(cabecera, titular, evento);
+          fila.append(marca, cuerpo);
           ui.recientes.append(fila);
         });
       }
@@ -387,6 +410,8 @@
     ui.resultado.classList.remove('is-ok', 'is-bad', 'is-warn', 'is-nuevo');
     ui.resultado.classList.add(info.clase, 'is-nuevo');
     ui.resIcono.textContent = info.icono;
+    ui.resSello.textContent = info.clase === 'is-ok' ? 'Acceso permitido'
+      : info.clase === 'is-bad' ? 'Acceso denegado' : 'Revisar antes de ingresar';
     ui.resTitulo.textContent = info.titulo;
     ui.resMotivo.textContent = mensaje || info.texto;
     ui.resDatos.innerHTML = '';
@@ -408,6 +433,7 @@
 
     if (datos.registrado) {
       ui.resIcono.textContent = '✅';
+      ui.resSello.textContent = 'Acceso permitido';
       ui.resTitulo.textContent = 'Ingreso registrado';
       ui.resMotivo.textContent = datos.mensaje || 'La entrada quedó marcada como usada.';
       ui.resNota.hidden = false;
@@ -417,6 +443,7 @@
       ui.resultado.classList.remove('is-ok');
       ui.resultado.classList.add('is-warn');
       ui.resIcono.textContent = '⚠️';
+      ui.resSello.textContent = 'Revisar antes de ingresar';
       ui.resTitulo.textContent = 'Ingreso no registrado';
       ui.resMotivo.textContent = 'No permitas el acceso hasta confirmar el ingreso en el sistema.';
       ui.resNota.hidden = true;

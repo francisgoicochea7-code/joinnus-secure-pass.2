@@ -313,14 +313,48 @@ h3 { font-size: 1.1rem; }
 .st-result .st-hint { padding-top: .8rem; border-top: 1px solid var(--line); }
 .st-footer { padding-top: 1.2rem; border-top: 1px solid var(--line); line-height: 1.6; }
 a:focus-visible { outline: 2px solid var(--mint); outline-offset: 4px; }
+
+/* Sello de resultado */
+.st-sello {
+  display: inline-block; padding: .22rem .5rem; border-radius: 5px;
+  font-size: .58rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+  background: #ffffff0d; color: var(--muted); margin-bottom: .35rem;
+}
+.st-result.is-ok .st-sello { color: #86efac; background: #22c55e1f; }
+.st-result.is-bad .st-sello { color: #fda4af; background: #f43f5e1f; }
+.st-result.is-warn .st-sello { color: #fcd34d; background: #f59e0b1f; }
+
+/* Indicador de cámara activa */
+.st-cam.is-live::before {
+  content: '● EN VIVO'; position: absolute; top: .75rem; left: .75rem; z-index: 2;
+  font-size: .6rem; font-weight: 800; letter-spacing: .14em; color: var(--mint);
+  background: #06131bcc; border: 1px solid #3af2d255; border-radius: 5px;
+  padding: .25rem .45rem;
+}
+
+/* Últimos ingresos */
+.st-activity h3 { margin: .15rem 0 .2rem; }
+.st-reciente { display: flex; gap: .8rem; align-items: flex-start; }
+.st-reciente:first-child { border-top: 0; }
+.st-reciente-mark {
+  display: flex; flex-shrink: 0; width: 26px; height: 26px; align-items: center;
+  justify-content: center; margin-top: .15rem; border-radius: 50%;
+  background: #22c55e16; color: #86efac; font-size: .75rem; font-weight: 800;
+}
+.st-reciente-body { display: flex; flex-direction: column; gap: .15rem; min-width: 0; flex: 1; }
+.st-reciente-top { display: flex; justify-content: space-between; gap: .7rem; align-items: center; }
+.st-reciente-top strong { font-size: .8rem; letter-spacing: .03em; color: var(--text); font-variant-numeric: tabular-nums; }
+.st-reciente-titular { color: var(--text); font-size: .86rem; }
+.st-reciente-evento { color: var(--muted); font-size: .76rem; }
+
 @media (min-width: 860px) {
   .st-login { grid-template-columns: 1.15fr 1fr; gap: 4rem; min-height: 76vh; }
   #vista-panel { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
   .st-panel-heading, .st-session-note { grid-column: 1 / -1; }
   .st-scan { grid-column: 1; grid-row: 2 / span 3; }
-  .st-stats { grid-column: 2; grid-row: 2; }
-  .st-result { grid-column: 2; grid-row: 3; }
-  .st-activity { grid-column: 2; grid-row: 4; }
+  /* Columna derecha: resultado, contadores y actividad se acomodan solos.
+     Si el resultado está oculto, los contadores suben sin dejar hueco. */
+  .st-result, .st-stats, .st-activity { grid-column: 2; }
   .st-cam { aspect-ratio: 4 / 3; }
 }
 @media (max-width: 859px) {

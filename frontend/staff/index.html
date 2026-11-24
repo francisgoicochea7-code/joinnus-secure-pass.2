@@ -36,27 +36,27 @@
       <ol class="st-steps"><li><b>01</b><span>Identifícate</span></li><li><b>02</b><span>Escanea el QR</span></li><li><b>03</b><span>Confirma el resultado</span></li></ol>
     </div>
     <div class="st-card st-login-form">
-    <span class="st-eyebrow">Personal autorizado</span>
-    <h2>Acceso de encargados</h2>
-    <p class="st-lead">Ingresa tus datos para comenzar tu jornada.</p>
+      <span class="st-eyebrow">Personal autorizado</span>
+      <h2>Acceso de encargados</h2>
+      <p class="st-lead">Ingresa tus datos para comenzar tu jornada.</p>
 
-    <form id="form-login" novalidate>
-      <div class="st-field">
-        <label for="enc-nombre">Nombre completo</label>
-        <input id="enc-nombre" class="st-input" name="nombre" autocomplete="name"
-               placeholder="Ana Torres" spellcheck="false" required>
-      </div>
-      <div class="st-field">
-        <label for="enc-codigo">Código de encargado</label>
-        <input id="enc-codigo" class="st-input" name="codigo" type="password"
-                autocomplete="off" placeholder="Tu código personal" spellcheck="false" required>
-      </div>
-      <p id="login-error" class="st-alert" role="alert" hidden></p>
-      <button id="btn-entrar" class="st-btn st-btn-primary" type="submit">Entrar al panel</button>
-    </form>
+      <form id="form-login" novalidate>
+        <div class="st-field">
+          <label for="enc-nombre">Nombre completo</label>
+          <input id="enc-nombre" class="st-input" name="nombre" autocomplete="name"
+                 placeholder="Ana Torres" spellcheck="false" required>
+        </div>
+        <div class="st-field">
+          <label for="enc-codigo">Código de encargado</label>
+          <input id="enc-codigo" class="st-input" name="codigo" type="password"
+                 autocomplete="off" placeholder="Tu código personal" spellcheck="false" required>
+        </div>
+        <p id="login-error" class="st-alert" role="alert" hidden></p>
+        <button id="btn-entrar" class="st-btn st-btn-primary" type="submit">Entrar al panel</button>
+      </form>
 
-    <p class="st-hint">Usa el código privado asignado por el administrador. No lo compartas.</p>
-    <div class="st-login-note"><span aria-hidden="true">↗</span><p>Cada ingreso queda registrado con el nombre del encargado.</p></div>
+      <p class="st-hint">Usa el código privado asignado por el administrador. No lo compartas.</p>
+      <div class="st-login-note"><span aria-hidden="true">↗</span><p>Cada ingreso queda registrado con el nombre del encargado.</p></div>
     </div>
   </section>
 
@@ -102,6 +102,7 @@
       <div class="st-res-head">
         <span id="res-icono" class="st-res-icon">✅</span>
         <div>
+          <span id="res-sello" class="st-sello">Acceso permitido</span>
           <h3 id="res-titulo">Entrada válida</h3>
           <p id="res-motivo"></p>
         </div>
