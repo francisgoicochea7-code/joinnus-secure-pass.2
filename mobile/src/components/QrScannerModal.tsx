@@ -25,7 +25,7 @@ type Props = {
   /** Resultado breve que se muestra encima de la camara. */
   feedback?: ScanFeedback | null;
   /** La lectura queda pausada mientras el encargado decide si registra el ingreso. */
-  confirmation?: { codigo: string; titular: string; evento: string; asiento: string } | null;
+  confirmation?: { codigo: string } | null;
   onConfirm?: () => void;
   onCancel?: () => void;
 };
@@ -166,10 +166,8 @@ export function QrScannerModal({
               <View style={styles.confirmWrap}>
                 <View style={styles.confirmCard} accessibilityLiveRegion="assertive">
                   <Text style={styles.confirmTitle}>¿Registrar el ingreso?</Text>
-                  <Text style={styles.confirmName}>{confirmation.titular}</Text>
-                  <Text style={styles.confirmText}>{confirmation.evento}</Text>
-                  <Text style={styles.confirmText}>{confirmation.codigo} · {confirmation.asiento}</Text>
-                  <Text style={styles.confirmHint}>Esto marcara la entrada como usada. El QR puede vencer mientras confirmas.</Text>
+                  <Text style={styles.confirmName}>{confirmation.codigo}</Text>
+                  <Text style={styles.confirmHint}>El titular y evento se mostraran despues de validar. Solo se marcara como usada si la entrada y el QR siguen vigentes.</Text>
                   <Button label="Registrar ingreso" onPress={onConfirm} loading={busy} fullWidth />
                   <Button label="Cancelar y seguir escaneando" onPress={onCancel} disabled={busy} variant="secondary" fullWidth />
                 </View>
@@ -271,6 +269,5 @@ const styles = StyleSheet.create({
   confirmCard: { width: '100%', maxWidth: 360, borderRadius: 22, padding: 20, gap: 12, backgroundColor: '#fffdf9' },
   confirmTitle: { fontFamily, fontSize: 20, fontWeight: '800', color: '#17131f' },
   confirmName: { fontFamily, fontSize: 17, fontWeight: '700', color: '#17131f' },
-  confirmText: { fontFamily, fontSize: 13, color: '#484450' },
   confirmHint: { fontFamily, fontSize: 11, lineHeight: 16, color: '#484450', marginBottom: 6 },
 });

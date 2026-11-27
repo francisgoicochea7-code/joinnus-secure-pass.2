@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { CheckCircle2, LogOut, ScanLine, Server, ShieldAlert, ShieldCheck, Ticket as TicketIcon, UserRound, XCircle } from 'lucide-react-native';
 import { api, ApiError, getApiBaseUrl, loadApiSettings, setApiBaseUrl } from '../api/client';
-import { StaffSession, StaffValidation, Ticket } from '../api/types';
+import { StaffSession, StaffValidation } from '../api/types';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -25,7 +25,17 @@ function vibrar(tone: ScanFeedback['tone']) {
   Haptics.notificationAsync(tipo).catch(() => undefined);
 }
 
-type PendingEntry = { raw: string; entrada: Ticket };
+type PendingEntry = { raw: string; codigo: string };
+
+/** Muestra solo el codigo, nunca el nonce ni el token completo del QR. */
+function codigoVisible(value: string) {
+  const codigoValido = /^[A-Z0-9][A-Z0-9-]{3,23}$/i;
+  const partes = /^JSP\|([^|]+)\|[0-9A-F]{8,}(?:\|.*)?$/i.exec(value);
+  if (partes && codigoValido.test(partes[1])) return partes[1].toUpperCase();
+  const directo = /^JSP-(.+)-[0-9A-F]{8,}$/i.exec(value);
+  if (directo && codigoValido.test(directo[1])) return directo[1].toUpperCase();
+  return codigoValido.test(value) ? value.toUpperCase() : 'QR escaneado';
+}
 
 const reasons: Record<string, string> = {
   usada: 'Esta entrada ya fue utilizada.',
@@ -41,9 +51,6 @@ const reasons: Record<string, string> = {
   estado: 'La entrada no esta vigente.',
   error: 'No se pudo validar la entrada.',
 };
-
-/** Motivos que se resuelven actualizando el pase, no con una negativa final. */
-const motivosRecuperables = new Set(['usada', 'usado', 'invalidado', 'expirado']);
 
 type Props = {
   /** La app de encargados abre directamente aqui: no hay pantalla anterior. */
@@ -124,49 +131,20 @@ export function StaffScreen({ root = false }: Props) {
     }
   };
 
-  const validate = async (input = raw) => {
+  const prepareEntry = (input = raw) => {
     if (!session || validationInFlight.current || pending) return;
     const value = String(input || '').trim();
     if (!value) {
       setError('Escanea un QR o escribe el codigo de la entrada.');
       return;
     }
-    validationInFlight.current = true;
-    setValidating(true);
     setError('');
     setResult(null);
+    setFeedback(null);
+    setRaw('');
     setScans((current) => current + 1);
-    try {
-      // La primera lectura nunca consume el pase: requiere confirmacion aparte.
-      const response = await api.staffValidate(session, value, false);
-      setRaw('');
-      if (response.valido) {
-        if (!response.entrada) throw new Error('El servidor no devolvio los datos de la entrada. No se registro el ingreso.');
-        setResult(response);
-        setPending({ raw: value, entrada: response.entrada });
-        showFeedback({ tone: 'warn', title: 'Entrada valida', message: 'Confirma el ingreso antes de permitir el acceso.' });
-      } else {
-        setResult(response);
-        const detalle = reasons[response.motivo || ''] || response.mensaje || response.error || 'Entrada no valida.';
-        const tone = motivosRecuperables.has(response.motivo || '') ? 'warn' : 'error';
-        showFeedback({ tone, title: 'Acceso denegado', message: detalle });
-        showToast({ type: 'error', title: 'Acceso denegado', message: detalle });
-      }
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        setSession(null);
-        setScanner(false);
-        setFeedback(null);
-        setLoginError('Tu sesion de encargado expiro. Vuelve a entrar.');
-      } else {
-        const message = err instanceof Error ? err.message : 'No se pudo validar la entrada.';
-        setError(message);
-        showFeedback({ tone: 'error', title: 'No se pudo validar', message });
-      }
-    } finally {
-      validationInFlight.current = false;
-      setValidating(false);
-    }
+    // Sin red: la confirmacion aparece inmediatamente, no consume el QR.
+    setPending({ raw: value, codigo: codigoVisible(value) });
   };
 
   const cancelEntry = () => {
@@ -184,13 +162,13 @@ export function StaffScreen({ root = false }: Props) {
     setValidating(true);
     setError('');
     try {
-      // El servidor vuelve a validar estado, titular y vigencia del QR antes de registrar.
+      // Una sola peticion: el servidor valida el QR y registra solo si sigue vigente.
       const response = await api.staffValidate(session, current.raw, true);
       setPending(null);
       if (response.valido && response.registrado) {
         setResult(response);
         showFeedback({ tone: 'ok', title: 'Ingreso registrado', message: 'Listo para el siguiente pase.' });
-        showToast({ type: 'success', title: 'Ingreso registrado', message: response.entrada?.evento || current.entrada.evento });
+        showToast({ type: 'success', title: 'Ingreso registrado', message: response.entrada?.evento || current.codigo });
       } else {
         const detalle = response.valido
           ? 'El servidor no confirmo el ingreso. Consulta el estado antes de reintentar.'
@@ -314,7 +292,7 @@ export function StaffScreen({ root = false }: Props) {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.scanTitle, { color: theme.text }]}>Lector de pases</Text>
-            <Text style={[styles.scanText, { color: theme.muted }]}>Escanea el QR o escribe el codigo. Primero se comprueba la entrada; el ingreso requiere confirmacion.</Text>
+            <Text style={[styles.scanText, { color: theme.muted }]}>Escanea el QR o escribe el codigo. Confirma para validar y registrar el ingreso.</Text>
           </View>
         </View>
 
@@ -326,17 +304,17 @@ export function StaffScreen({ root = false }: Props) {
           autoCapitalize="none"
           autoCorrect={false}
           leftIcon={<TicketIcon size={17} color={theme.muted} strokeWidth={2.1} />}
-          onSubmitEditing={() => { void validate(); }}
+          onSubmitEditing={() => prepareEntry()}
           returnKeyType="done"
         />
         <View style={styles.actions}>
-          <Button label="Comprobar" icon={ShieldCheck} onPress={() => { void validate(); }} loading={validating} disabled={!!pending} style={{ flex: 1 }} />
+          <Button label="Continuar" icon={ShieldCheck} onPress={() => prepareEntry()} disabled={validating || !!pending} style={{ flex: 1 }} />
           <Button label="Camara" icon={ScanLine} variant="secondary" onPress={() => { setFeedback(null); setScanner(true); }} disabled={!!pending} style={{ flex: 1 }} />
         </View>
         <View style={[styles.registerRow, { borderTopColor: theme.border }]}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.registerTitle, { color: theme.text }]}>Ingreso con confirmacion</Text>
-            <Text style={[styles.registerText, { color: theme.muted }]}>Comprobar no marca la entrada como usada. Confirma solo cuando vaya a ingresar.</Text>
+            <Text style={[styles.registerText, { color: theme.muted }]}>Escanear no marca la entrada como usada. El servidor la validara al confirmar.</Text>
           </View>
         </View>
       </Card>
@@ -344,9 +322,8 @@ export function StaffScreen({ root = false }: Props) {
       {pending ? (
         <Card style={styles.result}>
           <Text style={[styles.scanTitle, { color: theme.text }]}>¿Registrar el ingreso?</Text>
-          <Text style={[styles.entryTitle, { color: theme.text }]}>{pending.entrada.titular} · {pending.entrada.evento}</Text>
-          <Text style={[styles.entryMeta, { color: theme.muted }]}>{pending.entrada.codigo} · {seatLabel(pending.entrada)}</Text>
-          <Text style={[styles.registerText, { color: theme.muted }]}>Confirmar marcara esta entrada como usada. Si el QR vencio, pide uno nuevo.</Text>
+          <Text style={[styles.entryTitle, { color: theme.text }]}>{pending.codigo}</Text>
+          <Text style={[styles.registerText, { color: theme.muted }]}>Al confirmar se comprobaran el titular, evento y vigencia. Solo una entrada valida quedara marcada como usada.</Text>
           <View style={styles.actions}>
             <Button label="Cancelar" variant="secondary" onPress={cancelEntry} disabled={validating} style={{ flex: 1 }} />
             <Button label="Registrar ingreso" onPress={() => { void confirmEntry(); }} loading={validating} style={{ flex: 1 }} />
@@ -370,16 +347,13 @@ export function StaffScreen({ root = false }: Props) {
       <QrScannerModal
         visible={scanner}
         onClose={() => { if (!validating) { setScanner(false); cancelEntry(); } }}
-        onScanned={(data) => { setRaw(data); void validate(data); }}
+        onScanned={prepareEntry}
         title="Validar entrada"
         continuous
         busy={validating || !!pending}
         feedback={pending ? null : feedback}
         confirmation={pending ? {
-          codigo: pending.entrada.codigo,
-          titular: pending.entrada.titular,
-          evento: pending.entrada.evento,
-          asiento: seatLabel(pending.entrada),
+          codigo: pending.codigo,
         } : null}
         onConfirm={() => { void confirmEntry(); }}
         onCancel={cancelEntry}
