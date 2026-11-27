@@ -15,6 +15,7 @@ node_modules/
 *.sql.gz
 dump*.sql
 backup*.sql
+outputs/
 
 # Sistema y editores
 .DS_Store

@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { CheckCircle2, LogOut, ScanLine, Server, ShieldAlert, ShieldCheck, Ticket as TicketIcon, UserRound, XCircle } from 'lucide-react-native';
 import { api, ApiError, getApiBaseUrl, loadApiSettings, setApiBaseUrl } from '../api/client';
-import { StaffSession, StaffValidation } from '../api/types';
+import { StaffSession, StaffValidation, Ticket } from '../api/types';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -24,6 +24,8 @@ function vibrar(tone: ScanFeedback['tone']) {
       : Haptics.NotificationFeedbackType.Error;
   Haptics.notificationAsync(tipo).catch(() => undefined);
 }
+
+type PendingEntry = { raw: string; entrada: Ticket };
 
 const reasons: Record<string, string> = {
   usada: 'Esta entrada ya fue utilizada.',
@@ -57,8 +59,9 @@ export function StaffScreen({ root = false }: Props) {
   const [loginError, setLoginError] = useState('');
   const [loggingIn, setLoggingIn] = useState(false);
   const [raw, setRaw] = useState('');
-  const [registrar, setRegistrar] = useState(true);
   const [validating, setValidating] = useState(false);
+  const validationInFlight = useRef(false);
+  const [pending, setPending] = useState<PendingEntry | null>(null);
   const [result, setResult] = useState<StaffValidation | null>(null);
   const [error, setError] = useState('');
   const [scanner, setScanner] = useState(false);
@@ -112,6 +115,7 @@ export function StaffScreen({ root = false }: Props) {
       const response = await api.staffLogin(nombre.trim(), codigo.trim());
       setSession({ ...response.encargado, codigo: codigo.trim() });
       setResult(null);
+      setPending(null);
       setRaw('');
     } catch (err) {
       setLoginError(err instanceof Error ? err.message : 'No se pudo iniciar la sesion de encargado.');
@@ -121,31 +125,28 @@ export function StaffScreen({ root = false }: Props) {
   };
 
   const validate = async (input = raw) => {
-    if (!session || validating) return;
+    if (!session || validationInFlight.current || pending) return;
     const value = String(input || '').trim();
     if (!value) {
       setError('Escanea un QR o escribe el codigo de la entrada.');
       return;
     }
+    validationInFlight.current = true;
     setValidating(true);
     setError('');
     setResult(null);
     setScans((current) => current + 1);
     try {
-      const response = await api.staffValidate(session, value, registrar);
-      setResult(response);
+      // La primera lectura nunca consume el pase: requiere confirmacion aparte.
+      const response = await api.staffValidate(session, value, false);
       setRaw('');
       if (response.valido) {
-        const message = response.registrado
-          ? 'Ingreso registrado. Listo para el siguiente pase.'
-          : 'Entrada valida. Listo para el siguiente pase.';
-        showFeedback({ tone: 'ok', title: 'Acceso permitido', message });
-        showToast({
-          type: 'success',
-          title: response.registrado ? 'Ingreso registrado' : 'Entrada valida',
-          message: response.entrada ? response.entrada.evento : 'El pase puede ingresar.',
-        });
+        if (!response.entrada) throw new Error('El servidor no devolvio los datos de la entrada. No se registro el ingreso.');
+        setResult(response);
+        setPending({ raw: value, entrada: response.entrada });
+        showFeedback({ tone: 'warn', title: 'Entrada valida', message: 'Confirma el ingreso antes de permitir el acceso.' });
       } else {
+        setResult(response);
         const detalle = reasons[response.motivo || ''] || response.mensaje || response.error || 'Entrada no valida.';
         const tone = motivosRecuperables.has(response.motivo || '') ? 'warn' : 'error';
         showFeedback({ tone, title: 'Acceso denegado', message: detalle });
@@ -163,6 +164,55 @@ export function StaffScreen({ root = false }: Props) {
         showFeedback({ tone: 'error', title: 'No se pudo validar', message });
       }
     } finally {
+      validationInFlight.current = false;
+      setValidating(false);
+    }
+  };
+
+  const cancelEntry = () => {
+    if (validationInFlight.current) return;
+    setPending(null);
+    setResult(null);
+    setRaw('');
+    setFeedback(null);
+  };
+
+  const confirmEntry = async () => {
+    if (!session || !pending || validationInFlight.current) return;
+    const current = pending;
+    validationInFlight.current = true;
+    setValidating(true);
+    setError('');
+    try {
+      // El servidor vuelve a validar estado, titular y vigencia del QR antes de registrar.
+      const response = await api.staffValidate(session, current.raw, true);
+      setPending(null);
+      if (response.valido && response.registrado) {
+        setResult(response);
+        showFeedback({ tone: 'ok', title: 'Ingreso registrado', message: 'Listo para el siguiente pase.' });
+        showToast({ type: 'success', title: 'Ingreso registrado', message: response.entrada?.evento || current.entrada.evento });
+      } else {
+        const detalle = response.valido
+          ? 'El servidor no confirmo el ingreso. Consulta el estado antes de reintentar.'
+          : reasons[response.motivo || ''] || response.mensaje || response.error || 'El ingreso no se registro. Escanea de nuevo.';
+        setResult({ ...response, valido: false, motivo: response.valido ? 'error' : response.motivo, mensaje: detalle });
+        showFeedback({ tone: 'error', title: 'Ingreso no registrado', message: detalle });
+        showToast({ type: 'error', title: 'Ingreso no registrado', message: detalle });
+      }
+    } catch (err) {
+      setPending(null);
+      setResult(null);
+      const message = err instanceof Error ? err.message : 'No se pudo confirmar el ingreso.';
+      if (err instanceof ApiError && err.status === 401) {
+        setSession(null);
+        setScanner(false);
+        setLoginError('Tu sesion de encargado expiro. Vuelve a entrar.');
+      } else {
+        setError(`${message} Consulta el estado de la entrada antes de reintentar.`);
+        showFeedback({ tone: 'error', title: 'Ingreso no confirmado', message });
+      }
+    } finally {
+      validationInFlight.current = false;
       setValidating(false);
     }
   };
@@ -173,6 +223,7 @@ export function StaffScreen({ root = false }: Props) {
     setCodigo('');
     setRaw('');
     setResult(null);
+    setPending(null);
     setScans(0);
     setScanner(false);
     setFeedback(null);
@@ -263,7 +314,7 @@ export function StaffScreen({ root = false }: Props) {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.scanTitle, { color: theme.text }]}>Lector de pases</Text>
-            <Text style={[styles.scanText, { color: theme.muted }]}>Escanea el QR o escribe el codigo. La camara sigue abierta para el siguiente pase.</Text>
+            <Text style={[styles.scanText, { color: theme.muted }]}>Escanea el QR o escribe el codigo. Primero se comprueba la entrada; el ingreso requiere confirmacion.</Text>
           </View>
         </View>
 
@@ -275,32 +326,39 @@ export function StaffScreen({ root = false }: Props) {
           autoCapitalize="none"
           autoCorrect={false}
           leftIcon={<TicketIcon size={17} color={theme.muted} strokeWidth={2.1} />}
-          onSubmitEditing={() => validate()}
+          onSubmitEditing={() => { void validate(); }}
           returnKeyType="done"
         />
         <View style={styles.actions}>
-          <Button label="Validar" icon={ShieldCheck} onPress={() => validate()} loading={validating} style={{ flex: 1 }} />
-          <Button label="Camara" icon={ScanLine} variant="secondary" onPress={() => { setFeedback(null); setScanner(true); }} style={{ flex: 1 }} />
+          <Button label="Comprobar" icon={ShieldCheck} onPress={() => { void validate(); }} loading={validating} disabled={!!pending} style={{ flex: 1 }} />
+          <Button label="Camara" icon={ScanLine} variant="secondary" onPress={() => { setFeedback(null); setScanner(true); }} disabled={!!pending} style={{ flex: 1 }} />
         </View>
         <View style={[styles.registerRow, { borderTopColor: theme.border }]}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.registerTitle, { color: theme.text }]}>Registrar ingreso</Text>
-            <Text style={[styles.registerText, { color: theme.muted }]}>Marca la entrada como usada al validar.</Text>
+            <Text style={[styles.registerTitle, { color: theme.text }]}>Ingreso con confirmacion</Text>
+            <Text style={[styles.registerText, { color: theme.muted }]}>Comprobar no marca la entrada como usada. Confirma solo cuando vaya a ingresar.</Text>
           </View>
-          <Switch
-            value={registrar}
-            onValueChange={setRegistrar}
-            trackColor={{ false: theme.surfaceRaised, true: `${theme.ok}66` }}
-            thumbColor={registrar ? theme.ok : theme.muted}
-          />
         </View>
       </Card>
 
+      {pending ? (
+        <Card style={styles.result}>
+          <Text style={[styles.scanTitle, { color: theme.text }]}>¿Registrar el ingreso?</Text>
+          <Text style={[styles.entryTitle, { color: theme.text }]}>{pending.entrada.titular} · {pending.entrada.evento}</Text>
+          <Text style={[styles.entryMeta, { color: theme.muted }]}>{pending.entrada.codigo} · {seatLabel(pending.entrada)}</Text>
+          <Text style={[styles.registerText, { color: theme.muted }]}>Confirmar marcara esta entrada como usada. Si el QR vencio, pide uno nuevo.</Text>
+          <View style={styles.actions}>
+            <Button label="Cancelar" variant="secondary" onPress={cancelEntry} disabled={validating} style={{ flex: 1 }} />
+            <Button label="Registrar ingreso" onPress={() => { void confirmEntry(); }} loading={validating} style={{ flex: 1 }} />
+          </View>
+        </Card>
+      ) : null}
+
       {error ? <Text style={[styles.error, { color: theme.danger }]}>{error}</Text> : null}
 
-      {result ? <ValidationResult result={result} /> : null}
+      {result && !pending ? <ValidationResult result={result} /> : null}
 
-      {!result ? (
+      {!result && !pending ? (
         <View style={styles.tip}>
           <ShieldCheck size={15} color={theme.brand} strokeWidth={2.1} />
           <Text style={[styles.tipText, { color: theme.muted }]}>
@@ -311,12 +369,20 @@ export function StaffScreen({ root = false }: Props) {
 
       <QrScannerModal
         visible={scanner}
-        onClose={() => setScanner(false)}
+        onClose={() => { if (!validating) { setScanner(false); cancelEntry(); } }}
         onScanned={(data) => { setRaw(data); void validate(data); }}
         title="Validar entrada"
         continuous
-        busy={validating}
-        feedback={feedback}
+        busy={validating || !!pending}
+        feedback={pending ? null : feedback}
+        confirmation={pending ? {
+          codigo: pending.entrada.codigo,
+          titular: pending.entrada.titular,
+          evento: pending.entrada.evento,
+          asiento: seatLabel(pending.entrada),
+        } : null}
+        onConfirm={() => { void confirmEntry(); }}
+        onCancel={cancelEntry}
       />
     </Screen>
   );
@@ -335,7 +401,7 @@ function ValidationResult({ result }: { result: StaffValidation }) {
           <Icon size={26} color={color} strokeWidth={2.2} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.resultTitle, { color }]}>{result.valido ? 'Acceso permitido' : 'Acceso denegado'}</Text>
+          <Text style={[styles.resultTitle, { color }]}>{result.valido ? (result.registrado ? 'Ingreso registrado' : 'Entrada valida') : 'Acceso denegado'}</Text>
           <Text style={[styles.resultText, { color: theme.textSoft }]}>
             {result.valido ? (result.registrado ? 'La entrada quedo marcada como usada.' : 'La entrada es valida.') : reasons[result.motivo || ''] || result.mensaje || result.error || 'Entrada no valida.'}
           </Text>

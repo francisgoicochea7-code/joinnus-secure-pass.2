@@ -24,6 +24,10 @@ type Props = {
   busy?: boolean;
   /** Resultado breve que se muestra encima de la camara. */
   feedback?: ScanFeedback | null;
+  /** La lectura queda pausada mientras el encargado decide si registra el ingreso. */
+  confirmation?: { codigo: string; titular: string; evento: string; asiento: string } | null;
+  onConfirm?: () => void;
+  onCancel?: () => void;
 };
 
 const feedbackPalette = {
@@ -40,6 +44,9 @@ export function QrScannerModal({
   continuous = false,
   busy = false,
   feedback = null,
+  confirmation = null,
+  onConfirm,
+  onCancel,
 }: Props) {
   const { theme } = useTheme();
   const [permission, requestPermission, getPermission] = useCameraPermissions();
@@ -74,7 +81,7 @@ export function QrScannerModal({
   }, [visible, getPermission]);
 
   const handleScan = (data: string) => {
-    if (scanned.current || busy) return;
+    if (scanned.current || busy || confirmation) return;
     scanned.current = true;
     onScanned(data);
     if (continuous) {
@@ -151,6 +158,20 @@ export function QrScannerModal({
                   {feedback.message ? (
                     <Text style={styles.feedbackText} numberOfLines={3}>{feedback.message}</Text>
                   ) : null}
+                </View>
+              </View>
+            ) : null}
+
+            {confirmation ? (
+              <View style={styles.confirmWrap}>
+                <View style={styles.confirmCard} accessibilityLiveRegion="assertive">
+                  <Text style={styles.confirmTitle}>¿Registrar el ingreso?</Text>
+                  <Text style={styles.confirmName}>{confirmation.titular}</Text>
+                  <Text style={styles.confirmText}>{confirmation.evento}</Text>
+                  <Text style={styles.confirmText}>{confirmation.codigo} · {confirmation.asiento}</Text>
+                  <Text style={styles.confirmHint}>Esto marcara la entrada como usada. El QR puede vencer mientras confirmas.</Text>
+                  <Button label="Registrar ingreso" onPress={onConfirm} loading={busy} fullWidth />
+                  <Button label="Cancelar y seguir escaneando" onPress={onCancel} disabled={busy} variant="secondary" fullWidth />
                 </View>
               </View>
             ) : null}
@@ -246,4 +267,10 @@ const styles = StyleSheet.create({
   feedbackHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   feedbackTitle: { fontFamily, color: '#fffdf9', fontSize: 20, fontWeight: '800', flex: 1, letterSpacing: -0.3 },
   feedbackText: { fontFamily, color: 'rgba(255,253,249,0.92)', fontSize: 12, lineHeight: 18, marginTop: 8, fontWeight: '600' },
+  confirmWrap: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, backgroundColor: 'rgba(5,6,9,0.72)' },
+  confirmCard: { width: '100%', maxWidth: 360, borderRadius: 22, padding: 20, gap: 12, backgroundColor: '#fffdf9' },
+  confirmTitle: { fontFamily, fontSize: 20, fontWeight: '800', color: '#17131f' },
+  confirmName: { fontFamily, fontSize: 17, fontWeight: '700', color: '#17131f' },
+  confirmText: { fontFamily, fontSize: 13, color: '#484450' },
+  confirmHint: { fontFamily, fontSize: 11, lineHeight: 16, color: '#484450', marginBottom: 6 },
 });
