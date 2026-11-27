@@ -447,6 +447,16 @@ function firmarToken(codigo, nonce, expira) {
     .slice(0, 32);
 }
 
+/**
+ * Compara dos firmas en tiempo constante. Se comparan los SHA-256 de ambos
+ * textos para que ni el contenido ni la longitud se deduzcan por latencia.
+ */
+function firmasIguales(recibida, esperada) {
+  const a = crypto.createHash('sha256').update(String(recibida == null ? '' : recibida)).digest();
+  const b = crypto.createHash('sha256').update(String(esperada == null ? '' : esperada)).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
 function generarToken(codigo) {
   const nonce = crypto.randomBytes(4).toString('hex').toUpperCase();      // 8 hex
   /* expira_en es TIMESTAMP SIN milisegundos: PostgreSQL guarda el instante
@@ -707,7 +717,7 @@ app.post('/api/qr/validar', limiteValidar, ruta(async (req, res) => {
   const { nonce, expiraEn } = { nonce: t.nonce, expiraEn: t.expira_en };
   const esperado = firmarToken(t.codigo, nonce, expiraEn);
 
-  if (esperado !== t.firma) {
+  if (!firmasIguales(esperado, t.firma)) {
     return fallo(res, 200, 'La firma del token no es válida.', { valido: false, motivo: 'firma' });
   }
   if (Number(t.invalidado) === 1) {
@@ -813,7 +823,7 @@ app.post('/api/encargados/validar', limiteValidar, ruta(async (req, res) => {
     // La firma se recalcula aquí: un QR alterado no pasa la puerta
     const esperado = firmarToken(t.codigo, t.nonce, t.expira_en);
 
-    if (esperado !== t.firma) {
+    if (!firmasIguales(esperado, t.firma)) {
       return fallo(res, 200, 'La firma del token no es válida.',
         { valido: false, motivo: 'firma', encargado: encargado.nombre });
     }
@@ -1318,6 +1328,7 @@ module.exports.util = {
   fechaCorta,
   hashCodigoEncargado,
   firmarToken,
+  firmasIguales,
   generarToken,
   validarTransferencia,
   extraerToken,

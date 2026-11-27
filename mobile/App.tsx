@@ -6,8 +6,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { ToastProvider } from './src/components/Toast';
-import { AuthProvider } from './src/auth/AuthContext';
-import { AppNavigator } from './src/navigation/AppNavigator';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { StaffNavigator } from './src/navigation/StaffNavigator';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -16,7 +16,7 @@ function AppShell() {
   return (
     <>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <AppNavigator />
+      <StaffNavigator />
     </>
   );
 }
@@ -37,9 +37,9 @@ export default function App() {
       <SafeAreaProvider>
         <ThemeProvider>
           <ToastProvider>
-            <AuthProvider>
+            <ErrorBoundary>
               <AppShell />
-            </AuthProvider>
+            </ErrorBoundary>
           </ToastProvider>
         </ThemeProvider>
       </SafeAreaProvider>

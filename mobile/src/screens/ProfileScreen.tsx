@@ -40,8 +40,12 @@ export function ProfileScreen() {
   const saveServer = async () => {
     setSavingServer(true);
     try {
+      const changed = server.trim().replace(/\/+$/, '') !== getApiBaseUrl();
       await setApiBaseUrl(server);
-      showToast({ type: 'success', title: 'Servidor actualizado', message: 'La app usara esta direccion en las proximas peticiones.' });
+      if (changed) await logout();
+      showToast({ type: 'success', title: 'Servidor actualizado', message: changed
+        ? 'Inicia sesion de nuevo en este servidor. Tu token anterior no se enviara a otra direccion.'
+        : 'La direccion del servidor ya estaba configurada.' });
     } catch (err) {
       showToast({ type: 'error', title: 'Direccion invalida', message: err instanceof Error ? err.message : 'Revisa la URL.' });
     } finally {

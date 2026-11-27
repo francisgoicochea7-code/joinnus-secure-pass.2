@@ -9,9 +9,10 @@ LABEL description="API de verificacion, QR dinamico, transferencia e historial"
 
 WORKDIR /app
 
-# 1) Dependencias (capa cacheada: solo se reinstalan si cambia package.json)
-COPY package.json ./
-RUN npm install --omit=dev --no-audit --no-fund
+# 1) Dependencias (capa cacheada). npm ci instala exactamente el lockfile:
+#    el mismo commit produce siempre las mismas versiones.
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --no-audit --no-fund
 
 # 2) Codigo fuente de la API
 COPY index.js ./

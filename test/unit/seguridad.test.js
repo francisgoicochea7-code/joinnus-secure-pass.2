@@ -92,3 +92,34 @@ test('extraerToken rechaza textos que no son tokens', () => {
   assert.equal(util.extraerToken('JSP-ENTRY001'), null);
   assert.equal(util.extraerToken('otro|formato|raro'), null);
 });
+
+test('firmasIguales acepta la firma correcta y rechaza cualquier cambio', () => {
+  const firma = util.firmarToken('ENTRY001', 'A1B2C3D4', new Date(2026, 10, 3, 17, 30, 0));
+  assert.equal(util.firmasIguales(firma, firma), true);
+  assert.equal(util.firmasIguales(firma, firma.slice(0, -1) + '0'), false);
+  assert.equal(util.firmasIguales(firma, ''), false);
+  assert.equal(util.firmasIguales(null, undefined), true, 'dos valores vacíos son iguales');
+});
+
+test('internalAuth compara el token interno en tiempo constante', () => {
+  const { internalAuth, igualesEnTiempoConstante } = require('../../services/shared/internal-auth');
+  assert.equal(igualesEnTiempoConstante('abc', 'abc'), true);
+  assert.equal(igualesEnTiempoConstante('abc', 'abd'), false);
+  assert.equal(igualesEnTiempoConstante('abc', 'abcd'), false, 'la longitud no debe dar igual');
+
+  const respuesta = () => ({
+    codigo: 200,
+    status(codigo) { this.codigo = codigo; return this; },
+    json(cuerpo) { this.cuerpo = cuerpo; return this; }
+  });
+
+  let siguiente = false;
+  const resMalo = respuesta();
+  internalAuth('token-interno-de-prueba')({ get: () => 'otro-token' }, resMalo, () => { siguiente = true; });
+  assert.equal(siguiente, false, 'un token distinto no debe pasar');
+  assert.equal(resMalo.codigo, 401);
+
+  const resBueno = respuesta();
+  internalAuth('token-interno-de-prueba')({ get: () => 'token-interno-de-prueba' }, resBueno, () => { siguiente = true; });
+  assert.equal(siguiente, true, 'el token correcto debe pasar');
+});

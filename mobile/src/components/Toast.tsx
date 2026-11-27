@@ -48,8 +48,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 function ToastView({ toast }: { toast: ToastItem }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(-16)).current;
+  const [opacity] = useState(() => new Animated.Value(0));
+  const [translateY] = useState(() => new Animated.Value(-16));
 
   useEffect(() => {
     Animated.parallel([

@@ -13,10 +13,12 @@
   },
   "scripts": {
     "start": "node server.js",
+    "lint": "node scripts/verificar-sintaxis.js",
     "test": "node test/qr-selftest.js && node test/verificacion.js && node --test \"test/unit/*.test.js\"",
     "test:qr": "node test/qr-selftest.js",
     "test:app": "node test/verificacion.js",
     "test:unit": "node --test \"test/unit/*.test.js\"",
+    "test:coverage": "node --test --experimental-test-coverage \"test/unit/*.test.js\"",
     "test:micro": "node test/integration/micro-smoke.mjs",
     "db:remoto": "node scripts/sembrar-remoto.js",
     "db:encargados": "node scripts/migrar-encargados.js",
@@ -26,6 +28,6 @@
   "keywords": ["qr", "entradas", "seguridad", "prototipo", "universidad"],
   "license": "MIT",
   "engines": {
-    "node": ">=14"
+    "node": ">=20"
   }
 }

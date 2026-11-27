@@ -80,11 +80,14 @@ const Sesion = (function () {
   function dni() { const u = leer(); return u ? u.dni : null; }
   function nombre() { const u = leer(); return u ? u.nombre : null; }
 
-  /** Cabeceras que viajan en cada petición a la API. */
+  /** Cabeceras que viajan en cada petición a la API.
+   *  Sólo la sesión firmada. La antigua cabecera X-Usuario-DNI se eliminó:
+   *  el servidor nunca debe confiar en un DNI que el navegador pueda escribir
+   *  a mano, y enviarla sólo confundía sobre quién autentica. */
   function cabeceras() {
     const u = leer();
     if (!u) return {};
-    const h = { 'X-Usuario-DNI': u.dni };       // compatibilidad con la demo
+    const h = {};
     if (u.token) h.Authorization = 'Bearer ' + u.token;
     return h;
   }

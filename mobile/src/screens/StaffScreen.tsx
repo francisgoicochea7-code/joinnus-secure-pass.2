@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
-import { CheckCircle2, LogOut, ScanLine, ShieldAlert, ShieldCheck, Ticket as TicketIcon, UserRound, XCircle } from 'lucide-react-native';
-import { api, ApiError } from '../api/client';
+import * as Haptics from 'expo-haptics';
+import { CheckCircle2, LogOut, ScanLine, Server, ShieldAlert, ShieldCheck, Ticket as TicketIcon, UserRound, XCircle } from 'lucide-react-native';
+import { api, ApiError, getApiBaseUrl, loadApiSettings, setApiBaseUrl } from '../api/client';
 import { StaffSession, StaffValidation } from '../api/types';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Input } from '../components/Input';
-import { QrScannerModal } from '../components/QrScannerModal';
+import { QrScannerModal, ScanFeedback } from '../components/QrScannerModal';
 import { Screen } from '../components/Screen';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { useToast } from '../components/Toast';
@@ -15,18 +16,39 @@ import { useTheme } from '../theme/ThemeContext';
 import { fontFamily } from '../theme/tokens';
 import { formatEventDate, seatLabel } from '../utils/format';
 
+function vibrar(tone: ScanFeedback['tone']) {
+  const tipo = tone === 'ok'
+    ? Haptics.NotificationFeedbackType.Success
+    : tone === 'warn'
+      ? Haptics.NotificationFeedbackType.Warning
+      : Haptics.NotificationFeedbackType.Error;
+  Haptics.notificationAsync(tipo).catch(() => undefined);
+}
+
 const reasons: Record<string, string> = {
+  usada: 'Esta entrada ya fue utilizada.',
   usado: 'Esta entrada ya fue utilizada.',
   anulada: 'La entrada fue anulada.',
   transferida: 'La entrada fue transferida a otra persona.',
-  alterado: 'La firma del QR no coincide.',
+  titular: 'El QR pertenece al titular anterior. Pide el pase actualizado.',
+  firma: 'La firma del QR no coincide.',
+  invalidado: 'El QR fue reemplazado por uno mas reciente. Pide que lo actualicen.',
   desconocido: 'El QR no pertenece a una entrada emitida.',
   formato: 'El codigo no tiene un formato valido.',
   expirado: 'El QR expiro. Pide que lo actualicen.',
+  estado: 'La entrada no esta vigente.',
   error: 'No se pudo validar la entrada.',
 };
 
-export function StaffScreen() {
+/** Motivos que se resuelven actualizando el pase, no con una negativa final. */
+const motivosRecuperables = new Set(['usada', 'usado', 'invalidado', 'expirado']);
+
+type Props = {
+  /** La app de encargados abre directamente aqui: no hay pantalla anterior. */
+  root?: boolean;
+};
+
+export function StaffScreen({ root = false }: Props) {
   const { theme } = useTheme();
   const { showToast } = useToast();
   const [session, setSession] = useState<StaffSession | null>(null);
@@ -41,6 +63,43 @@ export function StaffScreen() {
   const [error, setError] = useState('');
   const [scanner, setScanner] = useState(false);
   const [scans, setScans] = useState(0);
+  const [feedback, setFeedback] = useState<ScanFeedback | null>(null);
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showServer, setShowServer] = useState(false);
+  const [server, setServer] = useState(getApiBaseUrl());
+  const [savingServer, setSavingServer] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void loadApiSettings().then((saved) => {
+      if (active) setServer(saved);
+    });
+    return () => { active = false; };
+  }, []);
+
+  const saveServer = async () => {
+    setSavingServer(true);
+    try {
+      await setApiBaseUrl(server);
+      showToast({ type: 'success', title: 'Servidor actualizado', message: 'Se usara en las proximas peticiones.' });
+      setShowServer(false);
+    } catch (err) {
+      showToast({ type: 'error', title: 'Direccion invalida', message: err instanceof Error ? err.message : 'Revisa la URL.' });
+    } finally {
+      setSavingServer(false);
+    }
+  };
+
+  useEffect(() => () => {
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+  }, []);
+
+  const showFeedback = (value: ScanFeedback) => {
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+    setFeedback(value);
+    vibrar(value.tone);
+    feedbackTimer.current = setTimeout(() => setFeedback(null), 2800);
+  };
 
   const enter = async () => {
     setLoginError('');
@@ -62,7 +121,7 @@ export function StaffScreen() {
   };
 
   const validate = async (input = raw) => {
-    if (!session) return;
+    if (!session || validating) return;
     const value = String(input || '').trim();
     if (!value) {
       setError('Escanea un QR o escribe el codigo de la entrada.');
@@ -75,21 +134,33 @@ export function StaffScreen() {
     try {
       const response = await api.staffValidate(session, value, registrar);
       setResult(response);
+      setRaw('');
       if (response.valido) {
+        const message = response.registrado
+          ? 'Ingreso registrado. Listo para el siguiente pase.'
+          : 'Entrada valida. Listo para el siguiente pase.';
+        showFeedback({ tone: 'ok', title: 'Acceso permitido', message });
         showToast({
           type: 'success',
           title: response.registrado ? 'Ingreso registrado' : 'Entrada valida',
           message: response.entrada ? response.entrada.evento : 'El pase puede ingresar.',
         });
       } else {
-        showToast({ type: 'error', title: 'Acceso denegado', message: reasons[response.motivo || ''] || response.mensaje || response.error || 'Entrada no valida.' });
+        const detalle = reasons[response.motivo || ''] || response.mensaje || response.error || 'Entrada no valida.';
+        const tone = motivosRecuperables.has(response.motivo || '') ? 'warn' : 'error';
+        showFeedback({ tone, title: 'Acceso denegado', message: detalle });
+        showToast({ type: 'error', title: 'Acceso denegado', message: detalle });
       }
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         setSession(null);
+        setScanner(false);
+        setFeedback(null);
         setLoginError('Tu sesion de encargado expiro. Vuelve a entrar.');
       } else {
-        setError(err instanceof Error ? err.message : 'No se pudo validar la entrada.');
+        const message = err instanceof Error ? err.message : 'No se pudo validar la entrada.';
+        setError(message);
+        showFeedback({ tone: 'error', title: 'No se pudo validar', message });
       }
     } finally {
       setValidating(false);
@@ -103,12 +174,15 @@ export function StaffScreen() {
     setRaw('');
     setResult(null);
     setScans(0);
+    setScanner(false);
+    setFeedback(null);
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
   };
 
   if (!session) {
     return (
       <Screen keyboard>
-        <ScreenHeader title="Modo puerta" subtitle="Acceso para personal del evento" back />
+        <ScreenHeader title="Modo puerta" subtitle="Acceso para personal del evento" back={!root} />
         <Card>
           <View style={styles.loginIntro}>
             <View style={[styles.loginIcon, { backgroundColor: `${theme.warn}16`, borderColor: `${theme.warn}38` }]}>
@@ -146,6 +220,25 @@ export function StaffScreen() {
             </Text>
           </View>
         </Card>
+
+        <Pressable onPress={() => setShowServer((value) => !value)} style={styles.serverToggle} accessibilityRole="button">
+          <Server size={13} color={theme.muted} strokeWidth={2.1} />
+          <Text style={[styles.serverToggleText, { color: theme.muted }]}>Servidor de la API</Text>
+        </Pressable>
+        {showServer ? (
+          <Card>
+            <Input
+              label="Direccion de la API"
+              value={server}
+              onChangeText={setServer}
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="https://.../api"
+              hint="Con el celular en la misma red: http://TU-IP-LOCAL:8091/api"
+            />
+            <Button label="Guardar servidor" onPress={saveServer} loading={savingServer} fullWidth />
+          </Card>
+        ) : null}
       </Screen>
     );
   }
@@ -155,7 +248,7 @@ export function StaffScreen() {
       <ScreenHeader
         title="Modo puerta"
         subtitle={`${session.nombre} · ${scans} escaneo(s)`}
-        back
+        back={!root}
         right={
           <Pressable onPress={closeSession} style={[styles.logout, { backgroundColor: theme.surface, borderColor: theme.border }]} accessibilityRole="button" accessibilityLabel="Cerrar sesion de encargado">
             <LogOut size={17} color={theme.textSoft} strokeWidth={2.2} />
@@ -170,7 +263,7 @@ export function StaffScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.scanTitle, { color: theme.text }]}>Lector de pases</Text>
-            <Text style={[styles.scanText, { color: theme.muted }]}>Escanea el QR dinamico o escribe el codigo.</Text>
+            <Text style={[styles.scanText, { color: theme.muted }]}>Escanea el QR o escribe el codigo. La camara sigue abierta para el siguiente pase.</Text>
           </View>
         </View>
 
@@ -187,7 +280,7 @@ export function StaffScreen() {
         />
         <View style={styles.actions}>
           <Button label="Validar" icon={ShieldCheck} onPress={() => validate()} loading={validating} style={{ flex: 1 }} />
-          <Button label="Camara" icon={ScanLine} variant="secondary" onPress={() => setScanner(true)} style={{ flex: 1 }} />
+          <Button label="Camara" icon={ScanLine} variant="secondary" onPress={() => { setFeedback(null); setScanner(true); }} style={{ flex: 1 }} />
         </View>
         <View style={[styles.registerRow, { borderTopColor: theme.border }]}>
           <View style={{ flex: 1 }}>
@@ -216,7 +309,15 @@ export function StaffScreen() {
         </View>
       ) : null}
 
-      <QrScannerModal visible={scanner} onClose={() => setScanner(false)} onScanned={(data) => { setScanner(false); setRaw(data); validate(data); }} title="Validar entrada" />
+      <QrScannerModal
+        visible={scanner}
+        onClose={() => setScanner(false)}
+        onScanned={(data) => { setRaw(data); void validate(data); }}
+        title="Validar entrada"
+        continuous
+        busy={validating}
+        feedback={feedback}
+      />
     </Screen>
   );
 }
@@ -266,6 +367,8 @@ const styles = StyleSheet.create({
   error: { fontFamily, fontSize: 11, lineHeight: 16, fontWeight: '600', marginBottom: 10 },
   demoBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, marginTop: 15 },
   demoText: { fontFamily, fontSize: 9.5, lineHeight: 14, flex: 1 },
+  serverToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14 },
+  serverToggleText: { fontFamily, fontSize: 10, fontWeight: '600' },
   logout: { width: 40, height: 40, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   scanCard: { marginBottom: 14 },
   scanHeader: { flexDirection: 'row', alignItems: 'center', gap: 11, marginBottom: 17 },

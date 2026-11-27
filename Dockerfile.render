@@ -30,7 +30,8 @@ WORKDIR /app
 
 # Dependencias compartidas por los tres servicios (express, pg, dotenv).
 COPY services/package.json ./services/package.json
-RUN cd services && npm install --omit=dev --no-audit --no-fund
+COPY services/package-lock.json ./services/package-lock.json
+RUN cd services && npm ci --omit=dev --no-audit --no-fund
 
 # Código de los servicios y utilidades compartidas.
 COPY services/shared      ./services/shared

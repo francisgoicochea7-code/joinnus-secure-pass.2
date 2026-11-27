@@ -32,10 +32,23 @@ function construirPayload(codigo, nonce) {
   return `JSP|${codigo}|${nonce}|${reloj}`;
 }
 
+/**
+ * Compara dos firmas en tiempo constante.
+ *
+ * Se comparan los SHA-256 para no filtrar ni el contenido ni la longitud de
+ * la firma almacenada. Con `!==` el motor corta en el primer carácter
+ * distinto y la diferencia de tiempo se puede medir desde la red.
+ */
+function firmasIguales(recibida, esperada) {
+  const a = crypto.createHash('sha256').update(String(recibida == null ? '' : recibida)).digest();
+  const b = crypto.createHash('sha256').update(String(esperada == null ? '' : esperada)).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
 /** Evalúa firma, expiración, invalidación y uso de un token leído de la BD. */
 function evaluarToken(fila, secret, ttlSegundos, ahora = Date.now()) {
   const esperado = firmarToken(fila.codigo, fila.nonce, fila.expira_en, secret);
-  if (esperado !== fila.firma) {
+  if (!firmasIguales(esperado, fila.firma)) {
     return { valido: false, motivo: 'firma', mensaje: 'La firma del token no es válida.' };
   }
   if (Number(fila.invalidado) === 1) {

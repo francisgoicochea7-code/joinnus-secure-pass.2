@@ -705,14 +705,23 @@ funciones con `require('../../backend/index').util` y ejecuta
 
 ### Integración continua (GitHub Actions)
 
-`.github/workflows/ci.yml` corre en cada *push* y *pull request*:
+`.github/workflows/ci.yml` corre en cada *push* (de cualquier rama, no sólo
+`main`) y en cada *pull request*, en cuatro trabajos:
 
-1. `npm ci --prefix backend` — instala las dependencias que cargan las
-   pruebas unitarias.
-2. `npm test` — QR selftest + verificación de las 7 páginas + unitarias.
-3. `docker compose config -q` — falla si la configuración es inválida o si
-   falta `QR_SECRET`.
-4. `docker compose build` — comprueba que las imágenes compilan.
+1. **Sintaxis y dependencias** — `npm ci`, `npm run lint` (compila con el
+   motor de Node cada archivo propio y cada JSON de configuración, sin
+   instalar dependencias extra) y `npm audit --audit-level=high`.
+2. **Pruebas y cobertura** — `npm test` (QR selftest + verificación de las 7
+   páginas + unitarias) y `npm run test:coverage`.
+3. **Docker** — `docker compose config -q` del monolito y de los
+   microservicios, y `docker compose build` de ambos: si una imagen deja de
+   compilar, el CI lo dice antes de desplegar.
+4. **App móvil** — Node 22 (Expo SDK 58), `npm run typecheck`,
+   `npm run lint` y `npm run test:api` en `mobile/`.
+
+La prueba de humo de los microservicios (`npm run test:micro`) queda fuera del
+CI porque habla con el stack HTTPS local (`https://localhost:8444`) y necesita
+los certificados generados en la máquina de desarrollo.
 
 ### Análisis estático con SonarQube (opcional, local)
 

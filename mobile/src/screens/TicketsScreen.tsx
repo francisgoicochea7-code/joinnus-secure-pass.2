@@ -17,7 +17,7 @@ import { useTabNavigation } from '../navigation/useAppNavigation';
 
 type Filter = 'todas' | 'validas' | 'usadas' | 'transferidas';
 
-const filters: Array<{ key: Filter; label: string }> = [
+const filters: { key: Filter; label: string }[] = [
   { key: 'todas', label: 'Todas' },
   { key: 'validas', label: 'Validas' },
   { key: 'usadas', label: 'Usadas' },
@@ -50,7 +50,7 @@ export function TicketsScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load, user?.dni])
+    }, [load])
   );
 
   const visible = useMemo(() => {

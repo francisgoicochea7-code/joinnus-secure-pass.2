@@ -45,6 +45,14 @@ export function HomeScreen() {
   const [error, setError] = useState('');
 
   const load = useCallback(async (silent = false) => {
+    if (!user) {
+      setSummary(emptySummary);
+      setTickets([]);
+      setError('');
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     if (!silent) setLoading(true);
     setError('');
     try {
@@ -57,12 +65,12 @@ export function HomeScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [user]);
 
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load, user?.dni])
+    }, [load])
   );
 
   const onRefresh = () => {

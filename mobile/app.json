@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Joinnus Secure Pass",
+    "name": "Joinnus Encargados",
     "slug": "joinnus-secure-pass",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -18,7 +18,10 @@
         "foregroundImage": "./assets/pass-512.png",
         "backgroundColor": "#08090d"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -27,7 +30,8 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Permite a Joinnus Secure Pass escanear el QR de tus entradas."
+          "cameraPermission": "Permite a Joinnus Encargados escanear los QR de las entradas.",
+          "recordAudioAndroid": false
         }
       ],
       "expo-secure-store",
@@ -40,6 +44,11 @@
           "imageWidth": 180
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "3f8f7dbf-c10a-4e45-ac41-39aa5d2b2dd7"
+      }
+    }
   }
 }

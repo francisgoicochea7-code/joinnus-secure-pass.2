@@ -1,0 +1,51 @@
+# Actualizaciones automáticas de dependencias.
+# Abre un Pull Request por cada grupo; el CI valida antes de que lo aceptes.
+# Docs: https://docs.github.com/code-security/dependabot/dependabot-options-reference
+version: 2
+updates:
+  # Dependencias del backend (monolito) y del servidor de desarrollo.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      desarrollo:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: "/backend"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # Dependencias compartidas de los microservicios.
+  - package-ecosystem: npm
+    directory: "/services"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # App móvil (Expo / React Native).
+  - package-ecosystem: npm
+    directory: "/mobile"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+
+  # Imágenes base de los Dockerfile.
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: docker
+    directory: "/backend"
+    schedule:
+      interval: monthly
+
+  # Acciones de GitHub usadas en el CI.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly

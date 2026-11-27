@@ -11,7 +11,6 @@ import { Input } from '../components/Input';
 import { QrScannerModal } from '../components/QrScannerModal';
 import { Screen } from '../components/Screen';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { useToast } from '../components/Toast';
 import { useTheme } from '../theme/ThemeContext';
 import { fontFamily } from '../theme/tokens';
 import { extractCodeFromQr, formatEventDate, seatLabel } from '../utils/format';
@@ -19,7 +18,6 @@ import { posterFor } from '../utils/posters';
 
 export function VerifyScreen() {
   const { theme } = useTheme();
-  const { showToast } = useToast();
   const [code, setCode] = useState('');
   const [result, setResult] = useState<Ticket | null>(null);
   const [searched, setSearched] = useState(false);

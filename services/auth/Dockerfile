@@ -6,7 +6,8 @@ WORKDIR /app
 # Se instalan en /app/services/node_modules para que las resuelvan tanto
 # services/shared como services/<servicio>/src.
 COPY services/package.json ./services/package.json
-RUN cd services && npm install --omit=dev --no-audit --no-fund
+COPY services/package-lock.json ./services/package-lock.json
+RUN cd services && npm ci --omit=dev --no-audit --no-fund
 
 COPY services/shared ./services/shared
 COPY services/auth/src ./services/auth/src

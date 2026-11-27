@@ -42,6 +42,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "node --stack-size=8192 ./node_modules/typescript/bin/tsc --noEmit",
+    "test:api": "node --test scripts/test-api-client.cjs",
     "api:proxy": "node scripts/dev-api-proxy.mjs",
     "export:android": "expo export --platform android",
     "build:apk": "npx eas-cli build -p android --profile preview",

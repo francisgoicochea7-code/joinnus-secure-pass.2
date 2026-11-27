@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Image, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { Alert, Image, Share, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ArrowLeftRight, Mail, ShieldAlert, Ticket as TicketIcon, UserRound } from 'lucide-react-native';
+import { ArrowLeftRight, Info, Mail, Share2, ShieldAlert, Ticket as TicketIcon, UserRound } from 'lucide-react-native';
 import { api, ApiError } from '../api/client';
 import { Ticket } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Input } from '../components/Input';
@@ -24,6 +26,7 @@ type FieldErrors = Partial<Record<'nombre' | 'dni' | 'correo' | 'precio', string
 export function TransferScreen({ route, navigation }: Props) {
   const { codigo } = route.params;
   const { theme } = useTheme();
+  const { user } = useAuth();
   const { showToast } = useToast();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,6 +37,7 @@ export function TransferScreen({ route, navigation }: Props) {
   const [correo, setCorreo] = useState('');
   const [precio, setPrecio] = useState('');
   const [fields, setFields] = useState<FieldErrors>({});
+  const [needsAccount, setNeedsAccount] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,14 +57,13 @@ export function TransferScreen({ route, navigation }: Props) {
     }
   }, [codigo]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
 
   const validate = () => {
     const next: FieldErrors = {};
     if (nombre.trim().length < 3) next.nombre = 'Escribe el nombre completo de la persona.';
     if (!/^\d{8}$/.test(dni.trim())) next.dni = 'El DNI debe tener exactamente 8 numeros.';
+    else if (user?.dni && dni.trim() === user.dni) next.dni = 'No puedes transferir la entrada a tu propio DNI.';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim())) next.correo = 'Escribe un correo valido.';
     const amount = Number(precio);
     const max = Number(ticket?.precioOriginal ?? ticket?.precio ?? 0);
@@ -72,6 +75,7 @@ export function TransferScreen({ route, navigation }: Props) {
 
   const doTransfer = async () => {
     setSending(true);
+    setNeedsAccount(false);
     try {
       await api.transfer(codigo, { nombre: nombre.trim(), dni: dni.trim(), correo: correo.trim(), precio: Number(precio) });
       showToast({ type: 'success', title: 'Transferencia realizada', message: 'La entrada ya pertenece a la otra persona.' });
@@ -80,9 +84,22 @@ export function TransferScreen({ route, navigation }: Props) {
       if (err instanceof ApiError && err.fields) {
         setFields(err.fields as FieldErrors);
       }
+      if (err instanceof ApiError && err.code === 'DESTINATARIO_SIN_CUENTA_ACTIVA') {
+        setNeedsAccount(true);
+      }
       showToast({ type: 'error', title: 'No se pudo transferir', message: err instanceof Error ? err.message : 'Intenta nuevamente.' });
     } finally {
       setSending(false);
+    }
+  };
+
+  const shareInvite = async () => {
+    try {
+      await Share.share({
+        message: `Te quiero transferir una entrada en Joinnus Secure Pass. Para recibirla, crea tu cuenta en la app con tu DNI ${dni.trim()} y el correo ${correo.trim()}.`,
+      });
+    } catch {
+      // Si el usuario cancela el menu de compartir no hay nada que hacer.
     }
   };
 
@@ -171,6 +188,13 @@ export function TransferScreen({ route, navigation }: Props) {
           </View>
         </View>
 
+        <View style={[styles.infoBox, { backgroundColor: `${theme.info}12`, borderColor: `${theme.info}3D` }]}>
+          <Info size={15} color={theme.info} strokeWidth={2.1} />
+          <Text style={[styles.infoText, { color: theme.textSoft }]}>
+            El destinatario debe tener una cuenta creada en la app con su DNI y este correo. Si aun no la tiene, pidele que se registre primero.
+          </Text>
+        </View>
+
         <Input
           label="Nombre completo"
           placeholder="Ej. Maria Torres"
@@ -184,7 +208,7 @@ export function TransferScreen({ route, navigation }: Props) {
           label="DNI"
           placeholder="8 numeros"
           value={dni}
-          onChangeText={(value) => setDni(value.replace(/\D/g, '').slice(0, 8))}
+          onChangeText={(value) => { setDni(value.replace(/\D/g, '').slice(0, 8)); setNeedsAccount(false); }}
           keyboardType="number-pad"
           maxLength={8}
           leftIcon={<TicketIcon size={17} color={theme.muted} strokeWidth={2.1} />}
@@ -194,7 +218,7 @@ export function TransferScreen({ route, navigation }: Props) {
           label="Correo electronico"
           placeholder="persona@correo.com"
           value={correo}
-          onChangeText={setCorreo}
+          onChangeText={(value) => { setCorreo(value); setNeedsAccount(false); }}
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
@@ -210,6 +234,23 @@ export function TransferScreen({ route, navigation }: Props) {
           error={fields.precio}
           hint={`Precio maximo permitido: ${formatPrice(ticket.precioOriginal ?? ticket.precio)}`}
         />
+
+        {needsAccount ? (
+          <View style={[styles.accountBox, { backgroundColor: `${theme.warn}12`, borderColor: `${theme.warn}45` }]}>
+            <Text style={[styles.accountTitle, { color: theme.text }]}>Esa persona aun no tiene cuenta</Text>
+            <Text style={[styles.accountText, { color: theme.muted }]}>
+              Para recibir la entrada debe registrarse en la app con su DNI y el correo indicado. Compartele la invitacion.
+            </Text>
+            <Button
+              label="Compartir invitacion"
+              icon={Share2}
+              variant="secondary"
+              small
+              onPress={shareInvite}
+              style={styles.accountButton}
+            />
+          </View>
+        ) : null}
 
         <Button label="Transferir entrada" icon={ArrowLeftRight} onPress={confirm} loading={sending} fullWidth style={styles.submit} />
         <View style={styles.note}>
@@ -235,6 +276,12 @@ const styles = StyleSheet.create({
   formIcon: { width: 43, height: 43, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   formTitle: { fontFamily, fontSize: 15, fontWeight: '800' },
   formText: { fontFamily, fontSize: 10.5, lineHeight: 15, marginTop: 2 },
+  infoBox: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', borderWidth: 1, borderRadius: 13, padding: 10, marginBottom: 16 },
+  infoText: { fontFamily, fontSize: 10, lineHeight: 15, flex: 1, fontWeight: '600' },
+  accountBox: { borderWidth: 1, borderRadius: 14, padding: 12, marginTop: 4, marginBottom: 12 },
+  accountTitle: { fontFamily, fontSize: 12.5, fontWeight: '800' },
+  accountText: { fontFamily, fontSize: 10, lineHeight: 15, marginTop: 3 },
+  accountButton: { marginTop: 10, alignSelf: 'flex-start' },
   submit: { marginTop: 4 },
   note: { flexDirection: 'row', gap: 7, alignItems: 'flex-start', marginTop: 13 },
   noteText: { fontFamily, fontSize: 9.5, lineHeight: 14, flex: 1 },

@@ -22,7 +22,7 @@ import {
   X,
 } from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { QrResult, Ticket } from '../api/types';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
@@ -48,7 +48,9 @@ export function TicketScreen({ route, navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [errorCode, setErrorCode] = useState('');
   const [qrError, setQrError] = useState('');
+  const [qrErrorCode, setQrErrorCode] = useState('');
   const [seconds, setSeconds] = useState(0);
   const [qrExpanded, setQrExpanded] = useState(false);
   const { width } = useWindowDimensions();
@@ -57,6 +59,7 @@ export function TicketScreen({ route, navigation }: Props) {
   const loadTicket = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     setError('');
+    setErrorCode('');
     try {
       const result = await api.ticket(codigo);
       if (!result?.entrada) {
@@ -67,6 +70,7 @@ export function TicketScreen({ route, navigation }: Props) {
       setTicket(result.entrada);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo cargar la entrada.');
+      setErrorCode(err instanceof ApiError ? err.code || '' : '');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -74,8 +78,13 @@ export function TicketScreen({ route, navigation }: Props) {
   }, [codigo]);
 
   const loadQr = useCallback(async () => {
-    if (!ticket?.esMia || ticket.estado !== 'valido') return;
+    if (!ticket?.esMia || ticket.estado !== 'valido') {
+      setQr(null);
+      setSeconds(0);
+      return;
+    }
     setQrError('');
+    setQrErrorCode('');
     try {
       const result = await api.qr(codigo);
       setQr(result);
@@ -83,8 +92,9 @@ export function TicketScreen({ route, navigation }: Props) {
     } catch (err) {
       setQr(null);
       setQrError(err instanceof Error ? err.message : 'No se pudo generar el QR.');
+      setQrErrorCode(err instanceof ApiError ? err.code || '' : '');
     }
-  }, [codigo, ticket?.esMia, ticket?.estado]);
+  }, [codigo, ticket]);
 
   useFocusEffect(
     useCallback(() => {
@@ -92,9 +102,15 @@ export function TicketScreen({ route, navigation }: Props) {
     }, [loadTicket])
   );
 
-  useEffect(() => {
-    loadQr();
-  }, [loadQr]);
+  // Sólo renueva el QR mientras esta pantalla está visible: evita tráfico y
+  // rotaciones innecesarias cuando el usuario cambia de pestaña o bloquea la UI.
+  useFocusEffect(
+    useCallback(() => {
+      void loadQr();
+      const id = setInterval(() => { void loadQr(); }, 15000);
+      return () => clearInterval(id);
+    }, [loadQr])
+  );
 
   useEffect(() => {
     if (!qr?.expiraEn) return;
@@ -106,13 +122,6 @@ export function TicketScreen({ route, navigation }: Props) {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [qr?.expiraEn]);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      loadQr();
-    }, 15000);
-    return () => clearInterval(id);
-  }, [loadQr]);
 
   const copyToken = async () => {
     if (!qr?.payload) return;
@@ -142,10 +151,35 @@ export function TicketScreen({ route, navigation }: Props) {
   }
 
   if (error || !ticket) {
+    const offline = errorCode === 'network' || errorCode === 'timeout';
     return (
       <Screen>
-        <ScreenHeader title="Tu pase" back />
-        <ErrorState message={error || 'Entrada no encontrada.'} onRetry={() => loadTicket()} />
+        <ScreenHeader title="Tu pase" subtitle={codigo} back />
+        {offline ? (
+          <Card>
+            <View style={styles.locked}>
+              <View style={[styles.lockedIcon, { backgroundColor: theme.surfaceRaised, borderColor: theme.border }]}>
+                <QrCode size={28} color={theme.muted} strokeWidth={1.7} />
+              </View>
+              <Text style={[styles.lockedTitle, { color: theme.text }]}>Sin conexion</Text>
+              <Text style={[styles.lockedText, { color: theme.muted }]}>
+                No pudimos cargar tu pase. Dicta este codigo al personal de puerta:
+              </Text>
+              <Text style={[styles.offlineCode, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surfaceRaised }]}>
+                {codigo}
+              </Text>
+              <Button
+                label="Reintentar"
+                variant="secondary"
+                small
+                onPress={() => { void loadTicket(); }}
+                style={{ marginTop: 14 }}
+              />
+            </View>
+          </Card>
+        ) : (
+          <ErrorState message={error || 'Entrada no encontrada.'} onRetry={() => loadTicket()} />
+        )}
       </Screen>
     );
   }
@@ -232,7 +266,22 @@ export function TicketScreen({ route, navigation }: Props) {
           </View>
         ) : qrError ? (
           <View style={styles.locked}>
-            <Text style={[styles.lockedText, { color: theme.danger, textAlign: 'center' }]}>{qrError}</Text>
+            {qrErrorCode === 'network' || qrErrorCode === 'timeout' ? (
+              <>
+                <View style={[styles.lockedIcon, { backgroundColor: theme.surfaceRaised, borderColor: theme.border }]}>
+                  <QrCode size={28} color={theme.muted} strokeWidth={1.7} />
+                </View>
+                <Text style={[styles.lockedTitle, { color: theme.text }]}>Sin conexion</Text>
+                <Text style={[styles.lockedText, { color: theme.muted }]}>
+                  No pudimos renovar tu QR. Dicta este codigo al personal de puerta:
+                </Text>
+                <Text style={[styles.offlineCode, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surfaceRaised }]}>
+                  {ticket.codigo}
+                </Text>
+              </>
+            ) : (
+              <Text style={[styles.lockedText, { color: theme.danger, textAlign: 'center' }]}>{qrError}</Text>
+            )}
             <Button label="Reintentar QR" variant="secondary" onPress={loadQr} small style={{ marginTop: 14 }} />
           </View>
         ) : qr?.payload ? (
@@ -420,6 +469,7 @@ const styles = StyleSheet.create({
   lockedIcon: { width: 66, height: 66, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   lockedTitle: { fontFamily, fontSize: 15, fontWeight: '800' },
   lockedText: { fontFamily, fontSize: 11.5, lineHeight: 17, color: '#8b8798', textAlign: 'center', marginTop: 5, maxWidth: 280 },
+  offlineCode: { fontFamily, fontSize: 26, fontWeight: '800', letterSpacing: 2, borderWidth: 1, borderRadius: 14, paddingHorizontal: 18, paddingVertical: 10, marginTop: 12, overflow: 'hidden', textAlign: 'center' },
   detailsCard: { marginBottom: 14 },
   detailsTitle: { fontFamily, fontSize: 15, fontWeight: '800', marginBottom: 13 },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7 },

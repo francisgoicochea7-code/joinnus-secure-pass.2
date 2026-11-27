@@ -17,7 +17,7 @@ type ScreenProps = {
   scroll?: boolean;
   keyboard?: boolean;
   contentStyle?: StyleProp<ViewStyle>;
-  edges?: Array<'top' | 'right' | 'bottom' | 'left'>;
+  edges?: ('top' | 'right' | 'bottom' | 'left')[];
   refreshControl?: React.ReactElement;
 };
 

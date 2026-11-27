@@ -5,9 +5,22 @@ import { ApiErrorPayload, HistoryItem, QrResult, StaffSession, StaffValidation, 
 const RENDER_API = 'https://joinnus-secure-pass2.onrender.com/api';
 const API_STORAGE_KEY = 'jsp.mobile.apiUrl.v1';
 const REQUEST_TIMEOUT = 12000;
+/** Solo las lecturas se reintentan: repetir un POST podria duplicar una accion. */
+const MAX_INTENTOS_LECTURA = 2;
+const RETRY_DELAY = 350;
 
 let baseUrl = resolveDefaultApiUrl();
 let sessionToken: string | null = null;
+let onUnauthorized: (() => void) | null = null;
+
+/**
+ * La app registra aquí qué hacer cuando el servidor responde 401 con una
+ * sesión activa: la sesión caducó (8 horas) o el token fue revocado.
+ * Sin esto la app seguía "conectada" y cada pantalla mostraba su propio error.
+ */
+export function setUnauthorizedHandler(handler: (() => void) | null) {
+  onUnauthorized = handler;
+}
 
 function resolveDefaultApiUrl() {
   const explicit = process.env.EXPO_PUBLIC_API_URL;
@@ -60,25 +73,38 @@ export async function setApiBaseUrl(next: string) {
   if (!/^https?:\/\//i.test(clean)) {
     throw new Error('La direccion debe empezar con http:// o https://');
   }
-  baseUrl = clean;
   await AsyncStorage.setItem(API_STORAGE_KEY, clean);
+  baseUrl = clean;
 }
 
 export function setSessionToken(token: string | null) {
   sessionToken = token;
 }
 
-async function request<T>(path: string, options: { method?: string; body?: unknown; allow404?: boolean } = {}): Promise<T> {
+type RequestOptions = {
+  method?: string;
+  body?: unknown;
+  allow404?: boolean;
+  /** Devuelve la respuesta aunque el negocio diga ok:false (ej. puerta). */
+  allowBusinessError?: boolean;
+  /** No cierra la sesión ante un 401 (el login falla con 401 y es normal). */
+  skipAuthHandler?: boolean;
+  /** Credenciales de encargado y de usuario son independientes. */
+  omitSessionToken?: boolean;
+};
+
+async function requestOnce<T>(path: string, options: RequestOptions, method: string): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  const tokenUsed = sessionToken;
 
   try {
     const response = await fetch(`${baseUrl}${path}`, {
-      method: options.method || 'GET',
+      method,
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
-        ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+        ...(tokenUsed && !options.omitSessionToken ? { Authorization: `Bearer ${tokenUsed}` } : {}),
       },
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
       signal: controller.signal,
@@ -95,7 +121,12 @@ async function request<T>(path: string, options: { method?: string; body?: unkno
 
     if (response.status === 404 && options.allow404) return null as T;
 
-    if (!response.ok || (data as ApiErrorPayload).ok === false) {
+    if (response.status === 401 && !options.skipAuthHandler && !options.omitSessionToken && tokenUsed && sessionToken === tokenUsed) {
+      onUnauthorized?.();
+    }
+
+    const negocioRechazado = (data as ApiErrorPayload).ok === false;
+    if (!response.ok || (negocioRechazado && !options.allowBusinessError)) {
       throw new ApiError(
         data.error || `La API respondio con estado ${response.status}.`,
         response.status,
@@ -107,13 +138,40 @@ async function request<T>(path: string, options: { method?: string; body?: unkno
     return data as T;
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    if (error instanceof Error && error.name === 'AbortError') {
+    // El nombre se compara sin instanceof: en React Native el abort puede
+    // llegar como un error de otro contexto.
+    if (error && typeof error === 'object' && (error as { name?: string }).name === 'AbortError') {
       throw new ApiError('La API tardo demasiado en responder. Revisa tu conexion.', 0, 'timeout');
     }
-    throw new ApiError('No se pudo conectar con la API. Revisa la direccion del servidor y tu red.', 0, 'network');
+    throw new ApiError('Sin conexion con el servidor. Revisa tu internet e intenta de nuevo.', 0, 'network');
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/** Un corte de red, un timeout o un 502/503/504 se pueden reintentar en lecturas. */
+function puedeReintentar(error: unknown, method: string) {
+  if (method !== 'GET' || !(error instanceof ApiError)) return false;
+  if (error.code === 'network' || error.code === 'timeout') return true;
+  return error.status === 502 || error.status === 503 || error.status === 504;
+}
+
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const method = (options.method || 'GET').toUpperCase();
+  const intentos = method === 'GET' ? MAX_INTENTOS_LECTURA : 1;
+  let ultimoError: unknown;
+
+  for (let intento = 0; intento < intentos; intento += 1) {
+    try {
+      return await requestOnce<T>(path, options, method);
+    } catch (error) {
+      ultimoError = error;
+      if (intento + 1 >= intentos || !puedeReintentar(error, method)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+    }
+  }
+
+  throw ultimoError;
 }
 
 const code = (value: string) => encodeURIComponent(value.trim().toUpperCase());
@@ -159,6 +217,7 @@ export const api = {
     const data = await request<{ ok: boolean; usuario: User; token: string; expiraEn: number }>('/usuarios/login', {
       method: 'POST',
       body: { dni: dni.trim(), password },
+      skipAuthHandler: true,
     });
     if (!data.usuario || !data.token) {
       throw new ApiError('El servidor no devolvio una sesion valida.', 500, 'sesion');
@@ -176,12 +235,15 @@ export const api = {
     request<{ ok: boolean; encargado: StaffSession }>('/encargados/login', {
       method: 'POST',
       body: { nombre, codigo },
+      omitSessionToken: true,
     }),
 
   staffValidate: (session: StaffSession, raw: string, registrar = false) => {
     const isToken = /^JSP/i.test(raw.trim());
     return request<StaffValidation>('/encargados/validar', {
       method: 'POST',
+      allowBusinessError: true,
+      omitSessionToken: true,
       body: {
         encargado: session.nombre,
         codigo: session.codigo,

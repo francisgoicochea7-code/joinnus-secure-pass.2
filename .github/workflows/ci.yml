@@ -1,13 +1,25 @@
 name: CI
 
+# Se ejecuta en cada push de cualquier rama y en cada Pull Request.
+# Antes sólo corría en `main`, pero el despliegue de Render sale de
+# `feat/microservicios`: la rama publicada nunca pasaba por el CI.
 on:
   push:
-    branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Si llegan dos pushes seguidos, cancelar el run anterior: ahorra minutos y
+# evita resultados viejos.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  pruebas:
-    name: Pruebas y configuracion Docker
+  calidad:
+    name: Sintaxis y dependencias
     runs-on: ubuntu-latest
     steps:
       - name: Descargar el codigo
@@ -17,20 +29,97 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias de la raiz
+        run: npm ci --no-audit --no-fund
+
+      - name: Sintaxis de todo el codigo propio y de los JSON de configuracion
+        run: npm run lint
+
+      - name: Dependencias sin vulnerabilidades altas o criticas
+        # Informativo: una dependencia transitiva vulnerable no debe bloquear
+        # el desarrollo, pero queda visible en el resumen del job.
+        run: npm audit --audit-level=high --omit=dev
+        continue-on-error: true
+
+  pruebas:
+    name: Pruebas y cobertura
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v4
+
+      - name: Instalar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci --no-audit --no-fund
 
       - name: Instalar dependencias del backend
-        run: npm ci --prefix backend
+        run: npm ci --prefix backend --no-audit --no-fund
 
-      - name: QR selftest + verificacion de las 7 paginas + unitarias
+      - name: QR selftest + verificacion de las paginas + unitarias
         run: npm test
 
-      - name: La configuracion de Docker es valida
-        env:
-          # QR_SECRET es obligatorio en .env; en CI se usa uno de prueba.
-          QR_SECRET: secreto-de-prueba-para-el-ci-0123456789abcdef
+      - name: Cobertura de las pruebas unitarias
+        run: npm run test:coverage
+
+  docker:
+    name: Compose valido y las imagenes compilan
+    runs-on: ubuntu-latest
+    env:
+      # QR_SECRET es obligatorio en .env; en CI se usa uno de prueba.
+      QR_SECRET: secreto-de-prueba-para-el-ci-0123456789abcdef
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v4
+
+      - name: La configuracion de Docker es valida (monolito)
         run: docker compose config -q
 
-      - name: Las imagenes compilan
-        env:
-          QR_SECRET: secreto-de-prueba-para-el-ci-0123456789abcdef
+      - name: La configuracion de Docker es valida (microservicios)
+        run: docker compose -f docker-compose.micro.yml --env-file .env.micro.example config -q
+
+      - name: Las imagenes del monolito compilan
         run: docker compose build
+
+      - name: Las imagenes de los microservicios compilan
+        run: docker compose -f docker-compose.micro.yml --env-file .env.micro.example build
+
+  movil:
+    name: App movil (tipos, lint y API)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v4
+
+      - name: Instalar Node
+        uses: actions/setup-node@v4
+        with:
+          # Expo SDK 58 necesita Node >=22.13.
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Instalar dependencias de la app movil
+        run: npm ci --prefix mobile --no-audit --no-fund
+
+      - name: Tipos de TypeScript
+        run: npm run typecheck --prefix mobile
+
+      - name: Reglas de ESLint
+        run: npm run lint --prefix mobile
+
+      - name: Contratos del cliente de API
+        run: npm run test:api --prefix mobile
+
+  # La prueba de humo de los microservicios (npm run test:micro) necesita el
+  # stack HTTPS local con certificados generados, asi que se ejecuta a mano
+  # en la maquina de desarrollo y no en el runner.

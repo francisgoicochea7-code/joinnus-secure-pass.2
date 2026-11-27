@@ -13,7 +13,7 @@ import { Screen } from '../components/Screen';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { useTheme } from '../theme/ThemeContext';
 import { fontFamily } from '../theme/tokens';
-import { actionLabel, formatDateTime, statusTone } from '../utils/format';
+import { actionLabel, formatDateTime } from '../utils/format';
 import { useTabNavigation } from '../navigation/useAppNavigation';
 
 export function HistoryScreen() {
@@ -42,7 +42,7 @@ export function HistoryScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user?.dni]);
+  }, [user]);
 
   useFocusEffect(
     useCallback(() => {

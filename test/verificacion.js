@@ -348,8 +348,8 @@ async function pruebasApi() {
     'El usuario de demostracion debe poder identificarse: ' + (resId.mensaje || ''));
   if (resId.ok) {
     ok(S.dni() === '45678945', 'La sesion no guardo el DNI identificado');
-    ok(S.cabeceras()['X-Usuario-DNI'] === '45678945',
-      'La cabecera X-Usuario-DNI no lleva el DNI de la sesion');
+    ok(S.cabeceras()['X-Usuario-DNI'] === undefined,
+      'La sesion no debe enviar un DNI que el servidor no verifica');
   }
   S.olvidar();
   ok(S.estaIdentificado() === false, 'Tras olvidar() no debe quedar nadie identificado');
@@ -1301,8 +1301,8 @@ async function pruebasInicioSesion() {
   const cab = await evaluar(ctx, 'Sesion.cabeceras()');
   ok(cab && cab.Authorization === 'Bearer payload.firma',
     'El token firmado debe viajar en la cabecera Authorization');
-  ok(cab && cab['X-Usuario-DNI'] === '45678945',
-    'La cabecera de compatibilidad debe conservar el DNI de la sesión');
+  ok(cab && cab['X-Usuario-DNI'] === undefined,
+    'La sesión sólo debe viajar en Authorization, no en cabeceras de compatibilidad');
 
   evaluar(ctx, 'Sesion.olvidar()');
   ok(evaluar(ctx, 'Sesion.estaIdentificado()') === false,

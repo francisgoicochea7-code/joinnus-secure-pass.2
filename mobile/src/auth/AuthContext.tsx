@@ -2,7 +2,8 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { api, ApiError, loadApiSettings, setSessionToken } from '../api/client';
+import { api, ApiError, loadApiSettings, setSessionToken, setUnauthorizedHandler } from '../api/client';
+import { useToast } from '../components/Toast';
 import { User } from '../api/types';
 
 const SESSION_KEY = 'jsp.mobile.session.v2';
@@ -46,7 +47,10 @@ async function readSession(): Promise<StoredSession | null> {
     const parsed = JSON.parse(raw) as StoredSession;
     if (!parsed?.dni || !/^\d{8}$/.test(parsed.dni)) return null;
     if (!parsed.token || typeof parsed.token !== 'string') return null;
-    if (!parsed.expiraEn || parsed.expiraEn <= Date.now()) return null;
+    if (!parsed.expiraEn || parsed.expiraEn <= Date.now()) {
+      await writeSession(null);
+      return null;
+    }
     return parsed;
   } catch {
     return null;
@@ -78,6 +82,7 @@ function guardarSesion(usuario: User, token: string, expiraEn: number) {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const { showToast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -160,6 +165,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     await writeSession(null);
   }, []);
+
+  // El servidor rechazo el token (caducado o revocado): se cierra la sesion
+  // con un aviso, en vez de dejar al usuario como invitado sin explicacion.
+  const expireSession = useCallback(async () => {
+    await logout();
+    showToast({
+      type: 'error',
+      title: 'Tu sesion expiro',
+      message: 'Por seguridad cerramos la sesion. Vuelve a entrar para seguir usando la app.',
+    });
+  }, [logout, showToast]);
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => { void expireSession(); });
+    return () => setUnauthorizedHandler(null);
+  }, [expireSession]);
 
   const refresh = useCallback(async () => {
     if (!user) return;
