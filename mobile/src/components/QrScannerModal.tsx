@@ -25,7 +25,7 @@ type Props = {
   /** Resultado breve que se muestra encima de la camara. */
   feedback?: ScanFeedback | null;
   /** La lectura queda pausada mientras el encargado decide si registra el ingreso. */
-  confirmation?: { codigo: string } | null;
+  confirmation?: { codigo: string; titular?: string; evento?: string; asiento?: string; previewing?: boolean } | null;
   onConfirm?: () => void;
   onCancel?: () => void;
 };
@@ -166,8 +166,13 @@ export function QrScannerModal({
               <View style={styles.confirmWrap}>
                 <View style={styles.confirmCard} accessibilityLiveRegion="assertive">
                   <Text style={styles.confirmTitle}>¿Registrar el ingreso?</Text>
-                  <Text style={styles.confirmName}>{confirmation.codigo}</Text>
-                  <Text style={styles.confirmHint}>El titular y evento se mostraran despues de validar. Solo se marcara como usada si la entrada y el QR siguen vigentes.</Text>
+                  <Text style={styles.confirmName}>{confirmation.titular || confirmation.codigo}</Text>
+                  {confirmation.evento ? (
+                    <Text style={styles.confirmHint}>{confirmation.evento} · {confirmation.asiento}</Text>
+                  ) : confirmation.previewing ? (
+                    <Text style={styles.confirmHint}>Consultando titular y evento... Puedes confirmar sin esperar.</Text>
+                  ) : null}
+                  <Text style={styles.confirmHint}>El servidor comprobara el QR de nuevo. Solo se marcara como usada si sigue vigente.</Text>
                   <Button label="Registrar ingreso" onPress={onConfirm} loading={busy} fullWidth />
                   <Button label="Cancelar y seguir escaneando" onPress={onCancel} disabled={busy} variant="secondary" fullWidth />
                 </View>

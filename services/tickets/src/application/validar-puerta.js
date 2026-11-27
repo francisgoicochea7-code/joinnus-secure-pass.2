@@ -116,17 +116,14 @@ function crearValidarPuerta({
         };
       }
 
-      try {
-        if (token) {
-          await qrClient.marcarUsado(token, requestId);
-        } else {
-          await qrClient.invalidar(fila.id, requestId);
-        }
-      } catch (err) {
-        // La entrada ya está usada en tickets_db; el token no puede reutilizarse
-        // porque la validación consulta el estado de la entrada.
-        logger.warn('marcar_token_usado_fallido', { codigo, error: err.message });
-      }
+      // El ingreso y su historial ya se confirmaron en tickets_db. El estado
+      // usado bloquea cualquier nueva validacion, aun si qr_db tarda en
+      // actualizarse. No retrasar la respuesta al encargado por esa limpieza.
+      void Promise.resolve()
+        .then(() => token ? qrClient.marcarUsado(token, requestId) : qrClient.invalidar(fila.id, requestId))
+        .catch((err) => {
+          logger.warn('marcar_token_usado_fallido', { codigo, error: err.message });
+        });
 
       registrado = true;
     }

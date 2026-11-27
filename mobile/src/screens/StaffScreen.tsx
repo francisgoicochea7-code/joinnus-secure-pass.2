@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { CheckCircle2, LogOut, ScanLine, Server, ShieldAlert, ShieldCheck, Ticket as TicketIcon, UserRound, XCircle } from 'lucide-react-native';
 import { api, ApiError, getApiBaseUrl, loadApiSettings, setApiBaseUrl } from '../api/client';
-import { StaffSession, StaffValidation } from '../api/types';
+import { StaffSession, StaffValidation, Ticket } from '../api/types';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -25,7 +25,7 @@ function vibrar(tone: ScanFeedback['tone']) {
   Haptics.notificationAsync(tipo).catch(() => undefined);
 }
 
-type PendingEntry = { raw: string; codigo: string };
+type PendingEntry = { raw: string; codigo: string; entrada?: Ticket; previewing: boolean };
 
 /** Muestra solo el codigo, nunca el nonce ni el token completo del QR. */
 function codigoVisible(value: string) {
@@ -68,6 +68,7 @@ export function StaffScreen({ root = false }: Props) {
   const [raw, setRaw] = useState('');
   const [validating, setValidating] = useState(false);
   const validationInFlight = useRef(false);
+  const previewId = useRef(0);
   const [pending, setPending] = useState<PendingEntry | null>(null);
   const [result, setResult] = useState<StaffValidation | null>(null);
   const [error, setError] = useState('');
@@ -121,6 +122,7 @@ export function StaffScreen({ root = false }: Props) {
     try {
       const response = await api.staffLogin(nombre.trim(), codigo.trim());
       setSession({ ...response.encargado, codigo: codigo.trim() });
+      previewId.current += 1;
       setResult(null);
       setPending(null);
       setRaw('');
@@ -143,12 +145,41 @@ export function StaffScreen({ root = false }: Props) {
     setFeedback(null);
     setRaw('');
     setScans((current) => current + 1);
-    // Sin red: la confirmacion aparece inmediatamente, no consume el QR.
-    setPending({ raw: value, codigo: codigoVisible(value) });
+    // Sin esperar la red: la confirmacion aparece inmediatamente.
+    const id = ++previewId.current;
+    setPending({ raw: value, codigo: codigoVisible(value), previewing: true });
+    // Vista previa autenticada: nunca registra el ingreso ni bloquea el boton.
+    void api.staffValidate(session, value, false).then((response) => {
+      if (previewId.current !== id) return;
+      if (response.valido) {
+        setPending((current) => current?.raw === value
+          ? { ...current, entrada: response.entrada, previewing: false }
+          : current);
+      } else {
+        previewId.current += 1;
+        setPending(null);
+        setResult(response);
+        const detalle = reasons[response.motivo || ''] || response.mensaje || response.error || 'Entrada no valida.';
+        showFeedback({ tone: 'error', title: 'Entrada no valida', message: detalle });
+      }
+    }).catch((err: unknown) => {
+      if (previewId.current !== id) return;
+      if (err instanceof ApiError && err.status === 401) {
+        previewId.current += 1;
+        setPending(null);
+        setSession(null);
+        setScanner(false);
+        setLoginError('Tu sesion de encargado expiro. Vuelve a entrar.');
+      } else {
+        // Aun puede confirmarse: el servidor validara la entrada al registrar.
+        setPending((current) => current?.raw === value ? { ...current, previewing: false } : current);
+      }
+    });
   };
 
   const cancelEntry = () => {
     if (validationInFlight.current) return;
+    previewId.current += 1;
     setPending(null);
     setResult(null);
     setRaw('');
@@ -158,6 +189,7 @@ export function StaffScreen({ root = false }: Props) {
   const confirmEntry = async () => {
     if (!session || !pending || validationInFlight.current) return;
     const current = pending;
+    previewId.current += 1;
     validationInFlight.current = true;
     setValidating(true);
     setError('');
@@ -196,6 +228,7 @@ export function StaffScreen({ root = false }: Props) {
   };
 
   const closeSession = () => {
+    previewId.current += 1;
     setSession(null);
     setNombre('');
     setCodigo('');
@@ -292,7 +325,7 @@ export function StaffScreen({ root = false }: Props) {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.scanTitle, { color: theme.text }]}>Lector de pases</Text>
-            <Text style={[styles.scanText, { color: theme.muted }]}>Escanea el QR o escribe el codigo. Confirma para validar y registrar el ingreso.</Text>
+            <Text style={[styles.scanText, { color: theme.muted }]}>Escanea el QR. Veras los datos del titular sin bloquear el boton; el ingreso se comprueba al confirmar.</Text>
           </View>
         </View>
 
@@ -322,8 +355,13 @@ export function StaffScreen({ root = false }: Props) {
       {pending ? (
         <Card style={styles.result}>
           <Text style={[styles.scanTitle, { color: theme.text }]}>¿Registrar el ingreso?</Text>
-          <Text style={[styles.entryTitle, { color: theme.text }]}>{pending.codigo}</Text>
-          <Text style={[styles.registerText, { color: theme.muted }]}>Al confirmar se comprobaran el titular, evento y vigencia. Solo una entrada valida quedara marcada como usada.</Text>
+          <Text style={[styles.entryTitle, { color: theme.text }]}>{pending.entrada?.titular || pending.codigo}</Text>
+          {pending.entrada ? (
+            <Text style={[styles.entryMeta, { color: theme.muted }]}>{pending.entrada.evento} · {seatLabel(pending.entrada)}</Text>
+          ) : pending.previewing ? (
+            <Text style={[styles.entryMeta, { color: theme.muted }]}>Consultando titular y evento...</Text>
+          ) : null}
+          <Text style={[styles.registerText, { color: theme.muted }]}>El servidor vuelve a verificar el QR al confirmar. Solo una entrada vigente quedara marcada como usada.</Text>
           <View style={styles.actions}>
             <Button label="Cancelar" variant="secondary" onPress={cancelEntry} disabled={validating} style={{ flex: 1 }} />
             <Button label="Registrar ingreso" onPress={() => { void confirmEntry(); }} loading={validating} style={{ flex: 1 }} />
@@ -354,6 +392,10 @@ export function StaffScreen({ root = false }: Props) {
         feedback={pending ? null : feedback}
         confirmation={pending ? {
           codigo: pending.codigo,
+          titular: pending.entrada?.titular,
+          evento: pending.entrada?.evento,
+          asiento: pending.entrada ? seatLabel(pending.entrada) : undefined,
+          previewing: pending.previewing,
         } : null}
         onConfirm={() => { void confirmEntry(); }}
         onCancel={cancelEntry}
